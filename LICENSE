@@ -1,0 +1,136 @@
+Sling Source-Available Licence
+Version 1.0
+
+Copyright (c) 2026 Hendrik Vrey. All rights reserved.
+
+
+SUMMARY, WHICH IS NOT THE LICENCE
+
+Sling is free to download, read and use, for anything, including at work. It is
+not open source: you may not change it, republish it, or sell it. The terms
+below are what actually apply.
+
+
+1. DEFINITIONS
+
+"The Software" means the Sling source code, the compiled binaries built from
+it, its assets, and its documentation, as published by the copyright holder.
+
+"You" means the individual or organisation exercising the permissions below.
+
+
+2. WHAT YOU MAY DO
+
+Subject to section 3, the copyright holder grants you a worldwide,
+royalty-free, non-exclusive, non-transferable licence to:
+
+  a. view and read the source code;
+
+  b. download and store a copy of the Software;
+
+  c. compile the source code for your own use; and
+
+  d. run the Software for any purpose, including commercial purposes, inside a
+     business, and as part of paid work.
+
+No fee is payable for any of the above.
+
+
+3. WHAT YOU MAY NOT DO
+
+You may not:
+
+  a. modify the Software, or create any work derived from it;
+
+  b. distribute, publish, host, sublicense or otherwise make the Software or any
+     part of it available to any third party, whether modified or not;
+
+  c. sell, rent, lease or otherwise charge for the Software, or include it in
+     anything you charge for;
+
+  d. remove, obscure or alter any copyright, licence or attribution notice; or
+
+  e. use the name "Sling", the Sling icon, or any related mark to identify or
+     promote any other product.
+
+Nothing in this section limits any right you have that cannot be limited by
+contract under the law that applies to you.
+
+
+4. THINGS THIS LICENCE DOES NOT RESTRICT
+
+For the avoidance of doubt:
+
+  a. The request files you write in Sling are yours, and so is everything you
+     send and receive with it. This licence says nothing about them, and the
+     Software claims no rights over anything you create with it.
+
+  b. Reading the source code to learn from it is expressly permitted, and so is
+     writing your own software afterwards. What is prohibited is copying this
+     code into it.
+
+  c. Forking this repository on a code-hosting platform, where that is simply
+     how the platform lets you read and track it, is permitted. Publishing a
+     modified version from that fork is not.
+
+  d. The .http file format is not this project's to restrict. It is a
+     convention shared with other tools, and nothing here limits your use of it
+     anywhere else.
+
+
+5. CONTRIBUTIONS
+
+The Software does not accept code contributions, because section 3(a) would
+make the result unusable by everyone including its author. Bug reports and
+feature requests are welcome and are not contributions of code.
+
+
+6. NO WARRANTY
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+
+
+7. NO LIABILITY
+
+IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR
+OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
+Sling sends the requests you compose, to the endpoints you name, carrying the
+credentials you supply. It is a tool for talking to systems that are not the
+author's, and it is not a security product: it does not vet those systems, and
+it cannot know which of your requests are safe to send. Deciding that is yours.
+
+
+8. TERMINATION
+
+This licence ends automatically if you breach section 3. You may end it at any
+time by deleting your copies. Sections 6 and 7 survive.
+
+
+9. THIRD-PARTY SOFTWARE
+
+Sling is built on open-source components that carry their own licences, which
+are reproduced in THIRD-PARTY-NOTICES.md. Those licences govern those
+components, not this one, and nothing here restricts your rights under them.
+
+
+10. EARLIER VERSIONS
+
+There are none. Sling has been published under these terms from its first
+public commit, and no version of it has been released under any other licence.
+(Etch, a separate project by the same author, carries the same licence but was
+MIT up to and including its commit c9bc42a; that history belongs to Etch and
+has no bearing here.)
+
+
+11. OTHER TERMS
+
+If you want to do something this licence does not permit — modify Sling,
+redistribute it, or bundle it into a product — ask. Separate terms can be agreed
+in writing.
+
+Contact: https://github.com/HendrikVrey/Sling

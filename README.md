@@ -98,4 +98,11 @@ Those boundaries are enforced by `ArchitectureTests`, not just documented.
 
 ## Licence
 
-Not yet chosen.
+**Source-available, not open source.** Sling is free to download, read, compile and
+run — for anything, including commercially and at work. You may not modify it,
+republish it, or sell it. See [LICENSE](LICENSE) for the terms that actually apply,
+and [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) for the components it is built on,
+which carry their own licences.
+
+The request files you write, and everything you send and receive with Sling, are
+yours. The licence claims nothing over them.
