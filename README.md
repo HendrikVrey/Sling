@@ -35,8 +35,18 @@ No account, no cloud, no sync, no collection tree, no save dialog.
 
 ## Status
 
-**M0 — early scaffolding. Not usable yet.** The window opens and the panes are wired;
-nothing is sent. Sending arrives in M1.
+**M1 — it sends.** The `.http` parser, sending, and request chaining all work.
+`Ctrl+Enter` sends the request under the caret, `Esc` cancels, and the response —
+status, timing, size, headers, body — lands in the pane beside it. A request that
+references an earlier one by name sends that one first, automatically, and shows both.
+
+Not there yet: environments and a secrets file, cookies, OAuth2, file and multipart
+bodies, saved history, and the response transforms that are the reason the response
+lives in an editor buffer. Those are M2 and M3. Requests are still typed into the window
+rather than opened from disk.
+
+The exact dialect Sling reads, and every place it differs from the VS Code REST Client,
+is written down in [docs/http-dialect.md](docs/http-dialect.md).
 
 ## Who this is for
 

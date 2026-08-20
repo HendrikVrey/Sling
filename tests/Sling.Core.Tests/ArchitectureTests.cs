@@ -72,6 +72,24 @@ public sealed class ArchitectureTests
                 + "project.");
     }
 
+    [Theory]
+    [InlineData("Sling.Core")]
+    [InlineData("Sling.Import")]
+    [InlineData("Sling.Http")]
+    [InlineData("Sling.Persistence")]
+    [InlineData("Sling.App")]
+    public void No_project_renders_a_response_in_a_browser_control(string project)
+    {
+        // Sling.md §5.5. A response body is untrusted input from a system the user does
+        // not control, so it renders as text; a WebBrowser or WebView2 control would
+        // execute whatever is in it. Checked across every project rather than the UI one
+        // alone — the rule is about the product, not about one assembly's dependencies.
+        AssertNoMatch(
+            project,
+            new Regex(@"\bWebBrowser\b|\bWebView2?\b|\bCoreWebView2\b", RegexOptions.Compiled),
+            "A response body renders as text, never into a control that can execute it.");
+    }
+
     private static void AssertNoMatch(string project, Regex forbidden, string why)
     {
         var offenders = Directory
@@ -79,7 +97,7 @@ public sealed class ArchitectureTests
             .Where(f => !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
             // Not named 'File' — Etch lost an afternoon to an x:Name that shadowed a type,
             // and System.IO.File is in scope right here.
-            .Select(f => (Relative: Path.GetRelativePath(RepoRoot, f), Match: forbidden.Match(File.ReadAllText(f))))
+            .Select(f => (Relative: Path.GetRelativePath(RepoRoot, f), Match: forbidden.Match(CodeOnly(File.ReadAllText(f)))))
             .Where(x => x.Match.Success)
             .Select(x => $"{x.Relative} ('{x.Match.Value}')")
             .ToArray();
@@ -88,6 +106,29 @@ public sealed class ArchitectureTests
             offenders.Length == 0,
             $"{why}{Environment.NewLine}Offending files: {string.Join("; ", offenders)}");
     }
+
+    /// <summary>
+    /// Drops whole-line comments before matching, so a rule about code is not tripped by
+    /// documentation that names the very thing it forbids.
+    /// </summary>
+    /// <remarks>
+    /// Written after exactly that happened: the remark on <c>MainWindow.ShowText</c>
+    /// explains that a response body never reaches a browser control, and naming the
+    /// control is what makes the remark useful. A check that punishes a file for
+    /// explaining itself teaches people to stop explaining.
+    /// <para>
+    /// Whole lines only, deliberately. A trailing comment on a line of code is still
+    /// matched — the parsing needed to strip one safely (string literals, verbatim and
+    /// raw strings, block comments) is more machinery than a grep should carry, and
+    /// erring strict is the right side to err on here.
+    /// </para>
+    /// </remarks>
+    private static string CodeOnly(string source) =>
+        string.Join(
+            '\n',
+            source
+                .Split('\n')
+                .Where(line => !line.TrimStart().StartsWith("//", StringComparison.Ordinal)));
 
     private static string ProjectFile(string project) =>
         Path.Combine(RepoRoot, "src", project, $"{project}.csproj");
