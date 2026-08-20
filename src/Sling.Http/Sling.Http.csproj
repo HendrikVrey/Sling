@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Sling.Http is the only project in the solution that touches the network.
+
+    It owns HttpClient / SocketsHttpHandler lifetime, the redirect policy, the TLS
+    policy, the cookie jar, OAuth2 token acquisition, and request timing.
+
+    Concentrating this in one project is what makes the security rules in Sling.md §5
+    auditable: the cross-origin credential-stripping rule and the TLS policy can only
+    be got wrong in here. No UI.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Sling.Http</RootNamespace>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Sling.Core\Sling.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Sling.Http.Tests" />
+  </ItemGroup>
+
+</Project>

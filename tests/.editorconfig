@@ -1,0 +1,15 @@
+# Rules switched off for test code only.
+#
+# The solution stays at zero warnings (Directory.Build.props explains why warnings are
+# not errors and what replaces that discipline). Nothing here is a blanket NoWarn: each
+# rule is switched off for tests specifically, with the reason written down.
+
+[*.cs]
+
+# CA1707: identifiers should not contain underscores.
+#
+# Off for tests only. Underscored test names are the convention that makes a failing
+# test readable in a runner's output — "Core_does_not_reach_for_the_disk" states the
+# invariant that broke, where "CoreDoesNotReachForTheDisk" makes the reader parse it.
+# Production code keeps the rule.
+dotnet_diagnostic.CA1707.severity = none

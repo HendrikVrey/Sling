@@ -1,0 +1,38 @@
+## Build output
+[Bb]in/
+[Oo]bj/
+artifacts/
+TestResults/
+*.binlog
+
+## Visual Studio / Rider / VS Code
+.vs/
+.idea/
+*.user
+*.suo
+*.userprefs
+launchSettings.json
+
+## NuGet
+*.nupkg
+packages/
+
+## OS
+Thumbs.db
+desktop.ini
+.DS_Store
+
+## Sling — secrets and local state
+#
+# The whole point of the .http format is that the request file is committed and
+# reviewed. That only stays safe if the secrets file never is. These entries are
+# load-bearing, not housekeeping: a committed bearer token is THE known failure
+# mode of .http files in the wild (Sling.md §5.1).
+#
+# The workspace scaffold writes these same entries into a user's own repo when it
+# creates a workspace — see Sling.md §5.1. Do not remove them here on the grounds
+# that this repo has no secrets yet.
+*.secrets.http
+.sling/secrets*
+.sling/cookies*
+.sling/history/

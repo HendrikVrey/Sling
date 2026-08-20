@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Sling.Import converts foreign formats into .http text: Postman Collection v2.1
+    JSON, and curl command lines.
+
+    Pure — text in, text out. No I/O and no network, which is exactly what makes an
+    importer testable against a corpus of real exported collections. Reading the file
+    from disk and writing the result is Sling.Persistence's job, not this project's.
+
+    System.Text.Json ships in the shared framework, so parsing Postman's JSON costs
+    no PackageReference. Keep it that way.
+
+    SECURITY: everything this project parses is untrusted input from somewhere else.
+    Parse defensively and never execute anything found inside a collection, including
+    its pre-request and test script blocks.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Sling.Import</RootNamespace>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Sling.Core\Sling.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Sling.Import.Tests" />
+  </ItemGroup>
+
+</Project>

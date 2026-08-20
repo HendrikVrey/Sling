@@ -1,0 +1,31 @@
+<Project>
+
+  <!--
+    Central package management. Versions live here only; csproj files reference
+    packages by name with no Version attribute.
+
+    Versions carried over from Etch, where they are known-good against
+    net10.0-windows (verified there 2026-07-29). Reusing them rather than taking
+    whatever is newest is deliberate: Etch already paid for the compatibility
+    knowledge below.
+  -->
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
+  </PropertyGroup>
+
+  <ItemGroup Label="UI">
+    <!-- WPF-UI 4.3.0 ships a native net10.0-windows7.0 target. -->
+    <PackageVersion Include="WPF-UI" Version="4.3.0" />
+    <!-- AvalonEdit 6.3.1.120 tops out at net8.0-windows7.0; net10.0-windows
+         consumes that asset compatibly. -->
+    <PackageVersion Include="AvalonEdit" Version="6.3.1.120" />
+  </ItemGroup>
+
+  <ItemGroup Label="Testing">
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.5.1" />
+    <PackageVersion Include="xunit.v3" Version="3.2.2" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
+  </ItemGroup>
+
+</Project>

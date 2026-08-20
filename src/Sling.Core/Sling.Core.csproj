@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Sling.Core is pure functions over text: the .http parser, the request/response
+    models, variable and chain resolution, and the redaction rules.
+
+    No UI, no I/O, no network, and no PackageReference. Everything of value in the
+    product lives here so it can be exhaustively unit-tested without a GUI or a
+    socket. ArchitectureTests enforces this — it is not merely a convention.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Sling.Core</RootNamespace>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Sling.Core.Tests" />
+  </ItemGroup>
+
+</Project>

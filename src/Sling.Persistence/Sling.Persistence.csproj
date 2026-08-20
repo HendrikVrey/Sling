@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Sling.Persistence owns all disk I/O: workspace files, environments, the
+    gitignored secrets file, local history, and settings.
+
+    No UI. Keeping every file-system call in one project is what lets the
+    "secrets never land in a committed file" rule be checked by reading one project
+    rather than the whole solution.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Sling.Persistence</RootNamespace>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Sling.Core\Sling.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Sling.Persistence.Tests" />
+  </ItemGroup>
+
+</Project>

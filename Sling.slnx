@@ -1,0 +1,21 @@
+<Solution>
+  <Folder Name="/solution items/">
+    <File Path="Directory.Build.props" />
+    <File Path="Directory.Packages.props" />
+    <File Path=".editorconfig" />
+    <File Path="README.md" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/Sling.Core/Sling.Core.csproj" />
+    <Project Path="src/Sling.Import/Sling.Import.csproj" />
+    <Project Path="src/Sling.Http/Sling.Http.csproj" />
+    <Project Path="src/Sling.Persistence/Sling.Persistence.csproj" />
+    <Project Path="src/Sling.App/Sling.App.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Sling.Core.Tests/Sling.Core.Tests.csproj" />
+    <Project Path="tests/Sling.Import.Tests/Sling.Import.Tests.csproj" />
+    <Project Path="tests/Sling.Http.Tests/Sling.Http.Tests.csproj" />
+    <Project Path="tests/Sling.Persistence.Tests/Sling.Persistence.Tests.csproj" />
+  </Folder>
+</Solution>

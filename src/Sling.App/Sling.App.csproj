@@ -1,0 +1,51 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The WPF shell. No business logic lives here: parsing belongs in Sling.Core,
+    sending in Sling.Http, disk in Sling.Persistence.
+
+    Unlike Etch, Sling does NOT take over its own entry point. Etch owns Main so its
+    startup timeline can take a measurement before the Application object is
+    constructed; Sling has no measurement gate (Sling.md §6), so the standard
+    ApplicationDefinition is used and the NETSDK1022 trap that comes with overriding
+    it is avoided entirely.
+  -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <RootNamespace>Sling.App</RootNamespace>
+    <AssemblyName>Sling</AssemblyName>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>false</UseWindowsForms>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <DebugType>embedded</DebugType>
+  </PropertyGroup>
+
+  <PropertyGroup Label="Publish">
+    <RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <!--
+      Single-file compression decompresses on every launch. Sling sells being light,
+      so this stays off.
+    -->
+    <EnableCompressionInSingleFile>false</EnableCompressionInSingleFile>
+    <!--
+      WPF is not trim-friendly: XAML resolves types by reflection, so trimming breaks
+      it in ways that only surface at runtime. NativeAOT is not available for WPF.
+    -->
+    <PublishTrimmed>false</PublishTrimmed>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="WPF-UI" />
+    <PackageReference Include="AvalonEdit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Sling.Core\Sling.Core.csproj" />
+    <ProjectReference Include="..\Sling.Import\Sling.Import.csproj" />
+    <ProjectReference Include="..\Sling.Http\Sling.Http.csproj" />
+    <ProjectReference Include="..\Sling.Persistence\Sling.Persistence.csproj" />
+  </ItemGroup>
+
+</Project>

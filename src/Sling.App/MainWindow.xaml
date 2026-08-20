@@ -1,0 +1,91 @@
+<ui:FluentWindow x:Class="Sling.App.MainWindow"
+                 xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                 xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                 xmlns:avalon="http://icsharpcode.net/sharpdevelop/avalonedit"
+                 Title="Sling"
+                 Width="1180"
+                 Height="760"
+                 MinWidth="520"
+                 MinHeight="360"
+                 ExtendsContentIntoTitleBar="True"
+                 WindowBackdropType="Mica"
+                 WindowCornerPreference="Round"
+                 WindowStartupLocation="CenterScreen">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <ui:TitleBar Grid.Row="0" Title="Sling" />
+
+        <!--
+            Two panes: the request document on the left, the response on the right.
+            A GridSplitter rather than a fixed ratio — a response is usually wider
+            than the request that produced it, and the split people want depends on
+            the API, not on a designer's guess.
+        -->
+        <Grid Grid.Row="1" Margin="12,0,12,8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" MinWidth="220" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" MinWidth="220" />
+            </Grid.ColumnDefinitions>
+
+            <DockPanel Grid.Column="0">
+                <TextBlock DockPanel.Dock="Top"
+                           Margin="2,0,0,6"
+                           FontSize="12"
+                           Opacity="0.6"
+                           Text="REQUEST" />
+                <Border Style="{StaticResource PaneBorderStyle}">
+                    <avalon:TextEditor x:Name="RequestPane"
+                                       Style="{StaticResource PaneEditorStyle}"
+                                       ShowLineNumbers="True" />
+                </Border>
+            </DockPanel>
+
+            <GridSplitter Grid.Column="1"
+                          Width="8"
+                          HorizontalAlignment="Stretch"
+                          Background="Transparent"
+                          ResizeBehavior="PreviousAndNext" />
+
+            <DockPanel Grid.Column="2">
+                <TextBlock DockPanel.Dock="Top"
+                           Margin="2,0,0,6"
+                           FontSize="12"
+                           Opacity="0.6"
+                           Text="RESPONSE" />
+                <Border Style="{StaticResource PaneBorderStyle}">
+                    <avalon:TextEditor x:Name="ResponsePane"
+                                       Style="{StaticResource PaneEditorStyle}"
+                                       IsReadOnly="True" />
+                </Border>
+            </DockPanel>
+        </Grid>
+
+        <!--
+            DockPanel, not Grid. WPF never compresses an Auto column, so a status bar
+            built from Auto columns pushes its right-hand content off screen at narrow
+            widths — the bug Etch shipped and had to fix. DockPanel declaration order is
+            a priority order, and the fill child's arranged width does not depend on its
+            own content, which is what makes it stable rather than merely better.
+        -->
+        <DockPanel Grid.Row="2" Margin="14,0,14,10" LastChildFill="True">
+            <TextBlock x:Name="StatusRight"
+                       DockPanel.Dock="Right"
+                       Margin="12,0,0,0"
+                       FontSize="12"
+                       Opacity="0.5"
+                       Text="M0" />
+            <TextBlock x:Name="StatusLeft"
+                       FontSize="12"
+                       Opacity="0.6"
+                       TextTrimming="CharacterEllipsis" />
+        </DockPanel>
+    </Grid>
+</ui:FluentWindow>
