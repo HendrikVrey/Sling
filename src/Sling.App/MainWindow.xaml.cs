@@ -1,5 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
-using System.Text;
+using System.Globalization;
 using System.Windows.Input;
 using Sling.Core.Documents;
 using Sling.Core.Parsing;
@@ -59,7 +59,11 @@ public partial class MainWindow : FluentWindow
         InitializeComponent();
 
         RequestPane.Text = SampleRequest;
-        ResponsePane.Text = "Nothing sent yet.";
+
+        InitializeResponseView();
+        InstallCurlPaste();
+
+        ShowMessage("Nothing sent yet.");
 
         StatusLeft.Text = ReadyHint;
         StatusRight.Text = string.Empty;
@@ -105,6 +109,11 @@ public partial class MainWindow : FluentWindow
         _closed = true;
         _inFlight?.Cancel();
         _runner.Dispose();
+        _syntax?.Dispose();
+
+        // The pasting handler is attached to a control rather than to this window, so it
+        // is not collected with the window on its own.
+        RemoveCurlPaste();
 
         base.OnClosed(e);
     }
@@ -121,7 +130,7 @@ public partial class MainWindow : FluentWindow
 
         if (block is null)
         {
-            ShowText("There is no request here yet. Write a method and a URL, then press Ctrl+Enter.");
+            ShowMessage("There is no request here yet. Write a method and a URL, then press Ctrl+Enter.");
             StatusLeft.Text = ReadyHint;
             return;
         }
@@ -142,7 +151,7 @@ public partial class MainWindow : FluentWindow
         var blocking = mine.Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
         if (blocking.Count > 0)
         {
-            ShowText(ResponseRenderer.RenderDiagnostics(blocking));
+            ShowMessage(ResponseRenderer.RenderDiagnostics(blocking));
             StatusLeft.Text = "Not sent.";
             StatusRight.Text = string.Empty;
             return;
@@ -176,7 +185,7 @@ public partial class MainWindow : FluentWindow
         }
         catch (OperationCanceledException)
         {
-            ShowText("Cancelled.");
+            ShowMessage("Cancelled.");
             StatusLeft.Text = ReadyHint;
             StatusRight.Text = string.Empty;
         }
@@ -190,7 +199,7 @@ public partial class MainWindow : FluentWindow
             // "Sending …" for ever. A wrong-looking error beats a window that has quietly
             // stopped working. Sling.Http maps every failure it knows about to a
             // diagnostic; this catches the ones nobody has met yet.
-            ShowText($"Sling could not complete the request.\n\n{ex.GetType().Name}: {ex.Message}");
+            ShowMessage($"Sling could not complete the request.\n\n{ex.GetType().Name}: {ex.Message}");
             StatusLeft.Text = "Failed.";
             StatusRight.Text = string.Empty;
         }
@@ -200,64 +209,69 @@ public partial class MainWindow : FluentWindow
         }
     }
 
-    private void Show(RunResult result, IReadOnlyList<ParseDiagnostic> warnings)
-    {
-        var text = new StringBuilder();
-
-        if (result.Exchanges.Count > 0)
-        {
-            text.Append(ResponseRenderer.RenderChain(
-                result.Exchanges.Select(e => (e.Request, e.Response)).ToList()));
-        }
-
-        // Warnings are shown even on a successful send. Nothing rendered them before,
-        // which quietly withdrew the promise in docs/http-dialect.md that an unsupported
-        // directive is warned about rather than ignored — it was being ignored.
-        var notes = result.Errors.Concat(warnings).ToList();
-        if (notes.Count > 0)
-        {
-            if (text.Length > 0)
-            {
-                text.Append('\n');
-            }
-
-            text.Append(ResponseRenderer.RenderDiagnostics(notes));
-        }
-
-        ShowText(text.ToString());
-
-        var last = result.Exchanges.Count > 0 ? result.Exchanges[^1] : null;
-        if (last is null)
-        {
-            StatusLeft.Text = "Not sent.";
-            StatusRight.Text = string.Empty;
-            return;
-        }
-
-        StatusLeft.Text = $"{last.Request.Method} {last.Request.Url}";
-        StatusRight.Text = ResponseRenderer.Summarize(last.Response);
-    }
-
     /// <summary>
-    /// Puts text in the response pane and scrolls it home.
+    /// Puts a completed run into the response pane.
     /// </summary>
     /// <remarks>
-    /// Text, and only ever text. A response body is untrusted input: it never reaches a
-    /// <c>WebBrowser</c> or <c>WebView2</c> control, and no such control exists anywhere
-    /// in the application (<c>Sling.md</c> §5.5). <c>ArchitectureTests</c> enforces that
-    /// rather than leaving it to be remembered.
+    /// <para>
+    /// Every exchange goes into the picker, including the ones Sling sent on the user's
+    /// behalf to satisfy a chain reference. A tool that makes network calls nobody asked
+    /// for has to show them, and since M2 each one is a buffer of its own rather than a
+    /// section of a transcript.
+    /// </para>
+    /// <para>
+    /// Diagnostics are shown even on a successful send — that is what
+    /// <c>docs/http-dialect.md</c> promises about an unsupported directive — but they no
+    /// longer displace the body. Putting them in the status bar rather than in the buffer
+    /// is the consequence of the buffer now being the response and nothing else: a
+    /// warning appended to a JSON body would make the body stop being JSON.
+    /// </para>
     /// </remarks>
-    private void ShowText(string text)
+    private void Show(RunResult result, IReadOnlyList<ParseDiagnostic> warnings)
     {
-        // A send in flight when the window closes still has a continuation to run. It has
-        // nowhere useful to put its result, and the controls it would write to belong to
-        // a window that is gone.
         if (_closed)
         {
             return;
         }
 
-        ResponsePane.Text = text;
-        ResponsePane.ScrollToHome();
+        var notes = result.Errors.Concat(warnings).ToList();
+
+        if (result.Exchanges.Count == 0)
+        {
+            // Nothing came back at all, so the diagnostics are the entire answer and the
+            // buffer is the right place for them.
+            ShowMessage(notes.Count > 0
+                ? ResponseRenderer.RenderDiagnostics(notes)
+                : "Nothing was sent.");
+
+            StatusLeft.Text = "Not sent.";
+            StatusRight.Text = string.Empty;
+            return;
+        }
+
+        // Sets StatusLeft and StatusRight from the selected exchange.
+        ShowExchanges(result.Exchanges);
+
+        if (notes.Count > 0)
+        {
+            StatusLeft.Text = Summarise(notes);
+        }
+    }
+
+    /// <summary>
+    /// One line describing what went wrong, for a run that produced a response anyway.
+    /// </summary>
+    /// <remarks>
+    /// The first diagnostic in full, and a count for the rest. A status bar cannot hold a
+    /// list, and truncating every message to fit would leave several half-sentences
+    /// instead of one whole one.
+    /// </remarks>
+    private static string Summarise(List<ParseDiagnostic> notes)
+    {
+        var first = notes[0].Message;
+
+        return notes.Count == 1
+            ? first
+            : $"{first}  (+{(notes.Count - 1).ToString(CultureInfo.InvariantCulture)} more)";
     }
 }

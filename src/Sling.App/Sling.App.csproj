@@ -53,6 +53,17 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!--
+      The palette's legibility promise and the body-language rule are decidable without
+      a window, and both are internal because nothing outside this assembly should be
+      calling them. Note that this grants access, not accessibility: a public xUnit
+      [Theory] still cannot take an internal enum as a parameter (CS0051), so the
+      table-driven palette tests hold their tables in the body of a [Fact].
+    -->
+    <InternalsVisibleTo Include="Sling.App.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Sling.Core\Sling.Core.csproj" />
     <ProjectReference Include="..\Sling.Import\Sling.Import.csproj" />
     <ProjectReference Include="..\Sling.Http\Sling.Http.csproj" />

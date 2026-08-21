@@ -17,5 +17,6 @@
     <Project Path="tests/Sling.Import.Tests/Sling.Import.Tests.csproj" />
     <Project Path="tests/Sling.Http.Tests/Sling.Http.Tests.csproj" />
     <Project Path="tests/Sling.Persistence.Tests/Sling.Persistence.Tests.csproj" />
+    <Project Path="tests/Sling.App.Tests/Sling.App.Tests.csproj" />
   </Folder>
 </Solution>

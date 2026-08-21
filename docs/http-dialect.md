@@ -101,7 +101,7 @@ Write `{{name.response.body}}` if the whole body really is what you want.
 |---|---|
 | `> {% script %}` response handlers | Deferred indefinitely — `Sling.md` §2. A scripting runtime is a security surface Sling does not want. |
 | `{{$guid}}`, `{{$timestamp}}`, other dynamic variables | Deferred with the above. |
-| `< ./file` body imports, multipart bodies | M3 |
+| `< ./file` body imports, multipart bodies | M3. The curl importer names them rather than dropping them in silence — [curl-import.md](curl-import.md). |
 | `# @no-redirect`, `# @no-cookie-jar`, `# @prompt` | Parsed and warned about; not honoured. |
 | Environments and a base URL | M3 — a relative target is currently an error. |
 | Cookies | M3, scoped per environment. |

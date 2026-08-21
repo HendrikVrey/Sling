@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Sling.App holds no business logic, and this project is not an attempt to test a
+    window. It exists for the parts of the UI layer that are decidable without one: the
+    syntax palette's legibility promise, and the language chosen for a response body.
+    Both are rules with right answers, and both would otherwise be verified by looking
+    at a screenshot.
+  -->
+  <PropertyGroup>
+    <!-- Must match Sling.App's TFM to reference it, and UseWPF for System.Windows.Media. -->
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <RootNamespace>Sling.App.Tests</RootNamespace>
+    <!-- xunit.v3 test projects are self-executing. -->
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Sling.App\Sling.App.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      Referenced directly as well as transitively: BodyLanguageTests names
+      SyntaxLanguage and FormatId, and a project that names a type should say where it
+      comes from rather than inherit it by accident.
+    -->
+    <PackageReference Include="Etch.Core" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+</Project>

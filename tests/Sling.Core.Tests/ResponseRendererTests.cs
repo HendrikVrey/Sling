@@ -30,14 +30,11 @@ public sealed class ResponseRendererTests
     }
 
     [Fact]
-    public void A_rendered_exchange_shows_the_request_the_status_the_headers_and_the_body()
+    public void The_request_line_names_what_was_actually_sent()
     {
-        var text = ResponseRenderer.Render(Request("GET", "https://api.example.com/me"), Snapshot());
+        var text = ResponseRenderer.RenderRequestLine(Request("GET", "https://api.example.com/me"), Snapshot());
 
-        Assert.Contains("GET https://api.example.com/me", text, StringComparison.Ordinal);
-        Assert.Contains("HTTP/1.1 200 OK", text, StringComparison.Ordinal);
-        Assert.Contains("Content-Type: application/json", text, StringComparison.Ordinal);
-        Assert.Contains("""{"ok":true}""", text, StringComparison.Ordinal);
+        Assert.Equal("GET https://api.example.com/me", text);
     }
 
     [Fact]
@@ -48,21 +45,80 @@ public sealed class ResponseRendererTests
             RedirectTrail = [new Uri("https://api.example.com/v2/me")],
         };
 
-        Assert.Contains("https://api.example.com/v2/me", ResponseRenderer.Render(Request("GET", "https://api.example.com/me"), snapshot), StringComparison.Ordinal);
+        var text = ResponseRenderer.RenderRequestLine(Request("GET", "https://api.example.com/me"), snapshot);
+
+        Assert.Contains("https://api.example.com/v2/me", text, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void A_chain_shows_every_request_that_was_sent()
+    public void Headers_are_rendered_in_the_order_the_server_sent_them()
     {
-        var text = ResponseRenderer.RenderChain(
-        [
-            (Request("POST", "https://api.example.com/auth", "login"), Snapshot()),
-            (Request("GET", "https://api.example.com/me"), Snapshot()),
-        ]);
+        var snapshot = Snapshot() with
+        {
+            Headers =
+            [
+                new ResponseHeader("Content-Type", "application/json"),
+                new ResponseHeader("X-Request-Id", "abc"),
+            ],
+        };
 
-        Assert.Contains("# @name login", text, StringComparison.Ordinal);
-        Assert.Contains("POST https://api.example.com/auth", text, StringComparison.Ordinal);
-        Assert.Contains("GET https://api.example.com/me", text, StringComparison.Ordinal);
+        Assert.Equal(
+            "Content-Type: application/json\nX-Request-Id: abc",
+            ResponseRenderer.RenderHeaders(snapshot));
+    }
+
+    /// <summary>
+    /// The M2 split, asserted rather than assumed: the buffer holds the body and nothing
+    /// else. A status line or a header leaking into it would break highlighting, folding
+    /// and every transform at once, and would do it silently.
+    /// </summary>
+    [Fact]
+    public void The_body_buffer_holds_the_body_and_nothing_around_it()
+    {
+        var body = ResponseRenderer.RenderBody(Snapshot());
+
+        Assert.Equal("""{"ok":true}""", body);
+    }
+
+    [Fact]
+    public void An_empty_body_says_so_rather_than_leaving_an_empty_buffer()
+    {
+        var snapshot = Snapshot() with { Body = string.Empty, BodyByteCount = 0 };
+
+        Assert.Equal("(no body)", ResponseRenderer.RenderBody(snapshot));
+        Assert.True(ResponseRenderer.IsPlaceholderBody(snapshot));
+        Assert.False(ResponseRenderer.IsPlaceholderBody(Snapshot()));
+    }
+
+    /// <summary>
+    /// A truncation notice must not be appended to the buffer. It was right when the pane
+    /// held a transcript and is wrong now: a line of Sling's own prose inside a JSON body
+    /// stops it being JSON, so the first thing the user would meet is a format error Sling
+    /// caused.
+    /// </summary>
+    [Fact]
+    public void A_truncated_body_carries_no_note_inside_the_buffer()
+    {
+        var snapshot = Snapshot() with { BodyTruncated = true };
+
+        Assert.Equal("""{"ok":true}""", ResponseRenderer.RenderBody(snapshot));
+        Assert.Contains("truncated", ResponseRenderer.Summarize(snapshot), StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The picker's label. A named request is identified by its name, because that is the
+    /// word the document uses and the word every chain reference is written against.
+    /// </summary>
+    [Fact]
+    public void An_exchange_is_described_by_its_name_when_it_has_one()
+    {
+        Assert.Equal(
+            "1.  login  ·  200",
+            ResponseRenderer.DescribeExchange(1, Request("POST", "https://api.example.com/auth", "login"), Snapshot()));
+
+        Assert.Equal(
+            "2.  GET https://api.example.com/me  ·  200",
+            ResponseRenderer.DescribeExchange(2, Request("GET", "https://api.example.com/me"), Snapshot()));
     }
 
     [Fact]
