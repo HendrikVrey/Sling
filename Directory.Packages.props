@@ -22,6 +22,20 @@
     <PackageVersion Include="AvalonEdit" Version="6.3.1.120" />
   </ItemGroup>
 
+  <ItemGroup Label="Etch">
+    <!--
+      The transform engine, consumed as a package from a private feed rather than as
+      a submodule or a copied folder. Not on nuget.org and never will be — see
+      NuGet.config and docs/etch-core-package.md for why, and local-feed/README.md
+      for how to restore it without credentials.
+
+      Pinned exactly. A folder source matches on version, so a floating range here
+      would turn "did the build pick up the pack I just made?" into a question with
+      no visible answer.
+    -->
+    <PackageVersion Include="Etch.Core" Version="1.0.1" />
+  </ItemGroup>
+
   <ItemGroup Label="Testing">
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.5.1" />
     <PackageVersion Include="xunit.v3" Version="3.2.2" />

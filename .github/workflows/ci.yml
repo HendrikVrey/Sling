@@ -9,6 +9,10 @@ on:
 
 permissions:
   contents: read
+  # Etch.Core comes from this account's private GitHub Packages feed. `local-feed`
+  # is the fallback for a developer machine; a runner has an empty one, so CI reads
+  # the real feed.
+  packages: read
 
 concurrency:
   # One run per ref. A new push cancels the previous run rather than queueing behind it.
@@ -28,6 +32,24 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
+
+      # NuGet.config declares `etch-github` without credentials, because it is a
+      # committed file. They are supplied here instead, into the runner's own
+      # throwaway checkout.
+      #
+      # Which token: GITHUB_TOKEN is scoped to this repository, and Etch.Core is
+      # published from the Etch repository, so it only works once that package's
+      # "Manage Actions access" grants this repository Read. If that has not been
+      # done, set an ETCH_PACKAGES_TOKEN secret to a classic PAT with read:packages
+      # instead - GitHub Packages does not accept fine-grained tokens, which is worth
+      # knowing before minting one.
+      - name: Authenticate to the Etch package feed
+        run: >
+          dotnet nuget update source etch-github
+          --configfile NuGet.config
+          --username ${{ github.repository_owner }}
+          --password ${{ secrets.ETCH_PACKAGES_TOKEN || secrets.GITHUB_TOKEN }}
+          --store-password-in-clear-text
 
       - name: Restore
         run: dotnet restore Sling.slnx

@@ -1,0 +1,7 @@
+# The packages themselves are build output of another repository and are never
+# committed here. This file, and the README beside it, exist so that the folder
+# survives a clone: NuGet treats a local source whose directory does not exist as
+# a restore error, so an empty-but-present folder is the difference between a
+# clone that restores and one that does not.
+*.nupkg
+*.snupkg

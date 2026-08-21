@@ -39,6 +39,17 @@
   <ItemGroup>
     <PackageReference Include="WPF-UI" />
     <PackageReference Include="AvalonEdit" />
+    <!--
+      Sling.md §3: the response buffer runs Etch's transform chain, and Sling.App is
+      where that lands. It goes here rather than in Sling.Core because the buffer is a
+      UI object — highlighting, folding and the palette are editor concerns — and
+      because ArchitectureTests holds Sling.Core to zero package references. Etch.Core
+      would qualify on merit (pure, no dependencies, no I/O), but the rule is a bright
+      line and this dependency does not need it moved.
+
+      Private feed, no credentials required for a local build. See NuGet.config.
+    -->
+    <PackageReference Include="Etch.Core" />
   </ItemGroup>
 
   <ItemGroup>

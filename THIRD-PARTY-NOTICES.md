@@ -92,6 +92,30 @@ the .NET runtime files in the archive.
 
 ---
 
+## Etch.Core 1.0.1
+
+The transform engine behind the response pane: format detection, the transform
+catalogue, palette ranking, and the text utilities under them. `Etch.Core.dll`
+is redistributed inside every Sling release.
+
+Not third-party in the usual sense — it is the same author's code, from the
+[Etch](https://github.com/HendrikVrey/Etch) project — but it is a **separately
+licensed component**, so a reader of this file is entitled to know it is in the
+binary and on what terms.
+
+- Project: <https://github.com/HendrikVrey/Etch>
+- Licence: **Etch Source-Available Licence v1.0** — not an open-source licence,
+  and not the MIT terms every other redistributed component here carries. The
+  full text ships inside the package and is at
+  <https://github.com/HendrikVrey/Etch/blob/master/LICENSE>.
+- Consumed from a private feed, not from nuget.org. `docs/etch-core-package.md`
+  explains why and how to restore it.
+
+`Etch.Core` itself has no package dependencies; Etch's own third-party
+components are listed in that project's `THIRD-PARTY-NOTICES.md`.
+
+---
+
 ## Not redistributed
 
 These are used to build and test Sling. They are not part of any release and
@@ -103,12 +127,3 @@ are listed for completeness rather than obligation.
 | [Microsoft.NET.Test.Sdk](https://github.com/microsoft/vstest) 18.5.1 | MIT | test host |
 | [xunit.runner.visualstudio](https://github.com/xunit/visualstudio.xunit) 3.1.5 | Apache-2.0 | test adapter |
 
----
-
-## Planned, not yet present
-
-`Etch.Core` — the transform engine from the author's Etch project — is planned
-as a dependency from M2 (see `Sling.md` §0). It is the author's own code and
-carries the Etch Source-Available Licence, not a third-party licence. This
-section exists so that the notice file is not silently wrong the moment that
-reference is added; update it here rather than after the fact.
