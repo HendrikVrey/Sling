@@ -64,7 +64,7 @@ public sealed class RequestSenderTests
             "POST",
             new Uri("https://api.example.com/things"),
             [new HeaderField("Content-Type", "application/json", 2), new HeaderField("X-Trace", "abc", 3)],
-            """{"name":"ada"}""",
+            Encoding.UTF8.GetBytes("""{"name":"ada"}"""),
             null);
 
         await SendAsync(handler, request);

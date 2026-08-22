@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using Sling.Core.Documents;
 using Sling.Core.Json;
@@ -44,10 +45,11 @@ internal enum FieldKind
 /// that does not depend on remembering which characters matter.
 /// </para>
 /// <para>
-/// Encoding applies to response values only. The literal text of the document, and the
-/// file variables the user wrote, are deliberately <em>not</em> encoded and not checked:
-/// a request someone typed by hand is theirs to get wrong, and <c>@base</c> holding
-/// <c>https://api.example.com</c> is the format's central idiom.
+/// Encoding applies to response values only. The literal text of the document, the file
+/// variables the user wrote, and the environment they selected are deliberately
+/// <em>not</em> encoded and not checked: a request someone typed by hand is theirs to get
+/// wrong, and <c>@base</c> holding <c>https://api.example.com</c> is the format's central
+/// idiom — as is an environment supplying that same value per deployment.
 /// </para>
 /// </remarks>
 internal sealed class VariableExpander
@@ -60,7 +62,7 @@ internal sealed class VariableExpander
     private const int MaxNestingDepth = 32;
 
     /// <summary>
-    /// The cap on what one field may expand to.
+    /// The cap on what a request line or a header may expand to.
     /// </summary>
     /// <remarks>
     /// Depth alone does not bound this. <c>@v0 = xxxxxxxx</c> followed by
@@ -68,19 +70,38 @@ internal sealed class VariableExpander
     /// several gigabytes — a hang and then an out-of-memory, from a document that looks
     /// like nothing. A megabyte is far past any real request target or header.
     /// </remarks>
-    private const int MaxExpandedFieldChars = 1024 * 1024;
+    private const int MaxExpandedHeaderChars = 1024 * 1024;
+
+    /// <summary>
+    /// The cap on what a body may expand to.
+    /// </summary>
+    /// <remarks>
+    /// A separate, much larger number, because a body is not a header and applying the
+    /// header's cap to one made ordinary payloads fail. A 3 MB fixture imported with
+    /// <c>&lt;@</c> was refused — while the same fixture imported with <c>&lt;</c> went
+    /// through, and <c>WorkspaceFileSource</c> advertises 32 MB — and the message blamed a
+    /// doubling variable the document did not contain. The failure even depended on
+    /// whether the body happened to hold a <c>{{reference}}</c> at all.
+    /// <para>
+    /// The anti-amplification property is unaffected: the bound still exists, it is simply
+    /// no longer 32× tighter than the caps sitting behind it.
+    /// </para>
+    /// </remarks>
+    private const int MaxExpandedBodyChars = 64 * 1024 * 1024;
 
     private readonly Dictionary<string, VariableDefinition> _variables;
     private readonly IResponseLookup _responses;
+    private readonly IVariableSource _environment;
     private readonly HashSet<string> _expanding = new(StringComparer.Ordinal);
     private readonly List<ParseDiagnostic> _errors = [];
     private readonly List<string> _missing = [];
 
     private bool _budgetReported;
 
-    public VariableExpander(IReadOnlyList<VariableDefinition> variables, IResponseLookup responses)
+    public VariableExpander(IReadOnlyList<VariableDefinition> variables, ResolutionContext context)
     {
-        _responses = responses;
+        _responses = context.Responses;
+        _environment = context.Environment;
 
         // Last definition wins, matching how the reference dialect treats a redefinition
         // further down the file.
@@ -126,9 +147,9 @@ internal sealed class VariableExpander
                 result.Append(value);
             }
 
-            if (result.Length > MaxExpandedFieldChars)
+            if (result.Length > BudgetFor(field))
             {
-                ReportBudget(line);
+                ReportBudget(line, field);
                 return string.Empty;
             }
 
@@ -140,7 +161,10 @@ internal sealed class VariableExpander
         return result.ToString();
     }
 
-    private void ReportBudget(int line)
+    private static int BudgetFor(FieldKind field) =>
+        field == FieldKind.Body ? MaxExpandedBodyChars : MaxExpandedHeaderChars;
+
+    private void ReportBudget(int line, FieldKind field)
     {
         if (_budgetReported)
         {
@@ -148,10 +172,13 @@ internal sealed class VariableExpander
         }
 
         _budgetReported = true;
+
+        var megabytes = BudgetFor(field) / (1024 * 1024);
+
         _errors.Add(ParseDiagnostic.Error(
-            "Substitution produced more than a megabyte of text. A variable that references "
-                + "two copies of another one doubles in size at every level, which reaches "
-                + "gigabytes long before it reaches the nesting limit.",
+            $"Substitution produced more than {megabytes.ToString(CultureInfo.InvariantCulture)} MB "
+                + "of text. A variable that references two copies of another one doubles in size "
+                + "at every level, which reaches gigabytes long before it reaches the nesting limit.",
             line));
     }
 
@@ -184,20 +211,56 @@ internal sealed class VariableExpander
             return TryResolveChain(chain, line, field, out value);
         }
 
+        // The environment is consulted before the document's own variables, and that
+        // ordering is the whole point of having environments (Sling.md §4c). The obvious
+        // alternative — the file wins, as it does in the reference dialect — means a
+        // document containing '@base = https://api.example.com' cannot be pointed at
+        // staging without editing the line the environment exists to replace. Recorded as
+        // a deliberate divergence in docs/http-dialect.md.
+        if (_environment.TryGet(reference, out var fromEnvironment))
+        {
+            return TryExpandDefinition(reference, fromEnvironment, line, line, field, depth, out value);
+        }
+
         if (!_variables.TryGetValue(reference, out var definition))
         {
             _errors.Add(ParseDiagnostic.Error(
                 $"There is no variable named '{reference}'. Define it with '@{reference} = ...', "
-                    + "or reference an earlier request as '{{name.response.body.$.field}}'.",
+                    + "put it in the selected environment, or reference an earlier request as "
+                    + "'{{name.response.body.$.field}}'.",
                 line));
             return false;
         }
 
+        return TryExpandDefinition(reference, definition.Value, definition.Line, line, field, depth, out value);
+    }
+
+    /// <summary>
+    /// Expands the text a name is bound to, wherever it was bound.
+    /// </summary>
+    /// <param name="definitionLine">
+    /// The line to report a self-reference against. An environment value has no line in
+    /// the document, so for one of those it is the line that referenced it — which is the
+    /// only line the user can be shown.
+    /// </param>
+    private bool TryExpandDefinition(
+        string reference,
+        string definitionText,
+        int definitionLine,
+        int line,
+        FieldKind field,
+        int depth,
+        out string value)
+    {
+        value = string.Empty;
+
+        // One set covers both sources because a name resolves to at most one of them:
+        // the environment shadows the file, so there is no cycle that alternates.
         if (!_expanding.Add(reference))
         {
             _errors.Add(ParseDiagnostic.Error(
-                $"'@{reference}' is defined in terms of itself.",
-                definition.Line));
+                $"'{reference}' is defined in terms of itself.",
+                definitionLine));
             return false;
         }
 
@@ -207,7 +270,7 @@ internal sealed class VariableExpander
             // is where its value is about to land. Any response value inside it was
             // already encoded by the recursive call, so this level only re-checks
             // characters — encoding here as well would double-encode it.
-            var expanded = Expand(definition.Value, definition.Line, field, depth + 1);
+            var expanded = Expand(definitionText, definitionLine, field, depth + 1);
             return Accept(expanded, reference, line, field, encode: false, out value);
         }
         finally

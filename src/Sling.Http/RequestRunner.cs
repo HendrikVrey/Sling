@@ -58,45 +58,61 @@ public sealed class RequestRunner : IDisposable
     /// </summary>
     public void ForgetResponses() => _responses.Clear();
 
+    /// <param name="context">
+    /// The selected environment and the files a body may import. Its
+    /// <see cref="ResolutionContext.Responses"/> is replaced with this runner's own store
+    /// — the caller has no business supplying one, and the chain would not work if it did.
+    /// </param>
     public async Task<RunResult> RunAsync(
         RequestDocument document,
         RequestBlock request,
+        ResolutionContext context,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(document);
         ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(context);
 
-        var exchanges = new List<Exchange>();
-        var errors = new List<ParseDiagnostic>();
+        var state = new RunState([], [], new HashSet<string>(StringComparer.Ordinal));
 
         await RunOneAsync(
             document,
             request,
-            new HashSet<string>(StringComparer.Ordinal),
-            exchanges,
-            errors,
+            context with { Responses = _responses },
+            state,
             cancellationToken).ConfigureAwait(false);
 
-        return new RunResult(exchanges, errors);
+        return new RunResult(state.Exchanges, state.Errors);
     }
 
     public void Dispose() => _sender.Dispose();
 
+    /// <summary>
+    /// What one call to <see cref="RunAsync"/> accumulates as it walks a chain.
+    /// </summary>
+    /// <param name="InProgress">
+    /// Named requests currently on the stack, which is how a chain that depends on itself
+    /// is told apart from a diamond that merely visits the same login twice.
+    /// </param>
+    private sealed record RunState(
+        List<Exchange> Exchanges,
+        List<ParseDiagnostic> Errors,
+        HashSet<string> InProgress);
+
     private async Task<bool> RunOneAsync(
         RequestDocument document,
         RequestBlock request,
-        HashSet<string> inProgress,
-        List<Exchange> exchanges,
-        List<ParseDiagnostic> errors,
+        ResolutionContext context,
+        RunState state,
         CancellationToken cancellationToken)
     {
         // Only a named request can be depended on, so only a named request can close a
         // cycle. The name is released again on the way out, which lets a diamond — two
         // requests both needing the same login — resolve from the store on the second
         // visit rather than being mistaken for a loop.
-        if (request.Name is not null && !inProgress.Add(request.Name))
+        if (request.Name is not null && !state.InProgress.Add(request.Name))
         {
-            errors.Add(ParseDiagnostic.Error(
+            state.Errors.Add(ParseDiagnostic.Error(
                 $"'{request.Name}' is part of a chain that depends on itself.",
                 request.StartLine));
             return false;
@@ -106,17 +122,17 @@ public sealed class RequestRunner : IDisposable
         {
             for (var pass = 0; pass < MaxResolutionPasses; pass++)
             {
-                var resolution = RequestResolver.Resolve(document, request, _responses);
+                var resolution = RequestResolver.Resolve(document, request, context);
 
                 if (resolution.Errors.Count > 0)
                 {
-                    errors.AddRange(resolution.Errors);
+                    state.Errors.AddRange(resolution.Errors);
                     return false;
                 }
 
                 if (resolution.Request is not null)
                 {
-                    return await SendAsync(resolution.Request, request, exchanges, errors, cancellationToken)
+                    return await SendAsync(resolution.Request, request, state, cancellationToken)
                         .ConfigureAwait(false);
                 }
 
@@ -124,16 +140,15 @@ public sealed class RequestRunner : IDisposable
                         document,
                         request,
                         resolution.MissingResponses,
-                        inProgress,
-                        exchanges,
-                        errors,
+                        context,
+                        state,
                         cancellationToken).ConfigureAwait(false))
                 {
                     return false;
                 }
             }
 
-            errors.Add(ParseDiagnostic.Error(
+            state.Errors.Add(ParseDiagnostic.Error(
                 $"Resolving this request still needed earlier responses after "
                     + $"{MaxResolutionPasses.ToString(CultureInfo.InvariantCulture)} attempts. "
                     + "Check the chain for a request that never provides what the next one asks for.",
@@ -145,7 +160,7 @@ public sealed class RequestRunner : IDisposable
         {
             if (request.Name is not null)
             {
-                inProgress.Remove(request.Name);
+                state.InProgress.Remove(request.Name);
             }
         }
     }
@@ -154,9 +169,8 @@ public sealed class RequestRunner : IDisposable
         RequestDocument document,
         RequestBlock request,
         IReadOnlyList<string> missing,
-        HashSet<string> inProgress,
-        List<Exchange> exchanges,
-        List<ParseDiagnostic> errors,
+        ResolutionContext context,
+        RunState state,
         CancellationToken cancellationToken)
     {
         foreach (var name in missing)
@@ -164,14 +178,14 @@ public sealed class RequestRunner : IDisposable
             var dependency = document.BlockNamed(name);
             if (dependency is null)
             {
-                errors.Add(ParseDiagnostic.Error(
+                state.Errors.Add(ParseDiagnostic.Error(
                     $"No request in this file is named '{name}'. Add '# @name {name}' above the "
                         + "request whose response this one needs.",
                     request.StartLine));
                 return false;
             }
 
-            if (!await RunOneAsync(document, dependency, inProgress, exchanges, errors, cancellationToken)
+            if (!await RunOneAsync(document, dependency, context, state, cancellationToken)
                 .ConfigureAwait(false))
             {
                 return false;
@@ -184,15 +198,14 @@ public sealed class RequestRunner : IDisposable
     private async Task<bool> SendAsync(
         ResolvedRequest resolved,
         RequestBlock source,
-        List<Exchange> exchanges,
-        List<ParseDiagnostic> errors,
+        RunState state,
         CancellationToken cancellationToken)
     {
         try
         {
             var response = await _sender.SendAsync(resolved, cancellationToken).ConfigureAwait(false);
 
-            exchanges.Add(new Exchange(resolved, response));
+            state.Exchanges.Add(new Exchange(resolved, response));
 
             if (resolved.Name is not null)
             {
@@ -208,12 +221,12 @@ public sealed class RequestRunner : IDisposable
         }
         catch (OperationCanceledException)
         {
-            errors.Add(ParseDiagnostic.Error("The request timed out.", source.StartLine));
+            state.Errors.Add(ParseDiagnostic.Error("The request timed out.", source.StartLine));
             return false;
         }
         catch (HttpRequestException ex)
         {
-            errors.Add(ParseDiagnostic.Error($"The request failed: {Innermost(ex).Message}", source.StartLine));
+            state.Errors.Add(ParseDiagnostic.Error($"The request failed: {Innermost(ex).Message}", source.StartLine));
             return false;
         }
         catch (IOException ex)
@@ -221,7 +234,7 @@ public sealed class RequestRunner : IDisposable
             // A connection reset while the body streams. Ordinary network weather, and
             // with ResponseHeadersRead it arrives from the read rather than from the send
             // — so it is not an HttpRequestException and was escaping to nowhere.
-            errors.Add(ParseDiagnostic.Error($"The connection failed while reading the response: {ex.Message}", source.StartLine));
+            state.Errors.Add(ParseDiagnostic.Error($"The connection failed while reading the response: {ex.Message}", source.StartLine));
             return false;
         }
         catch (UriFormatException ex)
@@ -229,14 +242,14 @@ public sealed class RequestRunner : IDisposable
             // A URL that Uri.TryCreate accepted and the transport then rejected — a host
             // holding a character that is illegal under IDN is the way in. Resolution
             // cannot pre-empt it without reimplementing the transport's own rules.
-            errors.Add(ParseDiagnostic.Error($"The URL cannot be used: {ex.Message}", source.StartLine));
+            state.Errors.Add(ParseDiagnostic.Error($"The URL cannot be used: {ex.Message}", source.StartLine));
             return false;
         }
         catch (InvalidOperationException ex)
         {
             // Raised when the message itself is not sendable — a header that cannot go
             // where it was put, or a method a body is not allowed with.
-            errors.Add(ParseDiagnostic.Error($"The request could not be sent: {ex.Message}", source.StartLine));
+            state.Errors.Add(ParseDiagnostic.Error($"The request could not be sent: {ex.Message}", source.StartLine));
             return false;
         }
     }

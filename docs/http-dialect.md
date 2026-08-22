@@ -23,6 +23,10 @@ disagree, the code is right and this file is a bug.
 | `{{login.response.headers.Name}}` | A header from an earlier response. Case-insensitive. |
 | Query continuation | An indented line starting with `?` or `&` joins the request line. |
 | Comments | `#` or `//` at the start of a line, outside a body. |
+| `< ./file` | Body import: the file's bytes, verbatim. Relative to the request file. |
+| `<@ ./file` | Body import read as text, with `{{variables}}` substituted inside it. |
+| `<@utf16 ./file` | The same, naming the encoding to read the file as. |
+| Multipart bodies | Written out in full with a `< ./file` per part — there is no separate syntax. |
 
 ## Divergences, and why
 
@@ -57,6 +61,66 @@ wrote it. Send credentials in an `Authorization` header.
 
 The reference implementation does none of this. See `Sling.md` §5.7.
 
+**An environment value beats a file variable of the same name.** The reference dialect
+gives the file precedence; Sling gives it to the selected environment. The other way
+round, a document containing `@base = https://api.example.com` cannot be pointed at
+staging without editing the very line the environment exists to replace — which makes
+environments decorative. File variables still resolve normally for every name the
+environment does not define, and with no environment selected nothing changes.
+
+Resolution order is: a chain reference, then the environment, then the document's
+`@name = value` lines.
+
+**A body's line endings are preserved exactly as written.** A CRLF document sends a CRLF
+body. This changed with body imports: multipart separates its parts with CRLF by
+specification (RFC 2046), and a multipart body typed on Windows and silently rewritten to
+LF is rejected by strict servers for a reason nothing in the document could explain.
+
+The same rule cuts the other way, so Sling **warns** when a `multipart/*` request's body
+has LF endings — a repository carrying `*.http text eol=lf` in its `.gitattributes`, or a
+file written on Linux, produces exactly the body this change set out to prevent. It is a
+warning and not a rewrite: normalising every terminator would also rewrite the *content*
+of a text part, and a part whose author wanted LF is entitled to it.
+
+**Saving always writes BOM-free UTF-8.** A document opened from a UTF-16 file, or one with
+a byte order mark, is re-encoded when you press `Ctrl+S` — which is a large and otherwise
+unexplained diff. Sling opens request files up to 16 MB.
+
+**A body import must be relative, and may only read files inside the workspace.** An
+absolute path is refused outright; a relative one is resolved against the request file and
+must land under the open folder — after following links, and links on the folders along the
+way, not only as written. **The environment files are refused as well**, even though they
+sit inside the workspace: `< ./http-client.private.env.json` followed by a `POST` is the
+shortest path there is to your credentials. Reference their values as `{{name}}` instead. A `.http`
+file is something people share, paste from a colleague, or generate by importing somebody
+else's Postman collection, so `< C:\Users\me\.ssh\id_rsa` followed by a `POST` elsewhere is
+an ordinary document rather than an exotic attack. The way to send a file from outside the
+workspace is to move it in, which is a decision made in a file manager with time to think.
+There is deliberately no "allow this file?" prompt, because that prompt is answered yes.
+
+**`< ./file` copies bytes; `<@ ./file` substitutes into text.** Only the second reads the
+file as text and expands `{{variables}}` inside it, and only the first can carry a PNG —
+decoding arbitrary bytes as text and re-encoding them replaces the invalid sequences and
+hands the server a corrupt file. An encoding may only be named on the `<@` form, because
+it says how to *read* the file and the raw form never reads it. What is sent is always
+UTF-8: the encoding names the file's, not the wire's. A byte order mark is consumed by
+`<@` — it is not text content, and a JSON body beginning with one is refused by most
+servers — and kept by `<`, where verbatim means verbatim.
+
+The encodings available are `utf-8`, `utf-16`, `utf-32` and `latin1`. Legacy Windows code
+pages such as `windows-1252` are **not** registered, so naming one is an error rather than
+a silent fallback.
+
+A `{{variable}}` inside an imported file may itself be a chain reference. The dependency
+is sent and the file is then read again — so an imported body is read once per resolution
+pass rather than cached, which is also the honest behaviour, since the file may have
+changed in between.
+
+**A line is a body import only when whitespace follows the marker.** `< ./file` and
+`<@ ./file` are imports; `<?xml version="1.0"?>`, `<html>` and `<root>` are body text. Two
+of the commonest body formats begin with `<`, and without the whitespace rule they would
+be read as imports of files that do not exist.
+
 **JSONPath is a subset.** `$`, `.member`, `['member']` and `[index]` (including negative
 indexes). Filters, wildcards, slices and recursive descent are refused rather than
 silently resolved, because they return *sets* and a request field needs exactly one value
@@ -66,11 +130,8 @@ silently resolved, because they return *sets* and a request field needs exactly 
 refused. Sling is a tool for talking to HTTP APIs; `file://` would turn a request into a
 local read.
 
-**A body's line endings are normalised to LF.** A CRLF document sends an LF body. It
-matters for almost nothing and will matter for multipart, which is M3.
-
-**A body line beginning with `###` is a separator.** No dialect can represent one; write
-it as an imported body file when `< ./file` lands (M3).
+**A body line beginning with `###` is a separator.** No dialect can represent one; put
+that body in a file and import it with `< ./file` instead.
 
 **`@name = value` is recognised only before a request line.** After one, it is body text.
 The reference implementation is looser about placement.
@@ -101,8 +162,7 @@ Write `{{name.response.body}}` if the whole body really is what you want.
 |---|---|
 | `> {% script %}` response handlers | Deferred indefinitely — `Sling.md` §2. A scripting runtime is a security surface Sling does not want. |
 | `{{$guid}}`, `{{$timestamp}}`, other dynamic variables | Deferred with the above. |
-| `< ./file` body imports, multipart bodies | M3. The curl importer names them rather than dropping them in silence — [curl-import.md](curl-import.md). |
 | `# @no-redirect`, `# @no-cookie-jar`, `# @prompt` | Parsed and warned about; not honoured. |
-| Environments and a base URL | M3 — a relative target is currently an error. |
-| Cookies | M3, scoped per environment. |
+| A relative request target | Not planned. Write the scheme and host, or put a base URL in an environment and use `{{base}}`. |
+| Cookies | M3 slice 2, scoped per environment. |
 | `{{name.request.…}}` references | Not planned. |

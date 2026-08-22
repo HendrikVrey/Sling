@@ -20,108 +20,146 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <ui:TitleBar Grid.Row="0" Title="Sling" />
+        <!-- The window's Title carries the open file and its dirty marker; one source. -->
+        <ui:TitleBar Grid.Row="0"
+                     Title="{Binding Title, RelativeSource={RelativeSource AncestorType=Window}}" />
 
         <!--
-            Two panes: the request document on the left, the response on the right.
-            A GridSplitter rather than a fixed ratio — a response is usually wider
-            than the request that produced it, and the split people want depends on
-            the API, not on a designer's guess.
+            DockPanel, not a fourth Grid column. WPF never compresses an Auto column, so a
+            file rail in one would push the response pane off screen at narrow widths —
+            the bug Etch shipped in its status bar and had to rebuild. A DockPanel gives
+            its fill child the remainder clamped at zero instead, so the rail takes its
+            width and the panes shrink.
         -->
-        <Grid Grid.Row="1" Margin="12,0,12,8">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" MinWidth="220" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="*" MinWidth="220" />
-            </Grid.ColumnDefinitions>
-
-            <DockPanel Grid.Column="0">
-                <TextBlock DockPanel.Dock="Top"
+        <DockPanel Grid.Row="1" Margin="12,0,12,8" LastChildFill="True">
+            <!--
+                The workspace: the .http files in the folder that is open. Shown only when
+                there is one, because with no folder open it would be an empty box
+                explaining nothing.
+            -->
+            <DockPanel x:Name="FilesRail"
+                       Width="190"
+                       Margin="0,0,10,0"
+                       DockPanel.Dock="Left"
+                       Visibility="Collapsed">
+                <TextBlock x:Name="FilesLabel"
                            Margin="2,0,0,6"
+                           DockPanel.Dock="Top"
                            FontSize="12"
                            Opacity="0.6"
-                           Text="REQUEST" />
+                           Text="FILES"
+                           TextTrimming="CharacterEllipsis" />
                 <Border Style="{StaticResource PaneBorderStyle}">
-                    <avalon:TextEditor x:Name="RequestPane"
-                                       Style="{StaticResource PaneEditorStyle}"
-                                       ShowLineNumbers="True" />
+                    <ListBox x:Name="FileList"
+                             Padding="4"
+                             Background="Transparent"
+                             BorderThickness="0"
+                             FontSize="12"
+                             SelectionChanged="OnFileSelected" />
                 </Border>
             </DockPanel>
 
-            <GridSplitter Grid.Column="1"
-                          Width="8"
-                          HorizontalAlignment="Stretch"
-                          Background="Transparent"
-                          ResizeBehavior="PreviousAndNext" />
-
             <!--
-                The response side. DockPanel, and the declaration order is a priority
-                order: WPF never compresses an Auto region, so whatever is declared last
-                is what gets squeezed. The body must be the thing that shrinks.
+                Two panes: the request document on the left, the response on the right.
+                A GridSplitter rather than a fixed ratio — a response is usually wider
+                than the request that produced it, and the split people want depends on
+                the API, not on a designer's guess.
             -->
-            <DockPanel Grid.Column="2">
-                <!--
-                    The exchange picker sits beside the label and appears only when a
-                    chain actually ran. Sling sends requests on the user's behalf to
-                    satisfy a {{name.response…}} reference, and a tool that makes network
-                    calls nobody asked for has to show them — each one is selectable here
-                    and lands in the buffer like any other.
-                -->
-                <Grid DockPanel.Dock="Top" Margin="2,0,0,6">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" MinWidth="160" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" MinWidth="160" />
+                </Grid.ColumnDefinitions>
 
-                    <TextBlock Grid.Column="0"
-                               VerticalAlignment="Center"
-                               FontSize="12"
-                               Opacity="0.6"
-                               Text="RESPONSE" />
+                <DockPanel Grid.Column="0">
+                    <!--
+                        The label names the open file, and the environment picker sits
+                        beside it: which environment is selected changes what every
+                        {{variable}} in this document resolves to, so it belongs against
+                        the document rather than in a menu.
+                    -->
+                    <Grid DockPanel.Dock="Top" Margin="2,0,0,6">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
 
-                    <ComboBox x:Name="ExchangePicker"
-                              Grid.Column="1"
-                              Margin="12,0,0,0"
-                              Padding="8,2"
-                              HorizontalAlignment="Left"
-                              FontSize="12"
-                              Visibility="Collapsed"
-                              SelectionChanged="OnExchangeSelected" />
-                </Grid>
+                        <TextBlock x:Name="RequestLabel"
+                                   Grid.Column="0"
+                                   VerticalAlignment="Center"
+                                   FontSize="12"
+                                   Opacity="0.6"
+                                   Text="REQUEST"
+                                   TextTrimming="CharacterEllipsis" />
 
-                <Border Style="{StaticResource PaneBorderStyle}">
-                    <DockPanel>
-                        <!--
-                            What was actually sent, and where it ended up if a redirect
-                            moved it. A read-only TextBox rather than a TextBlock because
-                            a URL in a debugging tool exists to be copied.
-                        -->
-                        <TextBox x:Name="RequestLine"
-                                 DockPanel.Dock="Top"
-                                 Margin="10,10,10,0"
-                                 Padding="0"
-                                 Background="Transparent"
-                                 BorderThickness="0"
-                                 FontFamily="Cascadia Code, Consolas, Courier New"
-                                 FontSize="12"
-                                 Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                 IsReadOnly="True"
-                                 TextWrapping="Wrap"
-                                 Visibility="Collapsed" />
-
-                        <!--
-                            Headers, collapsed. They matter often enough to keep one click
-                            away and rarely enough that opening on them would push the body
-                            below the fold on every send.
-                        -->
-                        <Expander x:Name="HeadersExpander"
-                                  DockPanel.Dock="Top"
-                                  Margin="10,8,10,0"
+                        <ComboBox x:Name="EnvironmentPicker"
+                                  Grid.Column="1"
+                                  Margin="12,0,0,0"
+                                  Padding="8,2"
                                   FontSize="12"
-                                  Visibility="Collapsed">
-                            <TextBox x:Name="HeadersText"
-                                     Margin="0,6,0,0"
-                                     MaxHeight="180"
+                                  Visibility="Collapsed"
+                                  SelectionChanged="OnEnvironmentSelected" />
+                    </Grid>
+
+                    <Border Style="{StaticResource PaneBorderStyle}">
+                        <avalon:TextEditor x:Name="RequestPane"
+                                           Style="{StaticResource PaneEditorStyle}"
+                                           ShowLineNumbers="True" />
+                    </Border>
+                </DockPanel>
+
+                <GridSplitter Grid.Column="1"
+                              Width="8"
+                              HorizontalAlignment="Stretch"
+                              Background="Transparent"
+                              ResizeBehavior="PreviousAndNext" />
+
+                <!--
+                    The response side. DockPanel, and the declaration order is a priority
+                    order: WPF never compresses an Auto region, so whatever is declared last
+                    is what gets squeezed. The body must be the thing that shrinks.
+                -->
+                <DockPanel Grid.Column="2">
+                    <!--
+                        The exchange picker sits beside the label and appears only when a
+                        chain actually ran. Sling sends requests on the user's behalf to
+                        satisfy a {{name.response…}} reference, and a tool that makes network
+                        calls nobody asked for has to show them — each one is selectable here
+                        and lands in the buffer like any other.
+                    -->
+                    <Grid DockPanel.Dock="Top" Margin="2,0,0,6">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock Grid.Column="0"
+                                   VerticalAlignment="Center"
+                                   FontSize="12"
+                                   Opacity="0.6"
+                                   Text="RESPONSE" />
+
+                        <ComboBox x:Name="ExchangePicker"
+                                  Grid.Column="1"
+                                  Margin="12,0,0,0"
+                                  Padding="8,2"
+                                  HorizontalAlignment="Left"
+                                  FontSize="12"
+                                  Visibility="Collapsed"
+                                  SelectionChanged="OnExchangeSelected" />
+                    </Grid>
+
+                    <Border Style="{StaticResource PaneBorderStyle}">
+                        <DockPanel>
+                            <!--
+                                What was actually sent, and where it ended up if a redirect
+                                moved it. A read-only TextBox rather than a TextBlock because
+                                a URL in a debugging tool exists to be copied.
+                            -->
+                            <TextBox x:Name="RequestLine"
+                                     DockPanel.Dock="Top"
+                                     Margin="10,10,10,0"
                                      Padding="0"
                                      Background="Transparent"
                                      BorderThickness="0"
@@ -129,25 +167,49 @@
                                      FontSize="12"
                                      Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                      IsReadOnly="True"
-                                     TextWrapping="NoWrap"
-                                     VerticalScrollBarVisibility="Auto"
-                                     HorizontalScrollBarVisibility="Auto" />
-                        </Expander>
+                                     TextWrapping="Wrap"
+                                     Visibility="Collapsed" />
 
-                        <!--
-                            The body, and only the body. Everything above this is the
-                            reason: until M2 the pane held one rendered transcript, which
-                            cannot be highlighted, folded or transformed without the
-                            grammar colouring the headers and the transform being handed a
-                            document that is mostly not the thing being transformed.
-                        -->
-                        <avalon:TextEditor x:Name="ResponsePane"
-                                           Style="{StaticResource PaneEditorStyle}"
-                                           IsReadOnly="True" />
-                    </DockPanel>
-                </Border>
-            </DockPanel>
-        </Grid>
+                            <!--
+                                Headers, collapsed. They matter often enough to keep one click
+                                away and rarely enough that opening on them would push the body
+                                below the fold on every send.
+                            -->
+                            <Expander x:Name="HeadersExpander"
+                                      DockPanel.Dock="Top"
+                                      Margin="10,8,10,0"
+                                      FontSize="12"
+                                      Visibility="Collapsed">
+                                <TextBox x:Name="HeadersText"
+                                         Margin="0,6,0,0"
+                                         MaxHeight="180"
+                                         Padding="0"
+                                         Background="Transparent"
+                                         BorderThickness="0"
+                                         FontFamily="Cascadia Code, Consolas, Courier New"
+                                         FontSize="12"
+                                         Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                         IsReadOnly="True"
+                                         TextWrapping="NoWrap"
+                                         VerticalScrollBarVisibility="Auto"
+                                         HorizontalScrollBarVisibility="Auto" />
+                            </Expander>
+
+                            <!--
+                                The body, and only the body. Everything above this is the
+                                reason: until M2 the pane held one rendered transcript, which
+                                cannot be highlighted, folded or transformed without the
+                                grammar colouring the headers and the transform being handed a
+                                document that is mostly not the thing being transformed.
+                            -->
+                            <avalon:TextEditor x:Name="ResponsePane"
+                                               Style="{StaticResource PaneEditorStyle}"
+                                               IsReadOnly="True" />
+                        </DockPanel>
+                    </Border>
+                </DockPanel>
+            </Grid>
+        </DockPanel>
 
         <!--
             DockPanel, not Grid. WPF never compresses an Auto column, so a status bar

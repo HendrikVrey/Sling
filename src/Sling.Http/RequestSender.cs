@@ -93,7 +93,9 @@ public sealed class RequestSender : IDisposable
         var url = request.Url;
         var method = request.Method;
         var headers = request.Headers.ToList();
-        var body = request.Body is null ? null : DefaultEncoding.GetBytes(request.Body);
+        // Already bytes: the resolver encoded the document's text and spliced in whatever
+        // '< ./file' imported, which is the only place that decision can be made once.
+        var body = request.Body;
         var trail = new List<Uri>();
 
         for (var hop = 0; ; hop++)

@@ -64,14 +64,21 @@ outcome available: you would believe verification was disabled when it was not.
 
 **`-u` becomes a real credential in a file that is meant to be committed.** It is
 converted rather than dropped — a request that silently loses its credentials fails with a
-401 you then debug — but the note above it says so in as many words. Until the gitignored
-secrets file arrives in M3, moving it out is manual.
+401 you then debug — but the note above it says so in as many words. Moving it into the
+gitignored `http-client.private.env.json` and referencing it as `{{name}}` is manual; see
+[environments.md](environments.md).
 
-**`-F` / `--form` fields are named, not converted.** Multipart bodies arrive in M3.
+**`-F` / `--form` fields are named, not converted.** Sling can now *send* a multipart body
+— written out with a `< ./file` per part, which is how the `.http` format expresses one —
+but the importer still names these fields rather than generating the boundary, the parts
+and the imports for them. Converting `-F` is its own piece of work, and a half-right
+multipart body is worse than a note saying what was dropped.
 
 **File references are dropped.** `-d @payload.json`, `--data-urlencode name@file` and
 `-b cookies.txt` all read from disk, and the importer does no I/O — it is a pure
-text-to-text function, which is what makes it testable against a corpus.
+text-to-text function, which is what makes it testable against a corpus. `-d @payload.json`
+now has an exact equivalent you can write by hand — `< ./payload.json` — so the note it
+leaves says so.
 
 **An unknown flag is named and does not consume the next token.** Guessing that an unknown
 flag takes a value eats the URL, which is the one thing the import cannot do without.

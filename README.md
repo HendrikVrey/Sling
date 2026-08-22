@@ -35,6 +35,23 @@ No account, no cloud, no sync, no collection tree, no save dialog.
 
 ## Status
 
+**M3 slice 1 — files on disk, environments, and file bodies.** `Ctrl+Shift+O` opens a
+folder of `.http` files; `Ctrl+O` opens one; `Ctrl+S` saves, with a dirty marker in the
+title. Saving is explicit rather than continuous — a `.http` file is a git artifact, and
+rewriting one as you type moves the diff under whoever is reading it.
+
+Environments come from `http-client.env.json` beside the requests, with the secrets in a
+gitignored `http-client.private.env.json` — the convention Rider and Visual Studio 2022
+already use, so an existing set of environments works unchanged. Opening a folder that
+holds a secrets file adds the `.gitignore` entry if it is missing.
+[docs/environments.md](docs/environments.md) has the format and the precedence rules.
+
+A body can come from a file: `< ./payload.json` copies the bytes, `<@ ./template.json`
+substitutes `{{variables}}` into them first. Because the `.http` format expresses a
+multipart body by writing it out with an import per part, that *is* multipart support. An
+import may only read files inside the open folder — a request file gets shared, and
+`< C:\Users\me\.ssh\id_rsa` is an ordinary thing for one to say.
+
 **M2 — the response is an editor buffer.** `Ctrl+Enter` sends the request under the
 caret, `Esc` cancels, and a request that references an earlier one by name sends that one
 first, automatically, and shows both.
@@ -55,9 +72,7 @@ express becomes a comment saying what was dropped;
 [docs/curl-import.md](docs/curl-import.md) has the rules, including the two flags it
 deliberately refuses.
 
-Not there yet: environments and a secrets file, cookies, OAuth2, file and multipart
-bodies, and saved history. Those are M3. Requests are still typed into the window rather
-than opened from disk.
+Not there yet: cookies, OAuth2, and saved history. Those are M3 slice 2.
 
 The exact dialect Sling reads, and every place it differs from the VS Code REST Client,
 is written down in [docs/http-dialect.md](docs/http-dialect.md).

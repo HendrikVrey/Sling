@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Text;
 using Sling.Core.Documents;
 using Sling.Core.Parsing;
 
@@ -16,24 +17,66 @@ namespace Sling.Core.Variables;
 /// </remarks>
 public static class RequestResolver
 {
-    public static ResolutionResult Resolve(RequestDocument document, RequestBlock request, IResponseLookup responses)
+    /// <summary>
+    /// The cap on an assembled body.
+    /// </summary>
+    /// <remarks>
+    /// Per-file limits do not bound this on their own: a multipart body may import many
+    /// files, and a document is free to import the same one repeatedly. The limit is
+    /// generous because uploading a large file is a thing people legitimately do with an
+    /// HTTP client, and it exists because "the process died" is a worse answer than a
+    /// sentence saying which line went too far.
+    /// </remarks>
+    private const long MaxBodyBytes = 128L * 1024 * 1024;
+
+    /// <summary>
+    /// How body text becomes bytes. Explicitly BOM-free: the encoder's singleton emits
+    /// one, and a byte order mark at the head of a JSON body makes servers reject it as
+    /// malformed.
+    /// </summary>
+    private static readonly UTF8Encoding BodyEncoding = new(encoderShouldEmitUTF8Identifier: false);
+
+    public static ResolutionResult Resolve(
+        RequestDocument document,
+        RequestBlock request,
+        ResolutionContext context)
     {
         ArgumentNullException.ThrowIfNull(document);
         ArgumentNullException.ThrowIfNull(request);
-        ArgumentNullException.ThrowIfNull(responses);
+        ArgumentNullException.ThrowIfNull(context);
 
-        var expander = new VariableExpander(document.Variables, responses);
+        var expander = new VariableExpander(document.Variables, context);
         var errors = new List<ParseDiagnostic>();
 
         var target = expander.Expand(request.Target, request.StartLine, FieldKind.Target);
         var headers = ResolveHeaders(request, expander, errors);
-        var body = request.Body is null ? null : expander.Expand(request.Body, request.StartLine, FieldKind.Body);
+
+        // Substitution first, with no file opened. A body import whose path still holds an
+        // unresolved {{reference}} would otherwise be reported as a missing file, burying
+        // the real cause under a symptom — the same reason the URL is checked last.
+        var body = SubstituteBody(request, expander);
+
+        // The disk is touched only once substitution has come out clean, so a request whose
+        // variables do not resolve never opens a file. Not a blanket promise: the URL is
+        // validated afterwards, so a request with an unusable URL does read its imports
+        // first — worth the ordering, because reporting a missing file for a path that is
+        // still {{braced}} would bury the cause under a symptom.
+        byte[]? bytes = null;
+        var canRead = errors.Count == 0
+            && expander.Errors.Count == 0
+            && expander.MissingResponses.Count == 0;
+
+        if (canRead)
+        {
+            TryAssembleBody(body, context.Files, expander, request.StartLine, errors, out bytes);
+        }
 
         errors.AddRange(expander.Errors);
 
-        // Reported before the URL is examined. A target still holding an unresolved
-        // reference will fail Uri parsing too, and "that is not a valid URL" would bury
-        // the reason under a symptom.
+        // Missing responses can arrive from inside an imported file as easily as from the
+        // request line, and they are still not errors: the runner sends the dependency and
+        // resolves again, which re-reads the file. Re-reading is the honest behaviour
+        // anyway — the file may have changed in between.
         if (errors.Count > 0 || expander.MissingResponses.Count > 0)
         {
             return new ResolutionResult(null, expander.MissingResponses, errors);
@@ -45,9 +88,182 @@ public static class RequestResolver
         }
 
         return new ResolutionResult(
-            new ResolvedRequest(request.Name, request.Method, url, headers, body, request.Version),
+            new ResolvedRequest(request.Name, request.Method, url, headers, bytes, request.Version),
             [],
             []);
+    }
+
+    /// <summary>
+    /// Substitutes variables through the body, leaving the import segments in place with
+    /// their paths resolved.
+    /// </summary>
+    private static List<BodySegment>? SubstituteBody(RequestBlock request, VariableExpander expander)
+    {
+        if (request.Body is null)
+        {
+            return null;
+        }
+
+        var segments = new List<BodySegment>(request.Body.Count);
+
+        foreach (var segment in request.Body)
+        {
+            segments.Add(segment switch
+            {
+                BodyText text => new BodyText(expander.Expand(text.Value, request.StartLine, FieldKind.Body)),
+
+                // A path is expanded as a body field — no character restrictions — because
+                // restricting characters is not what keeps a document from reading an
+                // arbitrary file. Containment is, and it lives behind IRequestFileSource
+                // where it applies to a literal path and a substituted one alike.
+                BodyFile file => file with { Path = expander.Expand(file.Path, file.Line, FieldKind.Body) },
+
+                _ => segment,
+            });
+        }
+
+        return segments;
+    }
+
+    /// <summary>
+    /// Reads whatever the body imports and concatenates everything into the bytes that
+    /// will go on the wire.
+    /// </summary>
+    /// <remarks>
+    /// Text is UTF-8 encoded, which is what it would have been on the wire anyway. An
+    /// import contributes its bytes unaltered unless it was written as <c>&lt;@</c>, the
+    /// form that asks for the file to be read as text and substituted into — and that one
+    /// cannot carry a PNG, which is the whole reason the two forms are different.
+    /// </remarks>
+    private static bool TryAssembleBody(
+        IReadOnlyList<BodySegment>? body,
+        IRequestFileSource files,
+        VariableExpander expander,
+        int bodyLine,
+        List<ParseDiagnostic> errors,
+        out byte[]? assembled)
+    {
+        assembled = null;
+
+        if (body is null)
+        {
+            return true;
+        }
+
+        // The overwhelmingly common shape — a body typed into the document, no imports.
+        // Worth its own path so the ordinary case does not copy through a MemoryStream.
+        if (body is [BodyText only])
+        {
+            assembled = BodyEncoding.GetBytes(only.Value);
+            return true;
+        }
+
+        using var buffer = new MemoryStream();
+
+        foreach (var segment in body)
+        {
+            // An if rather than a `when` guard: the guard did the read and the buffer write
+            // inside a pattern match and then fell through to `default`, which is the
+            // hidden side effect Dev.md names, for one saved line.
+            if (segment is BodyFile file)
+            {
+                if (!ReadImport(file, files, expander, errors, buffer))
+                {
+                    return false;
+                }
+            }
+            else if (segment is BodyText text)
+            {
+                buffer.Write(BodyEncoding.GetBytes(text.Value));
+            }
+
+            if (buffer.Length > MaxBodyBytes)
+            {
+                errors.Add(ParseDiagnostic.Error(
+                    $"This body reaches more than {MaxBodyBytes / (1024 * 1024)} MB once its "
+                        + "imported files are included.",
+                    (segment as BodyFile)?.Line ?? bodyLine));
+                return false;
+            }
+        }
+
+        assembled = buffer.ToArray();
+        return true;
+    }
+
+    private static bool ReadImport(
+        BodyFile file,
+        IRequestFileSource files,
+        VariableExpander expander,
+        List<ParseDiagnostic> errors,
+        MemoryStream buffer)
+    {
+        if (!files.TryRead(file.Path, out var bytes, out var error))
+        {
+            // Quoted as written, still braced. The resolved path routinely holds a secret
+            // — '< ./{{token}}.json' substitutes before it can fail — and ParseDiagnostic
+            // promises its messages never carry one.
+            errors.Add(ParseDiagnostic.Error($"'< {file.AsWritten}' could not be read: {error}.", file.Line));
+            return false;
+        }
+
+        if (!file.Interpolate)
+        {
+            buffer.Write(bytes);
+            return true;
+        }
+
+        Encoding encoding = BodyEncoding;
+        if (file.Encoding is not null && !TryResolveEncoding(file.Encoding, file.Line, errors, out encoding))
+        {
+            return false;
+        }
+
+        // Decoded with the named encoding and written back as UTF-8: the encoding says how
+        // to read the file, not how to send it. Re-encoding to a legacy code page on the
+        // way out would be a second decision about bytes nobody asked for.
+        //
+        // A byte order mark is consumed rather than sent. '<@' says "read this as text",
+        // and a leading U+FEFF is not text content — a JSON body starting with one is
+        // rejected by most servers. GetString would keep it; a StreamReader given the
+        // encoding does not. BOM'd files are the Windows norm and a UTF-16 file essentially
+        // always has one. The raw '<' form is untouched by this: verbatim means verbatim.
+        using var reader = new StreamReader(
+            new MemoryStream(bytes),
+            encoding,
+            detectEncodingFromByteOrderMarks: true);
+
+        var text = expander.Expand(reader.ReadToEnd(), file.Line, FieldKind.Body);
+
+        buffer.Write(BodyEncoding.GetBytes(text));
+        return true;
+    }
+
+    private static bool TryResolveEncoding(
+        string name,
+        int line,
+        List<ParseDiagnostic> errors,
+        out Encoding encoding)
+    {
+        encoding = BodyEncoding;
+
+        try
+        {
+            encoding = Encoding.GetEncoding(name);
+            return true;
+        }
+        catch (ArgumentException)
+        {
+            // Deliberately does not offer code page names. CodePagesEncodingProvider is
+            // never registered — and registering it is a process-wide side effect that
+            // would belong in Sling.App, making this pure method behave differently under
+            // test than in the application. So 'windows-1252' genuinely does not resolve,
+            // and the message says what actually works rather than what sounds complete.
+            errors.Add(ParseDiagnostic.Error(
+                $"'{name}' is not an encoding Sling reads. Use utf-8, utf-16, utf-32 or latin1.",
+                line));
+            return false;
+        }
     }
 
     private static List<HeaderField> ResolveHeaders(

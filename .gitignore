@@ -29,9 +29,11 @@ desktop.ini
 # load-bearing, not housekeeping: a committed bearer token is THE known failure
 # mode of .http files in the wild (Sling.md §5.1).
 #
-# The workspace scaffold writes these same entries into a user's own repo when it
-# creates a workspace — see Sling.md §5.1. Do not remove them here on the grounds
-# that this repo has no secrets yet.
+# These are the same entries Sling writes into a user's own repository when it
+# opens a folder holding a secrets file — see EnvironmentStore.IgnoreEntries. Do
+# not remove them here on the grounds that this repo has no secrets yet.
+http-client.private.env.json
+http-client.private.env.json*
 *.secrets.http
 .sling/secrets*
 .sling/cookies*

@@ -1,4 +1,6 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
+using System.Text;
 using System.Text.RegularExpressions;
 using Sling.Core.Documents;
 
@@ -46,12 +48,39 @@ public static partial class RequestDocumentParser
     private static partial Regex HttpVersionPattern { get; }
 
     /// <summary>
-    /// Splits on CRLF, LF or a lone CR, keeping the count aligned with what an editor
-    /// shows so a diagnostic's line number is the line the user can see.
+    /// A <c>&lt; ./body.json</c> body import, in all three forms the reference dialect
+    /// spells it: raw bytes, <c>&lt;@</c> to substitute variables inside the file, and
+    /// <c>&lt;@utf16</c> to say which encoding to read it as first.
     /// </summary>
-    private static List<string> SplitLines(string text)
+    /// <remarks>
+    /// The whitespace after the marker is what makes this safe to apply to every body
+    /// line. Without it the pattern would claim <c>&lt;?xml version="1.0"?&gt;</c> and
+    /// <c>&lt;html&gt;</c> — the opening line of two body formats people actually send —
+    /// and turn them into imports of files that do not exist.
+    /// </remarks>
+    [GeneratedRegex(@"^<(?:@([A-Za-z0-9._\-]+)?)?[ \t]+(\S.*)$")]
+    private static partial Regex BodyImportPattern { get; }
+
+    /// <summary>
+    /// One physical line and the terminator that ended it.
+    /// </summary>
+    /// <remarks>
+    /// The terminator is kept because a body is bytes, not lines. Normalising it to
+    /// <c>\n</c> — which this parser used to do — is wrong for the one body format that
+    /// specifies its own framing: RFC 2046 multipart requires CRLF between parts, and a
+    /// multipart body typed on Windows and sent with LF is rejected by strict servers for
+    /// a reason nothing in the document could explain.
+    /// </remarks>
+    private readonly record struct SourceLine(string Text, string Ending);
+
+    /// <summary>
+    /// Splits on CRLF, LF or a lone CR, keeping the count aligned with what an editor
+    /// shows so a diagnostic's line number is the line the user can see, and keeping each
+    /// terminator so a body can be reassembled exactly as written.
+    /// </summary>
+    private static List<SourceLine> SplitLines(string text)
     {
-        var lines = new List<string>();
+        var lines = new List<SourceLine>();
         var start = 0;
 
         for (var i = 0; i < text.Length; i++)
@@ -61,19 +90,20 @@ public static partial class RequestDocumentParser
                 continue;
             }
 
-            lines.Add(text[start..i]);
+            var endingStart = i;
 
             if (text[i] == '\r' && i + 1 < text.Length && text[i + 1] == '\n')
             {
                 i++;
             }
 
+            lines.Add(new SourceLine(text[start..endingStart], text[endingStart..(i + 1)]));
             start = i + 1;
         }
 
         if (start < text.Length || lines.Count == 0)
         {
-            lines.Add(text[start..]);
+            lines.Add(new SourceLine(text[start..], string.Empty));
         }
 
         return lines;
@@ -83,7 +113,7 @@ public static partial class RequestDocumentParser
     /// A cursor over the document's lines plus the results accumulated so far. A class
     /// rather than a pile of <c>ref</c> parameters threaded through six methods.
     /// </summary>
-    private sealed class Walker(List<string> lines)
+    private sealed class Walker(List<SourceLine> lines)
     {
         private readonly List<VariableDefinition> _variables = [];
         private readonly List<RequestBlock> _requests = [];
@@ -110,7 +140,7 @@ public static partial class RequestDocumentParser
         {
             while (!AtEnd)
             {
-                var line = lines[_index];
+                var line = lines[_index].Text;
 
                 if (IsSeparator(line))
                 {
@@ -156,13 +186,15 @@ public static partial class RequestDocumentParser
         private void ReadRequest()
         {
             var startLine = LineNumber;
-            var (method, target, version) = ReadRequestLine(lines[_index], startLine);
+            var (method, target, version) = ReadRequestLine(lines[_index].Text, startLine);
             _index++;
 
             target += ReadTargetContinuations();
 
             var headers = ReadHeaders();
             var body = ReadBody();
+
+            WarnIfMultipartUsesBareNewlines(headers, body, startLine);
 
             if (_pendingName is not null)
             {
@@ -187,6 +219,61 @@ public static partial class RequestDocumentParser
             _pendingName = null;
             _pendingTitle = null;
             _segmentStart = Math.Max(startLine, _index) + 1;
+        }
+
+        /// <summary>
+        /// Warns when a multipart body's own line endings are LF.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// RFC 2046 separates multipart parts with CRLF, and Sling sends a body exactly as
+        /// the document holds it — so a repository carrying <c>*.http text eol=lf</c> in
+        /// its <c>.gitattributes</c>, or a file written on Linux, produces a body that
+        /// lenient servers accept and strict ones reject. That is the same failure
+        /// preserving line endings was meant to remove, arriving from the other direction.
+        /// </para>
+        /// <para>
+        /// A warning rather than a rewrite, deliberately. Normalising every terminator
+        /// would also rewrite the <em>content</em> of a text part, which is not this
+        /// code's to change: a part whose author wanted LF is entitled to it. The request
+        /// still sends, and the document says what is odd about it.
+        /// </para>
+        /// <para>
+        /// A <c>Content-Type</c> holding a <c>{{variable}}</c> is left alone rather than
+        /// guessed at. Nothing here is resolved yet, and warning on a value that might not
+        /// be multipart would be worse than staying quiet.
+        /// </para>
+        /// </remarks>
+        private void WarnIfMultipartUsesBareNewlines(
+            List<HeaderField> headers,
+            List<BodySegment>? body,
+            int line)
+        {
+            if (body is null)
+            {
+                return;
+            }
+
+            var isMultipart = headers.Any(h =>
+                h.Name.Equals("Content-Type", StringComparison.OrdinalIgnoreCase)
+                && h.Value.StartsWith("multipart/", StringComparison.OrdinalIgnoreCase));
+
+            if (!isMultipart)
+            {
+                return;
+            }
+
+            var literal = string.Concat(body.OfType<BodyText>().Select(s => s.Value));
+
+            if (literal.Contains('\n', StringComparison.Ordinal)
+                && !literal.Contains("\r\n", StringComparison.Ordinal))
+            {
+                _diagnostics.Add(ParseDiagnostic.Warning(
+                    "This multipart body's lines end in LF. RFC 2046 separates parts with CRLF "
+                        + "and Sling sends the body exactly as written, so some servers will "
+                        + "reject it. Save the file with CRLF endings, or check your .gitattributes.",
+                    line));
+            }
         }
 
         /// <summary>
@@ -300,7 +387,7 @@ public static partial class RequestDocumentParser
 
             while (!AtEnd)
             {
-                var line = lines[_index];
+                var line = lines[_index].Text;
                 var trimmed = line.TrimStart();
 
                 var isContinuation = line.Length > trimmed.Length
@@ -328,7 +415,7 @@ public static partial class RequestDocumentParser
 
             while (!AtEnd)
             {
-                var line = lines[_index];
+                var line = lines[_index].Text;
 
                 if (string.IsNullOrWhiteSpace(line) || IsSeparator(line))
                 {
@@ -378,14 +465,22 @@ public static partial class RequestDocumentParser
         /// separator or end of file.
         /// </summary>
         /// <remarks>
+        /// <para>
         /// Everything in that span is body text, including lines that begin with <c>#</c>
         /// — a JSON body full of comments would otherwise lose them, and a shell script in
         /// a body would lose most of itself. The one casualty is a body line that begins
         /// with <c>###</c>, which no dialect can represent; that is in the divergence table.
+        /// </para>
+        /// <para>
+        /// Line terminators are preserved exactly as written rather than normalised, which
+        /// is what lets a multipart body work: its parts are separated by CRLF by
+        /// specification, and rewriting them to LF produces a body that most servers
+        /// accept and strict ones reject, with nothing in the document to point at.
+        /// </para>
         /// </remarks>
-        private string? ReadBody()
+        private List<BodySegment>? ReadBody()
         {
-            if (AtEnd || IsSeparator(lines[_index]))
+            if (AtEnd || IsSeparator(lines[_index].Text))
             {
                 return null;
             }
@@ -395,24 +490,96 @@ public static partial class RequestDocumentParser
             _index++;
 
             var first = _index;
-            while (!AtEnd && !IsSeparator(lines[_index]))
+            while (!AtEnd && !IsSeparator(lines[_index].Text))
             {
                 _index++;
             }
 
             var last = _index - 1;
 
-            while (first <= last && string.IsNullOrWhiteSpace(lines[first]))
+            while (first <= last && string.IsNullOrWhiteSpace(lines[first].Text))
             {
                 first++;
             }
 
-            while (last >= first && string.IsNullOrWhiteSpace(lines[last]))
+            while (last >= first && string.IsNullOrWhiteSpace(lines[last].Text))
             {
                 last--;
             }
 
-            return first > last ? null : string.Join('\n', lines.GetRange(first, last - first + 1));
+            return first > last ? null : BuildBody(first, last);
+        }
+
+        /// <summary>
+        /// Turns the body's line range into literal text and file imports.
+        /// </summary>
+        /// <remarks>
+        /// The terminator of an import's own line is appended <em>after</em> the import,
+        /// where it belongs: the newline that follows <c>&lt; ./part.bin</c> separates the
+        /// file's bytes from whatever comes next, and folding it into the text before the
+        /// import would move a CRLF to the wrong side of a multipart boundary.
+        /// </remarks>
+        private List<BodySegment> BuildBody(int first, int last)
+        {
+            var segments = new List<BodySegment>();
+            var text = new StringBuilder();
+
+            void FlushText()
+            {
+                if (text.Length > 0)
+                {
+                    segments.Add(new BodyText(text.ToString()));
+                    text.Clear();
+                }
+            }
+
+            for (var i = first; i <= last; i++)
+            {
+                // The last line's own terminator ends the body rather than belonging to
+                // it — it is the blank line before the next separator, or end of file.
+                var ending = i == last ? string.Empty : lines[i].Ending;
+
+                if (TryReadBodyImport(lines[i].Text, i + 1, out var import))
+                {
+                    FlushText();
+                    segments.Add(import);
+                    text.Append(ending);
+                    continue;
+                }
+
+                text.Append(lines[i].Text).Append(ending);
+            }
+
+            FlushText();
+            return segments;
+        }
+
+        /// <summary>
+        /// Recognises <c>&lt; ./file</c>, <c>&lt;@ ./file</c> and <c>&lt;@utf16 ./file</c>.
+        /// </summary>
+        /// <remarks>
+        /// An encoding can only ever accompany the <c>&lt;@</c> form, because the pattern
+        /// reaches it through the <c>@</c>. That is the invariant the resolver relies on
+        /// when it ignores <see cref="BodyFile.Encoding"/> for a raw import: there is no
+        /// input that sets one.
+        /// </remarks>
+        private static bool TryReadBodyImport(string line, int lineNumber, [NotNullWhen(true)] out BodyFile? import)
+        {
+            import = null;
+
+            var match = BodyImportPattern.Match(line);
+            if (!match.Success)
+            {
+                return false;
+            }
+
+            import = new BodyFile(
+                match.Groups[2].Value.Trim(),
+                line.StartsWith("<@", StringComparison.Ordinal),
+                match.Groups[1].Success ? match.Groups[1].Value : null,
+                lineNumber);
+
+            return true;
         }
 
         /// <summary>

@@ -63,6 +63,10 @@ public partial class MainWindow : FluentWindow
         InitializeResponseView();
         InstallCurlPaste();
 
+        // After the sample is seeded, so seeding it is not counted as an edit: nobody
+        // should be asked whether to save text they did not write.
+        InitializeWorkspace();
+
         ShowMessage("Nothing sent yet.");
 
         StatusLeft.Text = ReadyHint;
@@ -94,6 +98,14 @@ public partial class MainWindow : FluentWindow
         {
             e.Handled = true;
             _inFlight?.Cancel();
+            return;
+        }
+
+        // IsRepeat again, and for a sharper reason than the send: holding Ctrl+S opens a
+        // Save As dialog per tick behind the one already up.
+        if (!e.IsRepeat && TryHandleDocumentKey(e))
+        {
+            e.Handled = true;
             return;
         }
 
@@ -173,12 +185,19 @@ public partial class MainWindow : FluentWindow
 
         try
         {
+            // Snapshotted here rather than read from fields on the pool thread, and inside
+            // the try: this path is fire-and-forget, so anything thrown outside it vanishes
+            // and leaves the status bar reading "Sending …" for ever. It is also the right
+            // answer semantically — switching environment mid-flight must not change what
+            // the request in flight resolved to.
+            var context = CreateResolutionContext();
+
             // Task.Run because resolution is synchronous and unbounded before the first
             // await: a document whose variables reference each other can expand to
             // megabytes, and doing that on the dispatcher thread freezes the window
             // rather than merely being slow.
             var result = await Task
-                .Run(() => _runner.RunAsync(document, block, cancellation.Token), cancellation.Token)
+                .Run(() => _runner.RunAsync(document, block, context, cancellation.Token), cancellation.Token)
                 .ConfigureAwait(true);
 
             Show(result, warnings);

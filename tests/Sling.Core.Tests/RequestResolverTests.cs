@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Sling.Core.Documents;
 using Sling.Core.Parsing;
 using Sling.Core.Variables;
@@ -279,7 +280,29 @@ public sealed class RequestResolverTests
         var result = Resolve(document.ToString());
 
         Assert.Null(result.Request);
-        Assert.Contains(result.Errors, e => e.Message.Contains("megabyte", StringComparison.Ordinal));
+        Assert.Contains(result.Errors, e => e.Message.Contains("1 MB", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void A_body_is_not_held_to_the_header_expansion_budget()
+    {
+        // The budget was sized for a request target and then, when bodies started going
+        // through the same expander, silently governed them too — so a payload well inside
+        // the 32 MB import cap was refused, with a message blaming a doubling variable the
+        // document does not contain. Worse, it depended on whether the body happened to
+        // hold a reference at all: the same bytes with no {{name}} in them went through.
+        var payload = new string('x', (2 * 1024 * 1024) + 1);
+
+        var resolved = ResolveFirst(
+            """
+            POST https://api.example.com/upload
+            Content-Type: text/plain
+
+            {{payload}}
+            """,
+            environment: Environment(("payload", payload)));
+
+        Assert.Equal(payload.Length, resolved.Body!.Length);
     }
 
     [Fact]
@@ -357,7 +380,7 @@ public sealed class RequestResolverTests
             Responded("login", JsonWithToken("line one\nline two")));
 
         Assert.NotNull(result.Request);
-        Assert.Contains("line one\nline two", result.Request.Body, StringComparison.Ordinal);
+        Assert.Contains("line one\nline two", BodyText(result.Request), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -392,15 +415,35 @@ public sealed class RequestResolverTests
     private static string JsonWithToken(string token) =>
         System.Text.Json.JsonSerializer.Serialize(new Dictionary<string, string> { ["token"] = token });
 
-    private static ResolutionResult Resolve(string text, IResponseLookup? responses = null)
+    private static ResolutionResult Resolve(
+        string text,
+        IResponseLookup? responses = null,
+        IVariableSource? environment = null,
+        IRequestFileSource? files = null)
     {
         var document = RequestDocumentParser.Parse(text);
-        return RequestResolver.Resolve(document, document.Requests[0], responses ?? NoResponses.Instance);
+
+        return RequestResolver.Resolve(
+            document,
+            document.Requests[0],
+            new ResolutionContext
+            {
+                Responses = responses ?? NoResponses.Instance,
+                Environment = environment ?? NoVariables.Instance,
+                Files = files ?? NoRequestFiles.Instance,
+            });
     }
 
-    private static ResolvedRequest ResolveFirst(string text)
+    /// <summary>The resolved body as text. Every body in these tests is UTF-8.</summary>
+    private static string BodyText(ResolvedRequest request) =>
+        request.Body is null ? string.Empty : System.Text.Encoding.UTF8.GetString(request.Body);
+
+    private static ResolvedRequest ResolveFirst(
+        string text,
+        IVariableSource? environment = null,
+        IRequestFileSource? files = null)
     {
-        var result = Resolve(text);
+        var result = Resolve(text, environment: environment, files: files);
 
         Assert.Empty(result.Errors);
         Assert.NotNull(result.Request);
@@ -435,5 +478,331 @@ public sealed class RequestResolverTests
         public void Add(string name, ResponseSnapshot response) => _byName[name] = response;
 
         public ResponseSnapshot? Find(string requestName) => _byName.GetValueOrDefault(requestName);
+    }
+
+    [Fact]
+    public void An_environment_value_beats_the_same_name_defined_in_the_file()
+    {
+        // Sling.md §4c, and a deliberate divergence from the reference dialect, which
+        // gives the file precedence. The other way round, a document holding
+        // '@base = https://api.example.com' could not be pointed at staging without
+        // editing the very line the environment exists to replace.
+        var resolved = ResolveFirst(
+            """
+            @base = https://api.example.com
+
+            GET {{base}}/things
+            """,
+            environment: Environment(("base", "https://staging.api.example.com")));
+
+        Assert.Equal("https://staging.api.example.com/things", resolved.Url.ToString());
+    }
+
+    [Fact]
+    public void A_file_variable_still_resolves_when_the_environment_does_not_define_it()
+    {
+        var resolved = ResolveFirst(
+            """
+            @path = things
+
+            GET https://api.example.com/{{path}}
+            """,
+            environment: Environment(("base", "unused")));
+
+        Assert.Equal("https://api.example.com/things", resolved.Url.ToString());
+    }
+
+    [Fact]
+    public void An_environment_value_may_reference_another_variable()
+    {
+        var resolved = ResolveFirst(
+            """
+            @host = api.example.com
+
+            GET {{base}}/things
+            """,
+            environment: Environment(("base", "https://{{host}}")));
+
+        Assert.Equal("https://api.example.com/things", resolved.Url.ToString());
+    }
+
+    [Fact]
+    public void An_environment_value_defined_in_terms_of_itself_is_reported_not_hung()
+    {
+        // The environment shadows the file, so '{{base}}' inside the environment's own
+        // 'base' cannot fall through to the file's — it is a cycle, and saying so beats
+        // hanging.
+        var result = Resolve(
+            """
+            @base = https://api.example.com
+
+            GET {{base}}/things
+            """,
+            environment: Environment(("base", "{{base}}/v2")));
+
+        Assert.Null(result.Request);
+        Assert.Contains(result.Errors, e => e.Message.Contains("itself", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void An_undefined_variable_mentions_the_environment_as_a_place_to_define_it()
+    {
+        var result = Resolve("GET https://api.example.com/{{missing}}");
+
+        Assert.Contains(result.Errors, e => e.Message.Contains("environment", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void A_body_import_contributes_the_file_bytes()
+    {
+        var resolved = ResolveFirst(
+            "POST https://api.example.com/upload\nContent-Type: application/json\n\n< ./payload.json",
+            files: Files(("./payload.json", """{"from":"disk"}""")));
+
+        Assert.Equal("""{"from":"disk"}""", BodyText(resolved));
+    }
+
+    [Fact]
+    public void A_raw_import_does_not_substitute_variables_inside_the_file()
+    {
+        // The whole reason the two forms exist: a raw import may be a PNG, and running a
+        // substitution pass over one would corrupt it while looking like it worked.
+        var resolved = ResolveFirst(
+            """
+            @who = ada
+
+            POST https://api.example.com/upload
+
+            < ./template.json
+            """,
+            files: Files(("./template.json", """{"user":"{{who}}"}""")));
+
+        Assert.Equal("""{"user":"{{who}}"}""", BodyText(resolved));
+    }
+
+    [Fact]
+    public void An_interpolating_import_substitutes_variables_inside_the_file()
+    {
+        var resolved = ResolveFirst(
+            """
+            @who = ada
+
+            POST https://api.example.com/upload
+
+            <@ ./template.json
+            """,
+            files: Files(("./template.json", """{"user":"{{who}}"}""")));
+
+        Assert.Equal("""{"user":"ada"}""", BodyText(resolved));
+    }
+
+    [Fact]
+    public void A_raw_import_carries_bytes_that_are_not_text()
+    {
+        // A PNG header, which is not valid UTF-8. Decoding and re-encoding it would
+        // replace the invalid sequences with U+FFFD and hand the server a corrupt file.
+        byte[] png = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0xFF, 0xD8];
+
+        var resolved = ResolveFirst(
+            "POST https://api.example.com/upload\nContent-Type: image/png\n\n< ./logo.png",
+            files: new StubFiles { ["./logo.png"] = png });
+
+        Assert.Equal(png, resolved.Body);
+    }
+
+    [Fact]
+    public void An_import_that_cannot_be_read_names_the_path_and_the_reason()
+    {
+        var result = Resolve(
+            "POST https://api.example.com/upload\n\n< ./missing.json",
+            files: new StubFiles());
+
+        Assert.Null(result.Request);
+
+        var error = Assert.Single(result.Errors);
+        Assert.Contains("./missing.json", error.Message, StringComparison.Ordinal);
+        Assert.Equal(3, error.Line);
+    }
+
+    [Fact]
+    public void An_import_path_may_itself_be_a_variable()
+    {
+        var resolved = ResolveFirst(
+            """
+            @fixture = ./payload.json
+
+            POST https://api.example.com/upload
+
+            < {{fixture}}
+            """,
+            files: Files(("./payload.json", "{}")));
+
+        Assert.Equal("{}", BodyText(resolved));
+    }
+
+    [Fact]
+    public void An_import_between_body_lines_is_spliced_in_where_it_was_written()
+    {
+        var resolved = ResolveFirst(
+            "POST https://api.example.com/upload\r\n"
+                + "Content-Type: multipart/form-data; boundary=b\r\n"
+                + "\r\n"
+                + "--b\r\n"
+                + "\r\n"
+                + "< ./part.txt\r\n"
+                + "--b--",
+            files: Files(("./part.txt", "PART")));
+
+        Assert.Equal("--b\r\n\r\nPART\r\n--b--", BodyText(resolved));
+    }
+
+    [Fact]
+    public void No_file_is_opened_for_a_request_that_cannot_be_sent()
+    {
+        // A body import whose path holds an unresolved reference would otherwise be
+        // reported as a missing file, burying the real cause under a symptom.
+        var files = new StubFiles();
+
+        var result = Resolve(
+            "POST https://api.example.com/{{nope}}\n\n< ./payload.json",
+            files: files);
+
+        Assert.Null(result.Request);
+        Assert.Empty(files.Requested);
+        Assert.Contains(result.Errors, e => e.Message.Contains("nope", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void An_import_is_read_after_the_chain_it_depends_on_has_run()
+    {
+        // Reported as missing rather than as an error, so the runner sends the dependency
+        // and resolves again — the same loop a chained URL drives.
+        var result = Resolve(
+            "POST https://api.example.com/upload\n\n<@ ./template.json",
+            files: Files(("./template.json", "{{login.response.body.$.token}}")));
+
+        Assert.Null(result.Request);
+        Assert.Empty(result.Errors);
+        Assert.Equal("login", Assert.Single(result.MissingResponses));
+    }
+
+    [Fact]
+    public void An_interpolating_import_consumes_a_byte_order_mark()
+    {
+        // '<@' says "read this as text", and a leading U+FEFF is not text content — a JSON
+        // body starting with one is rejected by most servers. Encoding.GetString keeps it;
+        // a StreamReader given the encoding does not. BOM'd files are the Windows norm.
+        var withBom = new byte[] { 0xEF, 0xBB, 0xBF }
+            .Concat(System.Text.Encoding.UTF8.GetBytes("""{"a":1}"""))
+            .ToArray();
+
+        var resolved = ResolveFirst(
+            "POST https://api.example.com/upload\n\n<@ ./bom.json",
+            files: new StubFiles { ["./bom.json"] = withBom });
+
+        Assert.Equal("""{"a":1}""", BodyText(resolved));
+    }
+
+    [Fact]
+    public void A_raw_import_keeps_a_byte_order_mark_because_verbatim_means_verbatim()
+    {
+        // The mirror case, and the reason the BOM fix belongs only on the '<@' path: a raw
+        // import may be a file whose first three bytes matter.
+        var withBom = new byte[] { 0xEF, 0xBB, 0xBF, 0x7B, 0x7D };
+
+        var resolved = ResolveFirst(
+            "POST https://api.example.com/upload\n\n< ./bom.json",
+            files: new StubFiles { ["./bom.json"] = withBom });
+
+        Assert.Equal(withBom, resolved.Body);
+    }
+
+    [Fact]
+    public void An_import_failure_quotes_the_path_as_written_never_the_resolved_secret()
+    {
+        // ParseDiagnostic promises its messages never carry a resolved secret, and
+        // '< ./{{token}}.json' substitutes before it can fail. ResolveHeaders and
+        // TryBuildUrl both quote the unresolved form for this reason; this path did not.
+        const string Token = "s3cr3t-bearer-value";
+
+        var result = Resolve(
+            """
+            @token = SECRET_PLACEHOLDER
+
+            POST https://api.example.com/upload
+
+            < ./{{token}}.json
+            """.Replace("SECRET_PLACEHOLDER", Token, StringComparison.Ordinal),
+            files: new StubFiles());
+
+        var error = Assert.Single(result.Errors);
+        Assert.DoesNotContain(Token, error.Message, StringComparison.Ordinal);
+        Assert.Contains("{{token}}", error.Message, StringComparison.Ordinal);
+    }
+
+
+    private static StubEnvironment Environment(params (string Name, string Value)[] values)
+    {
+        var source = new StubEnvironment();
+
+        foreach (var (name, value) in values)
+        {
+            source[name] = value;
+        }
+
+        return source;
+    }
+
+    private static StubFiles Files(params (string Path, string Text)[] files)
+    {
+        var source = new StubFiles();
+
+        foreach (var (path, text) in files)
+        {
+            source[path] = System.Text.Encoding.UTF8.GetBytes(text);
+        }
+
+        return source;
+    }
+
+    private sealed class StubEnvironment : Dictionary<string, string>, IVariableSource
+    {
+        public StubEnvironment()
+            : base(StringComparer.Ordinal)
+        {
+        }
+
+        public bool TryGet(string name, [NotNullWhen(true)] out string? value) => TryGetValue(name, out value);
+    }
+
+    /// <summary>
+    /// Files by the path the document wrote, recording what was asked for — which is how
+    /// "nothing was opened" is asserted.
+    /// </summary>
+    private sealed class StubFiles : Dictionary<string, byte[]>, IRequestFileSource
+    {
+        public StubFiles()
+            : base(StringComparer.Ordinal)
+        {
+        }
+
+        public List<string> Requested { get; } = [];
+
+        public bool TryRead(
+            string path,
+            [NotNullWhen(true)] out byte[]? bytes,
+            [NotNullWhen(false)] out string? reason)
+        {
+            Requested.Add(path);
+
+            if (TryGetValue(path, out bytes))
+            {
+                reason = null;
+                return true;
+            }
+
+            reason = "there is no such file";
+            return false;
+        }
     }
 }

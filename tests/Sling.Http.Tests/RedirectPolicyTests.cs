@@ -104,7 +104,7 @@ public sealed class RedirectPolicyTests
             sent,
             new Uri("https://api.example.com/start"),
             hasBody ? [new HeaderField("Content-Type", "application/json", 1)] : [],
-            hasBody ? "{\"a\":1}" : null,
+            hasBody ? System.Text.Encoding.UTF8.GetBytes("{\"a\":1}") : null,
             null);
 
         await SendAsync(handler, request);

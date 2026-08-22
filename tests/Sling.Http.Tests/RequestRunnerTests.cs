@@ -1,4 +1,5 @@
 using Sling.Core.Parsing;
+using Sling.Core.Variables;
 
 namespace Sling.Http.Tests;
 
@@ -8,6 +9,12 @@ namespace Sling.Http.Tests;
 /// </summary>
 public sealed class RequestRunnerTests
 {
+    /// <summary>
+    /// No environment and no importable files: these documents are self-contained, and
+    /// the runner replaces the response store on this with its own regardless.
+    /// </summary>
+    private static readonly ResolutionContext Context = new();
+
     [Fact]
     public async Task A_dependency_is_sent_first_and_its_value_flows_into_the_request_asked_for()
     {
@@ -56,9 +63,8 @@ public sealed class RequestRunnerTests
 
         var document = RequestDocumentParser.Parse(Text);
         using var runner = new RequestRunner(new RequestSender(handler));
-
-        await runner.RunAsync(document, document.Requests[1], TestContext.Current.CancellationToken);
-        var second = await runner.RunAsync(document, document.Requests[1], TestContext.Current.CancellationToken);
+        await runner.RunAsync(document, document.Requests[1], Context, TestContext.Current.CancellationToken);
+        var second = await runner.RunAsync(document, document.Requests[1], Context, TestContext.Current.CancellationToken);
 
         // The login response is remembered for the session, so the second send is one
         // request, not two.
@@ -83,9 +89,9 @@ public sealed class RequestRunnerTests
         var document = RequestDocumentParser.Parse(Text);
         using var runner = new RequestRunner(new RequestSender(handler));
 
-        await runner.RunAsync(document, document.Requests[1], TestContext.Current.CancellationToken);
+        await runner.RunAsync(document, document.Requests[1], Context, TestContext.Current.CancellationToken);
         runner.ForgetResponses();
-        var again = await runner.RunAsync(document, document.Requests[1], TestContext.Current.CancellationToken);
+        var again = await runner.RunAsync(document, document.Requests[1], Context, TestContext.Current.CancellationToken);
 
         Assert.Equal(2, again.Exchanges.Count);
     }
@@ -246,6 +252,7 @@ public sealed class RequestRunnerTests
         return await runner.RunAsync(
             document,
             document.Requests[^1],
+            Context,
             TestContext.Current.CancellationToken);
     }
 }

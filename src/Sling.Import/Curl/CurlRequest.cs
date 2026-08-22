@@ -281,7 +281,11 @@ internal sealed class CurlRequest
 
         Note(clean == "@-"
             ? "The body was read from standard input, which was dropped."
-            : $"The body was read from a file, which was dropped: {clean[1..]}");
+            // Naming the equivalent is worth the extra clause: '< ./file' is a real
+            // construct Sling sends, so the note tells the reader what to type rather than
+            // only what they lost.
+            : $"The body was read from a file, which was dropped: {clean[1..]}. "
+                + $"Write it as '< ./{clean[1..]}' if the file is inside the workspace.");
     }
 
     /// <summary>

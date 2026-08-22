@@ -24,6 +24,11 @@ namespace Sling.Core.Documents;
 /// </param>
 /// <param name="StartLine">1-based line of the request line itself.</param>
 /// <param name="EndLine">1-based line of the last line belonging to this request.</param>
+/// <param name="Body">
+/// The body in source order, or null when the request has none. A list rather than a
+/// string because a <c>&lt; ./file</c> line inside it stands for bytes that are not in
+/// the document at all — see <see cref="BodySegment"/>.
+/// </param>
 public sealed record RequestBlock(
     string? Name,
     string? Title,
@@ -31,7 +36,21 @@ public sealed record RequestBlock(
     string Target,
     string? Version,
     IReadOnlyList<HeaderField> Headers,
-    string? Body,
+    IReadOnlyList<BodySegment>? Body,
     int FirstLine,
     int StartLine,
-    int EndLine);
+    int EndLine)
+{
+    /// <summary>
+    /// The body's literal text, with every <c>&lt; ./file</c> import left out.
+    /// </summary>
+    /// <remarks>
+    /// For showing and for testing, never for sending. An import contributes bytes this
+    /// property cannot represent, so anything that sent it would drop them silently.
+    /// Assembling a body that is actually sendable is
+    /// <see cref="Sling.Core.Variables.RequestResolver"/>'s job, and it is the only place
+    /// the two kinds of segment are put together.
+    /// </remarks>
+    public string? LiteralText =>
+        Body is null ? null : string.Concat(Body.OfType<BodyText>().Select(s => s.Value));
+}
