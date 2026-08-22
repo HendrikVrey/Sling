@@ -90,7 +90,7 @@ public sealed class RequestRunnerTests
         using var runner = new RequestRunner(new RequestSender(handler));
 
         await runner.RunAsync(document, document.Requests[1], Context, TestContext.Current.CancellationToken);
-        runner.ForgetResponses();
+        runner.ForgetSession();
         var again = await runner.RunAsync(document, document.Requests[1], Context, TestContext.Current.CancellationToken);
 
         Assert.Equal(2, again.Exchanges.Count);

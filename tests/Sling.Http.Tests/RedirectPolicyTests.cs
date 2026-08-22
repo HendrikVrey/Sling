@@ -176,6 +176,7 @@ public sealed class RedirectPolicyTests
         SendOptions? options = null)
     {
         using var sender = new RequestSender(handler, options);
-        return await sender.SendAsync(request, TestContext.Current.CancellationToken);
+        var outcome = await sender.SendAsync(request, cookies: null, TestContext.Current.CancellationToken);
+        return outcome.Response;
     }
 }

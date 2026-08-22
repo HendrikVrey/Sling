@@ -229,5 +229,113 @@
                        Opacity="0.6"
                        TextTrimming="CharacterEllipsis" />
         </DockPanel>
+
+        <!--
+            Settings, as an overlay over the whole window rather than a second Window.
+            A dialog would need its own chrome, its own backdrop and its own theme
+            plumbing to look like the application it belongs to; this needs none of it,
+            and Escape closes it the way Escape closes everything else here.
+
+            RowSpan covers the title bar too: a modal thing that leaves the title bar
+            live invites a click that does nothing.
+        -->
+        <Grid x:Name="SettingsOverlay"
+              Grid.Row="0"
+              Grid.RowSpan="3"
+              Background="#B0000000"
+              Visibility="Collapsed">
+            <Border Width="440"
+                    MaxHeight="640"
+                    Padding="24"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Style="{StaticResource PaneBorderStyle}">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel>
+                        <TextBlock Margin="0,0,0,4"
+                                   FontSize="20"
+                                   FontWeight="SemiBold"
+                                   Text="Settings" />
+                        <TextBlock x:Name="SettingsPath"
+                                   Margin="0,0,0,10"
+                                   FontSize="11"
+                                   Opacity="0.5"
+                                   TextTrimming="CharacterEllipsis" />
+
+                        <TextBlock Style="{StaticResource SettingsLabelStyle}" Text="Request timeout (seconds)" />
+                        <ui:NumberBox x:Name="TimeoutBox"
+                                      MaxDecimalPlaces="0"
+                                      Maximum="3600"
+                                      Minimum="1"
+                                      ValueChanged="OnSettingChanged" />
+
+                        <TextBlock Style="{StaticResource SettingsLabelStyle}" Text="Largest response held (MB)" />
+                        <ui:NumberBox x:Name="BodyCapBox"
+                                      MaxDecimalPlaces="0"
+                                      Maximum="512"
+                                      Minimum="1"
+                                      ValueChanged="OnSettingChanged" />
+
+                        <TextBlock Style="{StaticResource SettingsLabelStyle}" Text="Redirects followed" />
+                        <ui:NumberBox x:Name="RedirectsBox"
+                                      MaxDecimalPlaces="0"
+                                      Maximum="20"
+                                      Minimum="0"
+                                      ValueChanged="OnSettingChanged" />
+
+                        <TextBlock Style="{StaticResource SettingsLabelStyle}" Text="Cookies" />
+                        <ui:ToggleSwitch x:Name="CookiesToggle"
+                                         Checked="OnSettingToggled"
+                                         Content="Store and replay cookies"
+                                         Unchecked="OnSettingToggled" />
+                        <TextBlock Style="{StaticResource SettingsHintStyle}"
+                                   Text="One jar per environment, in memory only — nothing is written to disk." />
+
+                        <TextBlock Style="{StaticResource SettingsLabelStyle}" Text="History" />
+                        <ui:ToggleSwitch x:Name="HistoryToggle"
+                                         Checked="OnSettingToggled"
+                                         Content="Record requests locally"
+                                         Unchecked="OnSettingToggled" />
+                        <TextBlock Style="{StaticResource SettingsHintStyle}"
+                                   Text="Credentials are removed before anything is written, and no body is stored at all. Ctrl+H shows it." />
+
+                        <TextBlock Style="{StaticResource SettingsLabelStyle}" Text="History entries kept" />
+                        <ui:NumberBox x:Name="HistoryEntriesBox"
+                                      MaxDecimalPlaces="0"
+                                      Maximum="10000"
+                                      Minimum="10"
+                                      ValueChanged="OnSettingChanged" />
+
+                        <StackPanel Margin="0,22,0,0" Orientation="Horizontal">
+                            <ui:Button Margin="0,0,8,0"
+                                       Click="OnShowCookies"
+                                       Content="Show cookies" />
+                            <ui:Button Margin="0,0,8,0"
+                                       Click="OnClearCookies"
+                                       Content="Clear cookies" />
+                            <ui:Button Click="OnClearHistory" Content="Clear history" />
+                        </StackPanel>
+
+                        <!--
+                            Stated rather than offered. Sling.md §5.3 allows a TLS bypass
+                            only per request and only with loud indication, so there is no
+                            global switch here to find — and saying why is better than
+                            leaving someone to hunt for one.
+                        -->
+                        <TextBlock Margin="0,20,0,0"
+                                   FontSize="11"
+                                   Opacity="0.5"
+                                   Text="Certificate validation is always on and has no setting. A global bypass gets switched on once and left on."
+                                   TextWrapping="Wrap" />
+
+                        <ui:Button Margin="0,20,0,0"
+                                   HorizontalAlignment="Right"
+                                   Appearance="Primary"
+                                   Click="OnCloseSettings"
+                                   Content="Close" />
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+        </Grid>
     </Grid>
 </ui:FluentWindow>

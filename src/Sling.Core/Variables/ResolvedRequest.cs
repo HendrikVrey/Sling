@@ -1,3 +1,4 @@
+using Sling.Core.Auth;
 using Sling.Core.Documents;
 
 namespace Sling.Core.Variables;
@@ -35,10 +36,34 @@ namespace Sling.Core.Variables;
 /// redirect test; nothing in the type system was going to.
 /// </para>
 /// </remarks>
+/// <param name="Auth">
+/// The resolved OAuth2 grant this request needs a token from, or null. Not applied here:
+/// the token is not known until it has been fetched, so <c>Sling.Http</c> obtains it and
+/// adds the <c>Authorization</c> header — which is also what makes the token exchange
+/// visible as an exchange of its own.
+/// </param>
+/// <param name="FollowRedirects">
+/// Whether a 3xx may move this request to another URL. True for everything the document
+/// asks for; false for the OAuth2 token exchange.
+/// </param>
+/// <remarks>
+/// <para>
+/// <paramref name="FollowRedirects"/> lives on the request rather than on the sender's
+/// options, and that is the whole point of it. A token request carries the client secret
+/// — in the body under <c>client-auth body</c>, where no credential-header rule reaches it
+/// — and its URL was checked once, before it was sent, for being HTTPS. A single 307 to
+/// another host would hand that secret over, defeat the HTTPS check in one hop, and let
+/// whoever answered mint the bearer token attached to the user's real request. Carrying
+/// the refusal on the request means it travels with it, instead of being something the
+/// code that builds the request has to remember at the call site that sends it.
+/// </para>
+/// </remarks>
 public sealed record ResolvedRequest(
     string? Name,
     string Method,
     Uri Url,
     IReadOnlyList<HeaderField> Headers,
     byte[]? Body,
-    string? Version);
+    string? Version,
+    ResolvedOAuth2Grant? Auth = null,
+    bool FollowRedirects = true);

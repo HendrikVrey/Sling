@@ -4,6 +4,7 @@ using System.Windows.Input;
 using Sling.Core.Documents;
 using Sling.Core.Parsing;
 using Sling.Core.Rendering;
+using Sling.Core.Variables;
 using Sling.Http;
 using Wpf.Ui.Controls;
 
@@ -60,17 +61,26 @@ public partial class MainWindow : FluentWindow
 
         RequestPane.Text = SampleRequest;
 
+        // The hint first, so anything the initialisers below have to say survives. It used
+        // to be assigned at the end, which meant a settings file that would not parse
+        // reported the problem and then had it overwritten one line later — a silent
+        // revert to the defaults, which is exactly what the message exists to prevent.
+        StatusLeft.Text = ReadyHint;
+        StatusRight.Text = string.Empty;
+
         InitializeResponseView();
         InstallCurlPaste();
+
+        // Before the workspace, because the cookie jar the workspace resets is created
+        // from the settings: whether there is a jar at all is one, and resetting one that
+        // does not exist yet would build a jar the user had switched off.
+        InitializeSettings();
 
         // After the sample is seeded, so seeding it is not counted as an edit: nobody
         // should be asked whether to save text they did not write.
         InitializeWorkspace();
 
         ShowMessage("Nothing sent yet.");
-
-        StatusLeft.Text = ReadyHint;
-        StatusRight.Text = string.Empty;
     }
 
     private bool IsSending => _inFlight is not null;
@@ -87,22 +97,51 @@ public partial class MainWindow : FluentWindow
 
         // IsRepeat: holding the chord down would otherwise queue a send per auto-repeat
         // tick, at roughly 30 Hz, against whatever server the caret happens to be on.
-        if (e.Key == Key.Enter && e.KeyboardDevice.Modifiers == ModifierKeys.Control && !e.IsRepeat)
+        if (e.Key == Key.Enter && !e.IsRepeat)
         {
-            e.Handled = true;
-            _ = SendCurrentRequestAsync();
-            return;
+            if (e.KeyboardDevice.Modifiers == ModifierKeys.Control)
+            {
+                e.Handled = true;
+                _ = SendCurrentRequestAsync();
+                return;
+            }
+
+            if (e.KeyboardDevice.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift))
+            {
+                e.Handled = true;
+                _ = SendWholeDocumentAsync();
+                return;
+            }
         }
 
-        if (e.Key == Key.Escape && IsSending)
+        if (e.Key == Key.Escape)
         {
-            e.Handled = true;
-            _inFlight?.Cancel();
-            return;
+            // The overlay first. It is the thing most recently put on screen, and while it
+            // is up it is what Escape visibly refers to — cancelling a send from behind it
+            // would look like the key did nothing.
+            if (SettingsAreOpen)
+            {
+                e.Handled = true;
+                CloseSettings();
+                return;
+            }
+
+            if (IsSending)
+            {
+                e.Handled = true;
+                _inFlight?.Cancel();
+                return;
+            }
         }
 
         // IsRepeat again, and for a sharper reason than the send: holding Ctrl+S opens a
         // Save As dialog per tick behind the one already up.
+        if (!e.IsRepeat && TryHandleViewKey(e))
+        {
+            e.Handled = true;
+            return;
+        }
+
         if (!e.IsRepeat && TryHandleDocumentKey(e))
         {
             e.Handled = true;
@@ -110,6 +149,41 @@ public partial class MainWindow : FluentWindow
         }
 
         base.OnPreviewKeyDown(e);
+    }
+
+    /// <summary>
+    /// The chords that show something rather than change something: settings, and the
+    /// local history.
+    /// </summary>
+    private bool TryHandleViewKey(KeyEventArgs e)
+    {
+        if (e.KeyboardDevice.Modifiers != ModifierKeys.Control)
+        {
+            return false;
+        }
+
+        switch (e.Key)
+        {
+            case Key.OemComma:
+                if (SettingsAreOpen)
+                {
+                    CloseSettings();
+                }
+                else
+                {
+                    ShowSettings();
+                }
+
+                return true;
+
+            case Key.H:
+                CloseSettings();
+                RunGuarded(ShowHistoryAsync);
+                return true;
+
+            default:
+                return false;
+        }
     }
 
     protected override void OnClosed(EventArgs e)
@@ -169,18 +243,96 @@ public partial class MainWindow : FluentWindow
             return;
         }
 
-        await RunAsync(document, block, mine).ConfigureAwait(true);
+        await RunAsync(
+            $"Sending {block.Method} …",
+            (context, token) => _runner.RunAsync(document, block, context, token),
+            mine).ConfigureAwait(true);
     }
 
+    /// <summary>
+    /// Sends every request in the document that can be sent.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A request whose own lines hold an error is left out rather than attempted, and the
+    /// diagnostic that excluded it is reported — the same filter <c>Ctrl+Enter</c> applies
+    /// to the one request under the caret, applied to each of them in turn. Deciding a
+    /// request cannot be sent is the document's business, which is why the runner takes the
+    /// list rather than the document.
+    /// </para>
+    /// <para>
+    /// No confirmation prompt. The chord is deliberate and the audience is developers who
+    /// know what is in their own file; a dialog on every run-all would be answered without
+    /// being read within a day, which makes it worse than nothing.
+    /// </para>
+    /// </remarks>
+    private async Task SendWholeDocumentAsync()
+    {
+        if (IsSending)
+        {
+            return;
+        }
+
+        var document = RequestDocumentParser.Parse(RequestPane.Text);
+
+        if (document.Requests.Count == 0)
+        {
+            ShowMessage("There are no requests in this file yet.");
+            StatusLeft.Text = ReadyHint;
+            return;
+        }
+
+        var sendable = new List<RequestBlock>();
+        var notes = new List<ParseDiagnostic>();
+
+        foreach (var block in document.Requests)
+        {
+            var mine = document.Diagnostics
+                .Where(d => d.Line >= block.FirstLine && d.Line <= block.EndLine)
+                .ToList();
+
+            notes.AddRange(mine);
+
+            if (!mine.Any(d => d.Severity == DiagnosticSeverity.Error))
+            {
+                sendable.Add(block);
+            }
+        }
+
+        if (sendable.Count == 0)
+        {
+            ShowMessage(ResponseRenderer.RenderDiagnostics(
+                notes.Where(d => d.Severity == DiagnosticSeverity.Error).ToList()));
+
+            StatusLeft.Text = "Nothing in this file can be sent.";
+            StatusRight.Text = string.Empty;
+            return;
+        }
+
+        var count = sendable.Count.ToString(CultureInfo.InvariantCulture);
+
+        await RunAsync(
+            $"Sending {count} request{(sendable.Count == 1 ? string.Empty : "s")} …",
+            (context, token) => _runner.RunAllAsync(document, sendable, context, token),
+            notes).ConfigureAwait(true);
+    }
+
+    /// <param name="run">
+    /// What to run, given the resolution context and the run's token. A delegate rather
+    /// than two overloads of this method, because everything around the call — the
+    /// in-flight token, the status text, the five catch clauses and the history write — is
+    /// identical for one request and for all of them, and a second copy of it is a second
+    /// place for the last-resort catch to go missing.
+    /// </param>
     private async Task RunAsync(
-        RequestDocument document,
-        RequestBlock block,
+        string sendingMessage,
+        Func<ResolutionContext, CancellationToken, Task<RunResult>> run,
         IReadOnlyList<ParseDiagnostic> warnings)
     {
         using var cancellation = new CancellationTokenSource();
         _inFlight = cancellation;
 
-        StatusLeft.Text = $"Sending {block.Method} …";
+        StatusLeft.Text = sendingMessage;
         StatusRight.Text = string.Empty;
 
         try
@@ -197,10 +349,15 @@ public partial class MainWindow : FluentWindow
             // megabytes, and doing that on the dispatcher thread freezes the window
             // rather than merely being slow.
             var result = await Task
-                .Run(() => _runner.RunAsync(document, block, context, cancellation.Token), cancellation.Token)
+                .Run(() => run(context, cancellation.Token), cancellation.Token)
                 .ConfigureAwait(true);
 
             Show(result, warnings);
+
+            // After the response is on screen. The write is small and the user is not
+            // waiting on it, and putting it first would delay the thing they asked for
+            // behind a log.
+            await RecordHistoryAsync(result.Exchanges).ConfigureAwait(true);
         }
         catch (OperationCanceledException)
         {
@@ -274,6 +431,13 @@ public partial class MainWindow : FluentWindow
         if (notes.Count > 0)
         {
             StatusLeft.Text = Summarise(notes);
+        }
+        else if (result.Notes.Count > 0)
+        {
+            // Only when nothing louder needs the line. A refused cookie matters, and it
+            // matters less than a diagnostic about the request itself — this is the one
+            // place in the window where the two compete for the same row.
+            StatusLeft.Text = SummariseNotes(result.Notes);
         }
     }
 

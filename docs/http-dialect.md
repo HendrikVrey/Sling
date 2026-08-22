@@ -27,6 +27,7 @@ disagree, the code is right and this file is a bug.
 | `<@ ./file` | Body import read as text, with `{{variables}}` substituted inside it. |
 | `<@utf16 ./file` | The same, naming the encoding to read the file as. |
 | Multipart bodies | Written out in full with a `< ./file` per part — there is no separate syntax. |
+| `# @auth oauth2` | An OAuth2 client-credentials grant. Sling's own; see below. |
 
 ## Divergences, and why
 
@@ -156,6 +157,69 @@ it belongs to either way.
 and return the whole body, which quietly sent an entire login response as a header value.
 Write `{{name.response.body}}` if the whole body really is what you want.
 
+**`# @auth oauth2` is Sling's own, because the reference dialect has no syntax for it.**
+It declares an OAuth2 **client-credentials** grant on the request above which it sits:
+
+```http
+# @auth oauth2
+# @token-url {{auth_base}}/oauth2/token
+# @client-id {{client_id}}
+# @client-secret {{client_secret}}
+# @scope orders.read orders.write
+GET {{base}}/orders
+```
+
+Sling fetches a token, attaches `Authorization: Bearer …`, and sends the request. The
+token exchange appears in the response pane as an exchange of its own, like any request
+Sling makes on your behalf.
+
+- `@token-url`, `@client-id` and `@client-secret` are required; the rest are optional.
+- `@scope` is sent as-is — space-separated for several scopes.
+- `@audience` is not in RFC 6749. It is how Auth0 and several others name which API the
+  token is for; omit it if your server does not want one.
+- `@client-auth` is `basic` (the default, RFC 6749 §2.3.1) or `body`. Use `body` for a
+  server that will not accept HTTP Basic.
+- One directive per parameter rather than a positional line, because the positional form
+  puts a client id and a client secret next to each other with nothing but order telling
+  them apart — and getting that wrong sends the secret as the id.
+- Any of these directives written **without** `# @auth oauth2` above it is an error, not
+  an ignored comment. A document that quietly does not authenticate fails at the API,
+  several layers from the line that caused it.
+
+**The token URL must be `https`**, or `http` to a loopback address. A client secret and
+the token it buys are the two most valuable strings in the process, and plain HTTP puts
+both on the wire in clear; the loopback exception is the same rule browsers use for a
+secure context, so a mock authorization server still works.
+
+**Tokens are cached until they expire and are never written to disk.** The cache is keyed
+by the token URL, client id, client secret, scope and audience together — so asking for a
+different scope fetches a different token, and rotating a secret takes effect at once
+rather than at the old token's expiry. A response with no `expires_in` is not cached at
+all: RFC 6749 only recommends the field, and inventing a lifetime for a server that did
+not state one produces a run of 401s partway through a session from a cache you cannot
+see. Switching environment or opening another document drops every cached token, for the
+same reason it drops stored responses.
+
+**A token request is never redirected.** `@token-url` is checked for being HTTPS once,
+before the request goes out, and that check covers exactly one hop — so a 3xx from the
+token endpoint is reported rather than followed. Following it would hand the client secret
+to whoever the `Location` names (307 and 308 carry a body across an origin change
+untouched, and under `@client-auth body` the secret *is* the body), and would let that host
+mint the bearer token attached to your real request. Put the final URL in `@token-url`.
+Ordinary requests follow redirects as before.
+
+**A 401 does not silently retry.** The token is refreshed on expiry and not otherwise; a
+request that comes back unauthorized comes back unauthorized, and the exchange that
+fetched the token is in the picker to look at.
+
+**Cookies are stored and replayed per environment.** A `Set-Cookie` on a response goes
+into a jar scoped to the selected environment, and matching cookies are attached to later
+requests by RFC 6265's rules — domain, path and `Secure` — so a cookie set by staging
+cannot reach production. A `Cookie` header written in the document wins outright and the
+jar is not consulted for that request. Cookies live in memory only: closing Sling,
+switching environment or opening another document discards them. `docs/history.md` has
+the rest.
+
 ## Not supported yet
 
 | Construct | Where it lands |
@@ -164,5 +228,5 @@ Write `{{name.response.body}}` if the whole body really is what you want.
 | `{{$guid}}`, `{{$timestamp}}`, other dynamic variables | Deferred with the above. |
 | `# @no-redirect`, `# @no-cookie-jar`, `# @prompt` | Parsed and warned about; not honoured. |
 | A relative request target | Not planned. Write the scheme and host, or put a base URL in an environment and use `{{base}}`. |
-| Cookies | M3 slice 2, scoped per environment. |
+| OAuth2 authorization-code flow | Not planned. It needs a browser, a redirect listener and a consent screen, which is a different product. Send a token you already have as a header. |
 | `{{name.request.…}}` references | Not planned. |

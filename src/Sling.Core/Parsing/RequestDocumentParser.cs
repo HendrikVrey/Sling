@@ -2,6 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
+using Sling.Core.Auth;
 using Sling.Core.Documents;
 
 namespace Sling.Core.Parsing;
@@ -32,6 +33,14 @@ public static partial class RequestDocumentParser
     /// </summary>
     private static readonly string[] KnownMethods =
         ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS", "TRACE", "CONNECT"];
+
+    /// <summary>
+    /// The directives that configure a <c># @auth oauth2</c> block. Recognised only after
+    /// <c># @auth</c>, so that one of them written on its own is an error rather than a
+    /// comment that quietly does nothing.
+    /// </summary>
+    private static readonly string[] AuthDirectives =
+        ["token-url", "client-id", "client-secret", "scope", "audience", "client-auth"];
 
     public static RequestDocument Parse(string? text) => new Walker(SplitLines(text ?? string.Empty)).Run();
 
@@ -123,6 +132,7 @@ public static partial class RequestDocumentParser
         private string? _pendingName;
         private int _pendingNameLine;
         private string? _pendingTitle;
+        private PendingAuth? _pendingAuth;
 
         /// <summary>
         /// The line the current request's text began on, counting the <c># @name</c> and
@@ -147,6 +157,7 @@ public static partial class RequestDocumentParser
                     // A separator both ends the previous request and titles the next one.
                     _pendingTitle = TitleOf(line);
                     _pendingName = null;
+                    _pendingAuth = null;
                     _index++;
                     _segmentStart = LineNumber;
                 }
@@ -209,15 +220,19 @@ public static partial class RequestDocumentParser
                 version,
                 headers,
                 body,
+                BuildAuth(),
                 Math.Min(_segmentStart, startLine),
                 startLine,
                 Math.Max(startLine, _index)));
 
-            // All three belong to the request just built. Leaving any of them set would
+            // All four belong to the request just built. Leaving any of them set would
             // silently attach this request's name to the next one, and a chain reference
             // that resolves to the wrong request is worse than one that fails to resolve.
+            // The auth block is the sharper case of the same thing: it would send the next
+            // request a bearer token it never asked for.
             _pendingName = null;
             _pendingTitle = null;
+            _pendingAuth = null;
             _segmentStart = Math.Max(startLine, _index) + 1;
         }
 
@@ -621,11 +636,228 @@ public static partial class RequestDocumentParser
                 return true;
             }
 
+            if (TryReadAuthDirective(directive, argument))
+            {
+                return true;
+            }
+
             _diagnostics.Add(ParseDiagnostic.Warning(
                 $"'@{directive}' is not supported yet and is being ignored.",
                 LineNumber));
 
             return true;
+        }
+
+        /// <summary>
+        /// Recognises the <c># @auth oauth2</c> block and the directives that configure it.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// A divergence from the reference dialect, which has no syntax for this at all —
+        /// recorded in <c>docs/http-dialect.md</c>. One directive per parameter rather than
+        /// a positional line, because the positional form puts a client id and a client
+        /// secret next to each other with nothing but order distinguishing them, and
+        /// getting that wrong sends the secret as the id.
+        /// </para>
+        /// <para>
+        /// The configuration directives are recognised only after <c># @auth</c> has been
+        /// seen. A <c># @client-secret</c> on its own is a mistake worth reporting rather
+        /// than a comment worth ignoring: a document that quietly does not authenticate
+        /// fails at the API, several layers from the line that caused it.
+        /// </para>
+        /// </remarks>
+        private bool TryReadAuthDirective(string directive, string argument)
+        {
+            if (string.Equals(directive, "auth", StringComparison.OrdinalIgnoreCase))
+            {
+                ReadAuthStart(argument);
+                return true;
+            }
+
+            if (!AuthDirectives.Contains(directive, StringComparer.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            if (_pendingAuth is null)
+            {
+                _diagnostics.Add(ParseDiagnostic.Error(
+                    $"'@{directive}' only means something under '# @auth oauth2'. Add that line above it.",
+                    LineNumber));
+
+                return true;
+            }
+
+            if (argument.Length == 0)
+            {
+                _diagnostics.Add(ParseDiagnostic.Error($"'@{directive}' needs a value.", LineNumber));
+                return true;
+            }
+
+            ApplyAuthDirective(directive, argument);
+            return true;
+        }
+
+        private void ReadAuthStart(string argument)
+        {
+            if (_pendingAuth is not null)
+            {
+                _diagnostics.Add(ParseDiagnostic.Error(
+                    "This request already has an '@auth' block. A request authenticates one way.",
+                    LineNumber));
+
+                return;
+            }
+
+            // 'oauth2' and 'oauth2 client_credentials' both mean the one grant Sling
+            // implements. Accepting the longer spelling costs nothing and is what somebody
+            // writes when they are being explicit about which flow they mean.
+            var scheme = argument.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+            var recognised = scheme.Length > 0
+                && string.Equals(scheme[0], "oauth2", StringComparison.OrdinalIgnoreCase)
+                && (scheme.Length == 1
+                    || (scheme.Length == 2
+                        && string.Equals(scheme[1], "client_credentials", StringComparison.OrdinalIgnoreCase)));
+
+            if (!recognised)
+            {
+                _diagnostics.Add(ParseDiagnostic.Error(
+                    "'@auth' takes 'oauth2' (the client-credentials grant), which is the only "
+                        + "flow Sling performs. The authorization-code flow needs a browser and is "
+                        + "not supported — send the token you already have as a header instead.",
+                    LineNumber));
+
+                return;
+            }
+
+            _pendingAuth = new PendingAuth { Line = LineNumber };
+        }
+
+        private void ApplyAuthDirective(string directive, string argument)
+        {
+            var auth = _pendingAuth!;
+
+            switch (directive.ToLowerInvariant())
+            {
+                case "token-url":
+                    auth.TokenUrl = argument;
+                    break;
+
+                case "client-id":
+                    auth.ClientId = argument;
+                    break;
+
+                case "client-secret":
+                    auth.ClientSecret = argument;
+                    break;
+
+                case "scope":
+                    auth.Scope = argument;
+                    break;
+
+                case "audience":
+                    auth.Audience = argument;
+                    break;
+
+                case "client-auth":
+                    if (string.Equals(argument, "basic", StringComparison.OrdinalIgnoreCase))
+                    {
+                        auth.Placement = ClientAuthPlacement.BasicHeader;
+                    }
+                    else if (string.Equals(argument, "body", StringComparison.OrdinalIgnoreCase))
+                    {
+                        auth.Placement = ClientAuthPlacement.FormBody;
+                    }
+                    else
+                    {
+                        _diagnostics.Add(ParseDiagnostic.Error(
+                            $"'@client-auth' takes 'basic' or 'body', not '{argument}'.",
+                            LineNumber));
+                    }
+
+                    break;
+
+                default:
+                    // Unreachable: the caller has already matched against AuthDirectives.
+                    // Kept so adding a name to that list without a case here is a build
+                    // error rather than a directive that silently does nothing.
+                    throw new InvalidOperationException($"'@{directive}' is listed as an auth directive but not handled.");
+            }
+        }
+
+        /// <summary>
+        /// Turns the accumulated <c># @auth</c> directives into a grant, reporting anything
+        /// missing.
+        /// </summary>
+        /// <remarks>
+        /// The three required fields are checked here rather than as each line is read,
+        /// because a directive that has not been reached yet is not missing. Reporting is
+        /// against the <c># @auth</c> line: that is where the block was opened and where a
+        /// reader looks to see what it declares.
+        /// </remarks>
+        private OAuth2Grant? BuildAuth()
+        {
+            if (_pendingAuth is not { } auth)
+            {
+                return null;
+            }
+
+            var missing = new List<string>();
+
+            if (string.IsNullOrEmpty(auth.TokenUrl))
+            {
+                missing.Add("@token-url");
+            }
+
+            if (string.IsNullOrEmpty(auth.ClientId))
+            {
+                missing.Add("@client-id");
+            }
+
+            if (string.IsNullOrEmpty(auth.ClientSecret))
+            {
+                missing.Add("@client-secret");
+            }
+
+            if (missing.Count > 0)
+            {
+                _diagnostics.Add(ParseDiagnostic.Error(
+                    $"This '@auth oauth2' block is missing {string.Join(", ", missing)}.",
+                    auth.Line));
+
+                return null;
+            }
+
+            return new OAuth2Grant(
+                auth.TokenUrl!,
+                auth.ClientId!,
+                auth.ClientSecret!,
+                auth.Scope,
+                auth.Audience,
+                auth.Placement,
+                auth.Line);
+        }
+
+        /// <summary>
+        /// The <c># @auth</c> block being accumulated, before it is complete enough to be
+        /// an <see cref="OAuth2Grant"/>.
+        /// </summary>
+        private sealed class PendingAuth
+        {
+            public int Line { get; init; }
+
+            public string? TokenUrl { get; set; }
+
+            public string? ClientId { get; set; }
+
+            public string? ClientSecret { get; set; }
+
+            public string? Scope { get; set; }
+
+            public string? Audience { get; set; }
+
+            public ClientAuthPlacement Placement { get; set; } = ClientAuthPlacement.BasicHeader;
         }
 
         private static bool IsSeparator(string line) => line.StartsWith("###", StringComparison.Ordinal);

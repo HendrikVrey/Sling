@@ -1,4 +1,6 @@
 using System.Globalization;
+using Sling.Core.Auth;
+using Sling.Core.Cookies;
 using Sling.Core.Documents;
 using Sling.Core.Variables;
 
@@ -45,6 +47,7 @@ public sealed class RequestRunner : IDisposable
 
     private readonly RequestSender _sender;
     private readonly ResponseStore _responses = new();
+    private readonly TokenCache _tokens = new();
 
     public RequestRunner(SendOptions? options = null)
         : this(new RequestSender(options))
@@ -54,9 +57,55 @@ public sealed class RequestRunner : IDisposable
     internal RequestRunner(RequestSender sender) => _sender = sender;
 
     /// <summary>
-    /// Forgets every stored response, so the next send re-runs its chain from the start.
+    /// The bounds every send is subject to. Settable so the settings panel can change a
+    /// timeout without the connection pool being rebuilt.
     /// </summary>
-    public void ForgetResponses() => _responses.Clear();
+    public SendOptions Options
+    {
+        get => _sender.Options;
+        set => _sender.Options = value;
+    }
+
+    /// <summary>
+    /// The cookie jar in force, or null when cookies are switched off.
+    /// </summary>
+    /// <remarks>
+    /// Owned by the caller and swapped when the environment changes, which is what makes
+    /// the per-environment scoping in <c>Sling.md</c> §5.6 structural: two environments
+    /// cannot share cookies because they do not share a jar.
+    /// </remarks>
+    public CookieJar? Cookies { get; set; }
+
+    /// <summary>
+    /// Forgets everything this session has accumulated about the document: stored
+    /// responses and cached access tokens alike.
+    /// </summary>
+    /// <remarks>
+    /// The two go together and must never be cleared separately. Both are keyed by things
+    /// that mean different things under a different environment or a different file — a
+    /// response is keyed by an <c>@name</c> that is per-file, and a token is keyed by a
+    /// grant whose <c>{{client_secret}}</c> resolved under one environment. A token
+    /// fetched against staging is a valid-looking bearer token; a request that reused it
+    /// after a switch would send it to production.
+    /// </remarks>
+    public void ForgetSession()
+    {
+        _responses.Clear();
+        _tokens.Clear();
+    }
+
+    /// <summary>
+    /// Every access token minted this session, so redaction can recognise one wherever it
+    /// appears.
+    /// </summary>
+    /// <remarks>
+    /// Every token, not every <em>cached</em> token — a token with no stated lifetime is
+    /// deliberately not cached and is exactly as sensitive as one that is. A token reaches
+    /// history as the value of an <c>Authorization</c> header, which the header-name rule
+    /// already removes; this is the second line, and it is the one that catches a token
+    /// echoed back in a <c>Location</c> header or some header nobody has a rule for.
+    /// </remarks>
+    public IReadOnlyList<string> AcquiredTokens() => _tokens.AccessTokens();
 
     /// <param name="context">
     /// The selected environment and the files a body may import. Its
@@ -73,7 +122,7 @@ public sealed class RequestRunner : IDisposable
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(context);
 
-        var state = new RunState([], [], new HashSet<string>(StringComparer.Ordinal));
+        var state = new RunState([], [], [], new HashSet<string>(StringComparer.Ordinal));
 
         await RunOneAsync(
             document,
@@ -82,22 +131,96 @@ public sealed class RequestRunner : IDisposable
             state,
             cancellationToken).ConfigureAwait(false);
 
-        return new RunResult(state.Exchanges, state.Errors);
+        return new RunResult(state.Exchanges, state.Errors, state.Notes);
+    }
+
+    /// <summary>
+    /// Sends <paramref name="requests"/> in order, in one run.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// One run, not several: the exchanges, the stored responses and the cycle guard are
+    /// shared, so a chain dependency that has already been satisfied is not sent twice and
+    /// every exchange lands in one picker in the order it happened.
+    /// </para>
+    /// <para>
+    /// <strong>A failure does not stop the run.</strong> Half a document sent and half not
+    /// is the worst outcome to be left with, and the reason someone presses run-all is
+    /// usually to find out which requests are broken — stopping at the first would answer
+    /// that one request at a time. Everything that failed is in
+    /// <see cref="RunResult.Errors"/>, against the line it failed on.
+    /// </para>
+    /// <para>
+    /// Cancellation <em>does</em> stop it, immediately: that is an instruction rather than
+    /// a failure, and it propagates out of the loop untouched.
+    /// </para>
+    /// <para>
+    /// The caller chooses which requests to include, because deciding a request cannot be
+    /// sent is the document's business and not the runner's — the editor already filters
+    /// out the ones whose own lines hold errors.
+    /// </para>
+    /// </remarks>
+    public async Task<RunResult> RunAllAsync(
+        RequestDocument document,
+        IReadOnlyList<RequestBlock> requests,
+        ResolutionContext context,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        ArgumentNullException.ThrowIfNull(requests);
+        ArgumentNullException.ThrowIfNull(context);
+
+        var state = new RunState([], [], [], new HashSet<string>(StringComparer.Ordinal));
+        var resolved = context with { Responses = _responses };
+
+        foreach (var request in requests)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            // A named request already sent during this run was sent as somebody's
+            // dependency, and its own turn is not a second reason to send it. Only within
+            // this run: the response store outlives it, and a later run-all is a fresh
+            // instruction that must send everything again.
+            //
+            // Without this, a document whose 'login' is declared *below* the request that
+            // chains against it logs in twice — a duplicated POST against a live API, and
+            // on an identity provider that rotates on issue, a token invalidated the moment
+            // after the request that used it.
+            if (request.Name is not null && state.Sent.Contains(request.Name))
+            {
+                continue;
+            }
+
+            await RunOneAsync(document, request, resolved, state, cancellationToken).ConfigureAwait(false);
+        }
+
+        return new RunResult(state.Exchanges, state.Errors, state.Notes);
     }
 
     public void Dispose() => _sender.Dispose();
 
     /// <summary>
-    /// What one call to <see cref="RunAsync"/> accumulates as it walks a chain.
+    /// What one call to <see cref="RunAsync"/> or <see cref="RunAllAsync"/> accumulates as
+    /// it walks a chain.
     /// </summary>
     /// <param name="InProgress">
     /// Named requests currently on the stack, which is how a chain that depends on itself
     /// is told apart from a diamond that merely visits the same login twice.
     /// </param>
+    /// <param name="Sent">
+    /// Named requests this run has already sent, which is what stops <c>RunAllAsync</c>
+    /// sending one a second time when its own turn comes round after it was pulled in as a
+    /// dependency. Distinct from <paramref name="InProgress"/>, which empties as the stack
+    /// unwinds; this one only grows.
+    /// </param>
     private sealed record RunState(
         List<Exchange> Exchanges,
         List<ParseDiagnostic> Errors,
-        HashSet<string> InProgress);
+        List<string> Notes,
+        HashSet<string> InProgress)
+    {
+        public HashSet<string> Sent { get; } = new(StringComparer.Ordinal);
+    }
 
     private async Task<bool> RunOneAsync(
         RequestDocument document,
@@ -203,13 +326,31 @@ public sealed class RequestRunner : IDisposable
     {
         try
         {
-            var response = await _sender.SendAsync(resolved, cancellationToken).ConfigureAwait(false);
+            // The grant is satisfied first, and inside the same try: a failure fetching a
+            // token is a failure of this request, reported against the line that declared
+            // the grant, and the request must not go out without the Authorization header
+            // it asked for — one that quietly goes out unauthenticated fails at the API
+            // with a message about permissions and no mention of the token.
+            if (resolved.Auth is { } grant)
+            {
+                var token = await AcquireTokenAsync(grant, state, cancellationToken).ConfigureAwait(false);
+                if (token is null)
+                {
+                    return false;
+                }
 
-            state.Exchanges.Add(new Exchange(resolved, response));
+                resolved = WithBearer(resolved, token);
+            }
+
+            var outcome = await _sender.SendAsync(resolved, Cookies, cancellationToken).ConfigureAwait(false);
+
+            state.Exchanges.Add(new Exchange(resolved, outcome.Response, DateTimeOffset.UtcNow));
+            state.Notes.AddRange(outcome.CookieNotes);
 
             if (resolved.Name is not null)
             {
-                _responses.Store(resolved.Name, response);
+                _responses.Store(resolved.Name, outcome.Response);
+                state.Sent.Add(resolved.Name);
             }
 
             return true;
@@ -252,6 +393,113 @@ public sealed class RequestRunner : IDisposable
             state.Errors.Add(ParseDiagnostic.Error($"The request could not be sent: {ex.Message}", source.StartLine));
             return false;
         }
+    }
+
+    /// <summary>
+    /// Gets an access token for <paramref name="grant"/>, from the cache or from the
+    /// authorization server.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The token request goes through <see cref="RequestSender"/> like any other request,
+    /// so it gets the same redirect policy, the same cross-origin credential stripping and
+    /// the same timeout — and it lands in <see cref="RunResult.Exchanges"/>, because a
+    /// network call Sling made on the user's behalf has to be visible. That is the same
+    /// rule chained dependencies follow.
+    /// </para>
+    /// <para>
+    /// It carries no cookie jar. A token endpoint has no session to maintain, and a jar
+    /// scoped to the API's own environment has no business sending cookies to the identity
+    /// provider.
+    /// </para>
+    /// <para>
+    /// Exceptions are deliberately not caught here. The caller's <c>try</c> already maps
+    /// every network failure to a diagnostic, and catching them twice would produce two
+    /// descriptions of one failure with the less specific one arriving second.
+    /// </para>
+    /// </remarks>
+    /// <returns>The token, or null with a diagnostic already recorded.</returns>
+    private async Task<OAuth2Token?> AcquireTokenAsync(
+        ResolvedOAuth2Grant grant,
+        RunState state,
+        CancellationToken cancellationToken)
+    {
+        var key = grant.CacheKey;
+
+        if (_tokens.Find(key, DateTimeOffset.UtcNow) is { } cached)
+        {
+            return cached;
+        }
+
+        var request = OAuth2TokenRequest.Build(grant);
+        var outcome = await _sender.SendAsync(request, cookies: null, cancellationToken).ConfigureAwait(false);
+        var response = outcome.Response;
+
+        state.Exchanges.Add(new Exchange(request, response, DateTimeOffset.UtcNow));
+
+        // A redirect is not followed here — see ResolvedRequest.FollowRedirects — so it
+        // arrives as the response. Named separately from any other unsuccessful status
+        // because "the authorization server answered 307" reads like a server fault when
+        // it is a token URL that needs correcting, and following it is precisely what
+        // would hand the client secret to whoever the Location names.
+        if (response.StatusCode is >= 300 and <= 399)
+        {
+            state.Errors.Add(ParseDiagnostic.Error(
+                $"The token endpoint answered {response.StatusCode.ToString(CultureInfo.InvariantCulture)} "
+                    + "with a redirect, which Sling does not follow for a token request — the client "
+                    + "secret would go wherever it pointed. Put the final URL in '@token-url'.",
+                grant.Line));
+
+            return null;
+        }
+
+        if (!response.IsSuccess)
+        {
+            // The status, not the body. An error body from an authorization server
+            // routinely echoes the client id, and sometimes more.
+            state.Errors.Add(ParseDiagnostic.Error(
+                $"The authorization server answered {response.StatusCode.ToString(CultureInfo.InvariantCulture)} "
+                    + $"{response.ReasonPhrase}. The token exchange is in the response list above.",
+                grant.Line));
+
+            return null;
+        }
+
+        if (!OAuth2Token.TryParseResponse(response.Body, DateTimeOffset.UtcNow, out var token, out var error))
+        {
+            state.Errors.Add(ParseDiagnostic.Error($"The token could not be used: {error}.", grant.Line));
+            return null;
+        }
+
+        _tokens.Record(key, token);
+        return token;
+    }
+
+    /// <summary>
+    /// Attaches the token as an <c>Authorization</c> header.
+    /// </summary>
+    /// <remarks>
+    /// Replaces any <c>Authorization</c> the document wrote rather than adding a second.
+    /// Two of them is a request no server has a defined answer for, and the grant is the
+    /// more specific instruction — a document that declares <c># @auth oauth2</c> and also
+    /// writes the header has said the same thing twice, and the token is the one that is
+    /// current.
+    /// <para>
+    /// The token's characters were checked when <see cref="OAuth2Token"/> was constructed,
+    /// which is the only way to make one. There is no route from a JSON body to this header
+    /// that skips it.
+    /// </para>
+    /// </remarks>
+    private static ResolvedRequest WithBearer(ResolvedRequest request, OAuth2Token token)
+    {
+        var line = request.Auth?.Line ?? 0;
+
+        var headers = request.Headers
+            .Where(h => !h.Name.Equals("Authorization", StringComparison.OrdinalIgnoreCase))
+            .Append(new HeaderField("Authorization", token.HeaderValue, line))
+            .ToList();
+
+        return request with { Headers = headers };
     }
 
     /// <summary>

@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Text;
+using Sling.Core.Auth;
 using Sling.Core.Documents;
 using Sling.Core.Parsing;
 
@@ -51,6 +52,10 @@ public static class RequestResolver
         var target = expander.Expand(request.Target, request.StartLine, FieldKind.Target);
         var headers = ResolveHeaders(request, expander, errors);
 
+        // Expanded here rather than after the checks below, so a grant field holding a
+        // chain reference joins the same missing-response pass every other field uses.
+        var grant = SubstituteAuth(request.Auth, expander);
+
         // Substitution first, with no file opened. A body import whose path still holds an
         // unresolved {{reference}} would otherwise be reported as a missing file, burying
         // the real cause under a symptom — the same reason the URL is checked last.
@@ -87,11 +92,122 @@ public static class RequestResolver
             return new ResolutionResult(null, [], errors);
         }
 
+        ResolvedOAuth2Grant? auth = null;
+        if (grant is not null && !TryBuildGrant(request.Auth!, grant, errors, out auth))
+        {
+            return new ResolutionResult(null, [], errors);
+        }
+
         return new ResolutionResult(
-            new ResolvedRequest(request.Name, request.Method, url, headers, bytes, request.Version),
+            new ResolvedRequest(request.Name, request.Method, url, headers, bytes, request.Version, auth),
             [],
             []);
     }
+
+    /// <summary>
+    /// Substitutes the grant's fields, leaving validation for
+    /// <see cref="TryBuildGrant"/>.
+    /// </summary>
+    /// <remarks>
+    /// The token URL is expanded as a target — same character rules, and the same
+    /// percent-encoding of any value that came from a response, which is what stops a
+    /// chained value retargeting the token request at a host of its choosing.
+    /// <para>
+    /// Everything else is expanded as a body field, meaning no character restrictions. That
+    /// is safe because a client id and secret only ever reach the wire percent-encoded, in
+    /// a form field or inside a base64 Basic credential — there is no syntax left for them
+    /// to break. Restricting characters instead would refuse perfectly ordinary secrets.
+    /// </para>
+    /// </remarks>
+    private static OAuth2Grant? SubstituteAuth(OAuth2Grant? grant, VariableExpander expander)
+    {
+        if (grant is null)
+        {
+            return null;
+        }
+
+        return grant with
+        {
+            TokenUrl = expander.Expand(grant.TokenUrl, grant.Line, FieldKind.Target),
+            ClientId = expander.Expand(grant.ClientId, grant.Line, FieldKind.Body),
+            ClientSecret = expander.Expand(grant.ClientSecret, grant.Line, FieldKind.Body),
+            Scope = grant.Scope is null ? null : expander.Expand(grant.Scope, grant.Line, FieldKind.Body),
+            Audience = grant.Audience is null ? null : expander.Expand(grant.Audience, grant.Line, FieldKind.Body),
+        };
+    }
+
+    /// <summary>
+    /// Validates a substituted grant and turns its token endpoint into a
+    /// <see cref="Uri"/>.
+    /// </summary>
+    /// <param name="asWritten">
+    /// The grant with its values still braced, which is what any diagnostic quotes. The
+    /// substituted grant holds a client secret by definition.
+    /// </param>
+    private static bool TryBuildGrant(
+        OAuth2Grant asWritten,
+        OAuth2Grant resolved,
+        List<ParseDiagnostic> errors,
+        out ResolvedOAuth2Grant? grant)
+    {
+        grant = null;
+
+        if (!Uri.TryCreate(resolved.TokenUrl, UriKind.Absolute, out var tokenUrl))
+        {
+            errors.Add(ParseDiagnostic.Error(
+                $"'@token-url {asWritten.TokenUrl}' is not an absolute URL.",
+                asWritten.Line));
+            return false;
+        }
+
+        if (tokenUrl.UserInfo.Length > 0)
+        {
+            errors.Add(ParseDiagnostic.Error(
+                "A token URL may not carry a username or password before the host. Put the "
+                    + "client credentials in '@client-id' and '@client-secret'.",
+                asWritten.Line));
+            return false;
+        }
+
+        // HTTPS, or a loopback address. A client secret and the token it buys are the two
+        // most valuable strings in the process, and sending them over plain HTTP puts both
+        // on the wire in clear.
+        //
+        // This check covers one hop, which is why the token request refuses to be
+        // redirected — see ResolvedRequest.FollowRedirects. Checking here and following a
+        // 307 would make the rule about where the secret was first addressed rather than
+        // where it actually goes.
+        if (!SecureContext.Is(tokenUrl))
+        {
+            errors.Add(ParseDiagnostic.Error(
+                $"'@token-url' must use https — '{tokenUrl.Scheme}' would send the client secret "
+                    + "in clear. Plain http is allowed only for localhost.",
+                asWritten.Line));
+            return false;
+        }
+
+        grant = new ResolvedOAuth2Grant(
+            tokenUrl,
+            resolved.ClientId,
+            resolved.ClientSecret,
+            NullIfEmpty(resolved.Scope),
+            NullIfEmpty(resolved.Audience),
+            resolved.Placement,
+            asWritten.Line);
+
+        return true;
+    }
+
+    /// <summary>
+    /// A scope or audience that resolved to nothing is absent, not empty.
+    /// </summary>
+    /// <remarks>
+    /// An environment where <c>scope</c> is not set expands <c>{{scope}}</c> to an empty
+    /// string, and sending <c>scope=</c> is not the same request as sending no scope at
+    /// all — some authorization servers reject it and others issue a token with no scopes.
+    /// </remarks>
+    private static string? NullIfEmpty(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value;
 
     /// <summary>
     /// Substitutes variables through the body, leaving the import segments in place with

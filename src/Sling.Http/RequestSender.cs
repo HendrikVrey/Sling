@@ -1,10 +1,22 @@
 using System.Diagnostics;
 using System.Net;
 using System.Text;
+using Sling.Core.Cookies;
 using Sling.Core.Documents;
 using Sling.Core.Variables;
 
 namespace Sling.Http;
+
+/// <summary>
+/// What one send produced: the response, and anything worth telling the user that is not
+/// part of it.
+/// </summary>
+/// <param name="CookieNotes">
+/// Cookies the server tried to set and the jar refused, one sentence each. Kept apart
+/// from a run's errors deliberately — a refused cookie does not stop a request, and a
+/// note appended to the list whose emptiness means "this can be sent" is not a note.
+/// </param>
+public sealed record SendOutcome(ResponseSnapshot Response, IReadOnlyList<string> CookieNotes);
 
 /// <summary>
 /// Sends one resolved request and returns what came back.
@@ -39,7 +51,6 @@ public sealed class RequestSender : IDisposable
     private static readonly string[] BodyHeaders = ["Content-Type", "Content-Length", "Content-Encoding", "Transfer-Encoding"];
 
     private readonly HttpClient _client;
-    private readonly SendOptions _options;
 
     public RequestSender(SendOptions? options = null)
         : this(CreateHandler(), options)
@@ -48,13 +59,29 @@ public sealed class RequestSender : IDisposable
 
     internal RequestSender(HttpMessageHandler handler, SendOptions? options = null)
     {
-        _options = options ?? new SendOptions();
+        Options = options ?? new SendOptions();
 
         // The timeout is enforced with a linked token instead, so a timeout is
         // distinguishable from the user cancelling and the elapsed time reported is the
         // time the whole chain of hops actually took.
         _client = new HttpClient(handler, disposeHandler: true) { Timeout = System.Threading.Timeout.InfiniteTimeSpan };
     }
+
+    /// <summary>
+    /// The bounds every send is subject to. Read once at the start of each send.
+    /// </summary>
+    /// <remarks>
+    /// Settable so the settings panel can change a timeout or a body cap without tearing
+    /// down the <see cref="HttpClient"/> and its connection pool. Every value here is
+    /// applied inside <see cref="SendAsync"/> rather than on the handler, which is what
+    /// makes that possible; the one handler-level bound, its connect timeout, is
+    /// deliberately not a setting.
+    /// <para>
+    /// Not synchronised, and it does not need to be: one run happens at a time, and a
+    /// change made mid-flight would at worst apply from the next send.
+    /// </para>
+    /// </remarks>
+    public SendOptions Options { get; set; }
 
     /// <summary>
     /// The handler every send goes through, with the security-relevant switches set
@@ -71,9 +98,10 @@ public sealed class RequestSender : IDisposable
     {
         AllowAutoRedirect = false,
 
-        // The cookie jar arrives in M3 and is scoped per environment. Until it does,
-        // nothing stores or replays a cookie: an implicit process-wide jar is exactly the
-        // mechanism that would carry a staging cookie to production.
+        // Sling owns its cookie jar; the handler's is switched off and stays off. An
+        // implicit process-wide jar is exactly the mechanism that would carry a staging
+        // cookie to production, and it would also apply the framework's path rules, which
+        // are a prefix match rather than RFC 6265's — see Sling.Core.Cookies.Cookie.
         UseCookies = false,
 
         AutomaticDecompression = DecompressionMethods.All,
@@ -81,14 +109,24 @@ public sealed class RequestSender : IDisposable
         PooledConnectionLifetime = TimeSpan.FromMinutes(5),
     };
 
-    public async Task<ResponseSnapshot> SendAsync(ResolvedRequest request, CancellationToken cancellationToken)
+    /// <param name="cookies">
+    /// The jar for the selected environment, or null when cookies are switched off. Passed
+    /// per send rather than held as state, because the jar changes with the environment and
+    /// a sender holding a stale one would send a staging session to production — the exact
+    /// failure <c>Sling.md</c> §5.6 exists to prevent.
+    /// </param>
+    public async Task<SendOutcome> SendAsync(
+        ResolvedRequest request,
+        CookieJar? cookies,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
 
+        var options = Options;
         var stopwatch = Stopwatch.StartNew();
 
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        deadline.CancelAfter(_options.Timeout);
+        deadline.CancelAfter(options.Timeout);
 
         var url = request.Url;
         var method = request.Method;
@@ -97,21 +135,37 @@ public sealed class RequestSender : IDisposable
         // '< ./file' imported, which is the only place that decision can be made once.
         var body = request.Body;
         var trail = new List<Uri>();
+        var notes = new List<string>();
 
         for (var hop = 0; ; hop++)
         {
-            using var message = BuildMessage(method, url, headers, body, request.Version);
+            // A fresh list per hop, never appended to the one carried between hops. Folding
+            // the jar's cookies into the request's own headers would make them
+            // indistinguishable from a Cookie header the document wrote — so the next hop
+            // would see one and skip the jar, sending the previous origin's cookies to the
+            // new one.
+            var hopHeaders = WithJarCookies(headers, cookies, url);
+
+            using var message = BuildMessage(method, url, hopHeaders, body, request.Version);
             using var response = await _client
                 .SendAsync(message, HttpCompletionOption.ResponseHeadersRead, deadline.Token)
                 .ConfigureAwait(false);
 
-            var next = RedirectTarget(response, url);
-            if (next is null || hop >= _options.MaxRedirects)
+            // Stored per hop, against the URL that produced the response. A redirect chain
+            // that sets a session cookie on the first hop and expects it on the second is
+            // the ordinary shape of a login, and storing only at the end would miss it.
+            StoreCookies(cookies, response, url, notes);
+
+            var next = request.FollowRedirects ? RedirectTarget(response, url) : null;
+            if (next is null || hop >= options.MaxRedirects)
             {
                 // Handing back the 3xx when the budget runs out is deliberate: the user
                 // sees the status and the trail and can decide, which is more useful than
                 // an exception saying a number was exceeded.
-                return await SnapshotAsync(response, url, trail, stopwatch, deadline.Token).ConfigureAwait(false);
+                var snapshot = await SnapshotAsync(response, url, trail, stopwatch, options, deadline.Token)
+                    .ConfigureAwait(false);
+
+                return new SendOutcome(snapshot, notes);
             }
 
             if (!IsSameOrigin(url, next))
@@ -124,6 +178,45 @@ public sealed class RequestSender : IDisposable
             url = next;
             trail.Add(next);
         }
+    }
+
+    /// <summary>
+    /// Adds the jar's cookies for <paramref name="url"/>, unless the request already
+    /// carries a <c>Cookie</c> header.
+    /// </summary>
+    /// <remarks>
+    /// The document wins outright rather than being merged with. Someone who writes a
+    /// <c>Cookie</c> header is saying what this request should carry, and quietly appending
+    /// stored cookies to it would send the session they were trying to override.
+    /// </remarks>
+    private static List<HeaderField> WithJarCookies(List<HeaderField> headers, CookieJar? cookies, Uri url)
+    {
+        if (cookies is null || headers.Any(h => h.Name.Equals("Cookie", StringComparison.OrdinalIgnoreCase)))
+        {
+            return headers;
+        }
+
+        var header = cookies.Header(url, DateTimeOffset.UtcNow);
+        if (header is null)
+        {
+            return headers;
+        }
+
+        return [.. headers, new HeaderField("Cookie", header, 0)];
+    }
+
+    private static void StoreCookies(
+        CookieJar? cookies,
+        HttpResponseMessage response,
+        Uri url,
+        List<string> notes)
+    {
+        if (cookies is null || !response.Headers.TryGetValues("Set-Cookie", out var values))
+        {
+            return;
+        }
+
+        notes.AddRange(cookies.Store(url, values, DateTimeOffset.UtcNow));
     }
 
     public void Dispose() => _client.Dispose();
@@ -276,14 +369,15 @@ public sealed class RequestSender : IDisposable
         return true;
     }
 
-    private async Task<ResponseSnapshot> SnapshotAsync(
+    private static async Task<ResponseSnapshot> SnapshotAsync(
         HttpResponseMessage response,
         Uri finalUrl,
         List<Uri> trail,
         Stopwatch stopwatch,
+        SendOptions options,
         CancellationToken cancellationToken)
     {
-        var (bytes, truncated) = await ReadCappedAsync(response.Content, cancellationToken).ConfigureAwait(false);
+        var (bytes, truncated) = await ReadCappedAsync(response.Content, options, cancellationToken).ConfigureAwait(false);
         stopwatch.Stop();
 
         var body = ResolveEncoding(response.Content.Headers.ContentType?.CharSet).GetString(bytes);
@@ -315,11 +409,12 @@ public sealed class RequestSender : IDisposable
     /// more. Reads one byte past the cap on purpose: that is the only way to tell a body
     /// that exactly fills the cap from one that overflows it.
     /// </summary>
-    private async Task<(byte[] Bytes, bool Truncated)> ReadCappedAsync(
+    private static async Task<(byte[] Bytes, bool Truncated)> ReadCappedAsync(
         HttpContent content,
+        SendOptions options,
         CancellationToken cancellationToken)
     {
-        var cap = _options.MaxBodyBytes;
+        var cap = options.MaxBodyBytes;
 
         await using var stream = await content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
         using var buffer = new MemoryStream();

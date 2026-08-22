@@ -147,6 +147,25 @@ public sealed class EnvironmentValues : IVariableSource
     public bool IsSecret(string name) => _values.TryGetValue(name, out var found) && found.Secret;
 
     /// <summary>
+    /// Every value that came from the private file, for redaction.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The provenance half of <c>Sling.md</c> §5.4, and the half that is exact: a value the
+    /// user put in the secrets file is a secret because they said so. No guessing about
+    /// which header names look like credentials, and it catches an API key that reached a
+    /// query parameter, where no name-based rule is looking.
+    /// </para>
+    /// <para>
+    /// Values, not names. What has to be recognised is the text <em>after</em> substitution
+    /// — which is what appears in a URL or a header — and by then the variable's name is
+    /// gone.
+    /// </para>
+    /// </remarks>
+    public IReadOnlyList<string> SecretValues() =>
+        [.. _values.Values.Where(v => v.Secret).Select(v => v.Text)];
+
+    /// <summary>
     /// Whether <paramref name="other"/> binds exactly the same names to exactly the same
     /// values.
     /// </summary>

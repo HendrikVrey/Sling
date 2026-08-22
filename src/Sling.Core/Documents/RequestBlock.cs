@@ -29,6 +29,11 @@ namespace Sling.Core.Documents;
 /// string because a <c>&lt; ./file</c> line inside it stands for bytes that are not in
 /// the document at all — see <see cref="BodySegment"/>.
 /// </param>
+/// <param name="Auth">
+/// The OAuth2 client-credentials grant a <c># @auth oauth2</c> block declared, or null.
+/// Its values are still <c>{{braced}}</c>, like every other field here — which is what
+/// keeps a client secret out of any diagnostic that quotes the grant.
+/// </param>
 public sealed record RequestBlock(
     string? Name,
     string? Title,
@@ -37,6 +42,7 @@ public sealed record RequestBlock(
     string? Version,
     IReadOnlyList<HeaderField> Headers,
     IReadOnlyList<BodySegment>? Body,
+    Auth.OAuth2Grant? Auth,
     int FirstLine,
     int StartLine,
     int EndLine)

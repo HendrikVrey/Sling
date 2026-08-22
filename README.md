@@ -35,6 +35,36 @@ No account, no cloud, no sync, no collection tree, no save dialog.
 
 ## Status
 
+**M3 slice 2 — cookies, OAuth2, history, run-all, settings.** Sling keeps a cookie jar
+per environment, by RFC 6265's rules for domain, path and `Secure`, so a cookie set by
+staging cannot reach production. It lives in memory and is discarded when you switch
+environment, open another file, or close the window.
+
+An OAuth2 **client-credentials** grant is four lines above a request:
+
+```http
+# @auth oauth2
+# @token-url {{auth_base}}/oauth2/token
+# @client-id {{client_id}}
+# @client-secret {{client_secret}}
+GET {{base}}/orders
+```
+
+Sling fetches the token, attaches it, caches it until it expires, and shows the token
+exchange in the response pane like any other call it makes on your behalf. Tokens are
+never written to disk. The authorization-code flow is not supported and is not planned.
+
+`Ctrl+Shift+Enter` sends every request in the file in one run — shared chain responses, so
+a dependency already satisfied is not sent twice, and a failure does not stop the rest.
+
+`Ctrl+H` shows the local history in the response buffer: what was sent, when, and what
+came back. Credentials are removed before anything is written, and **no request or
+response body is stored at all** — a login response body *is* the token, and a redactor
+that has to recognise credentials inside arbitrary payloads is a guess that fails
+silently. `Ctrl+,` opens settings: timeout, response cap, redirects, and switches for
+cookies and history. [docs/history.md](docs/history.md) has all of it, including what
+redaction does and does not catch.
+
 **M3 slice 1 — files on disk, environments, and file bodies.** `Ctrl+Shift+O` opens a
 folder of `.http` files; `Ctrl+O` opens one; `Ctrl+S` saves, with a dirty marker in the
 title. Saving is explicit rather than continuous — a `.http` file is a git artifact, and
@@ -72,10 +102,24 @@ express becomes a comment saying what was dropped;
 [docs/curl-import.md](docs/curl-import.md) has the rules, including the two flags it
 deliberately refuses.
 
-Not there yet: cookies, OAuth2, and saved history. Those are M3 slice 2.
+Still to come: the Postman collection importer (M4) and a release build (M5).
 
 The exact dialect Sling reads, and every place it differs from the VS Code REST Client,
 is written down in [docs/http-dialect.md](docs/http-dialect.md).
+
+## Keys
+
+| | |
+|---|---|
+| `Ctrl+Enter` | Send the request under the caret |
+| `Ctrl+Shift+Enter` | Send every request in the file |
+| `Esc` | Cancel the run, or close settings |
+| `Ctrl+O` / `Ctrl+Shift+O` | Open a file / a folder |
+| `Ctrl+S` / `Ctrl+Shift+S` | Save / save as |
+| `Ctrl+N` | New document |
+| `Ctrl+F` | Find, in either pane |
+| `Ctrl+H` | Show the local history |
+| `Ctrl+,` | Settings |
 
 ## Who this is for
 
@@ -107,8 +151,11 @@ later:
 - **`Authorization`, `Cookie` and `Proxy-Authorization` are dropped on a cross-origin
   redirect.**
 - **TLS validation is on by default**; any bypass is per-request and shown while active.
-- **Cookies are scoped per environment** — a staging cookie never reaches production.
+- **Cookies are scoped per environment** — a staging cookie never reaches production,
+  because the two do not share a jar.
 - **Response bodies render as text**, never into a browser control.
+- **History stores no bodies, and credentials are redacted before anything is written.**
+- **Access tokens and cookies never touch the disk.**
 - No telemetry, no update ping, no crash upload.
 
 ## Building

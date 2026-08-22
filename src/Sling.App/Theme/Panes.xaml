@@ -22,6 +22,25 @@
         <Setter Property="ClipToBounds" Value="True" />
     </Style>
 
+    <!--
+        The settings overlay's two text roles. Styles rather than attributes repeated on
+        each element, so the spacing between a label and the control under it is one
+        number in one place — that overlay is the only screen in Sling with a vertical
+        rhythm to keep, and it has eight of them.
+    -->
+    <Style x:Key="SettingsLabelStyle" TargetType="TextBlock">
+        <Setter Property="Margin" Value="0,16,0,6" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Opacity" Value="0.7" />
+    </Style>
+
+    <Style x:Key="SettingsHintStyle" TargetType="TextBlock">
+        <Setter Property="Margin" Value="0,6,0,0" />
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="Opacity" Value="0.45" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+
     <Style x:Key="PaneEditorStyle" TargetType="{x:Type avalon:TextEditor}">
         <!--
             Cascadia Code first, Consolas as the fallback that exists on every Windows

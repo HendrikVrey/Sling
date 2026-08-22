@@ -220,12 +220,18 @@ public partial class MainWindow
     /// Changes the environment in force, dropping anything resolved under the old one.
     /// </summary>
     /// <remarks>
-    /// The one place the selection changes, because forgetting the stored responses is not
-    /// optional and there are three ways to arrive here: the combo box, an environment
-    /// that vanished from the file, and an environment file that stopped defining any. A
-    /// token fetched against staging is a valid-looking bearer token, and a chained
-    /// request that reused it after a switch would send it to production — the same class
-    /// of leak the per-environment cookie jar exists to prevent.
+    /// The one place the selection changes, because forgetting what the old one produced
+    /// is not optional and there are three ways to arrive here: the combo box, an
+    /// environment that vanished from the file, and an environment file that stopped
+    /// defining any. A token fetched against staging is a valid-looking bearer token, and a
+    /// chained request that reused it after a switch would send it to production.
+    /// <para>
+    /// Three things are dropped and they are the same hazard three times over: stored
+    /// responses, cached access tokens, and the cookie jar. <c>Sling.md</c> §5.6 scopes the
+    /// jar per environment for exactly this reason — a session cookie carried across a
+    /// switch is a credential the receiving server cannot tell was meant for somewhere
+    /// else.
+    /// </para>
     /// </remarks>
     private void SelectEnvironment(string? name)
     {
@@ -235,7 +241,8 @@ public partial class MainWindow
         }
 
         _selectedEnvironment = name;
-        _runner.ForgetResponses();
+        _runner.ForgetSession();
+        ResetCookieJar();
     }
 
     private async Task NewDocumentAsync()
@@ -303,9 +310,20 @@ public partial class MainWindow
         }
     }
 
+    /// <summary>Opens a folder, and drops everything that belonged to the last one.</summary>
+    /// <remarks>
+    /// A different folder is a different set of APIs. Leaving this to
+    /// <see cref="ReloadEnvironments"/> was not enough: it resets only when the selected
+    /// environment's <em>values</em> change, and two folders that define no environments at
+    /// all both select an empty set — so opening the second kept the first one's cookies
+    /// and tokens, in a window whose file rail said it was somewhere else.
+    /// </remarks>
     private void SetWorkspace(Workspace workspace)
     {
         _workspace = workspace;
+        _runner.ForgetSession();
+        ResetCookieJar();
+
         FilesRail.Visibility = Visibility.Visible;
         FilesLabel.Text = Path.GetFileName(workspace.Root.TrimEnd(Path.DirectorySeparatorChar)).ToUpperInvariant();
         FilesLabel.ToolTip = workspace.Root;
@@ -362,7 +380,8 @@ public partial class MainWindow
 
         _documentPath = path;
         _dirty = false;
-        _runner.ForgetResponses();
+        _runner.ForgetSession();
+        ResetCookieJar();
 
         SelectOpenFileInList();
         UpdateTitle();
@@ -529,7 +548,8 @@ public partial class MainWindow
         // the same reason switching environments does.
         if (!before.HasSameValuesAs(_environments.Select(_selectedEnvironment)))
         {
-            _runner.ForgetResponses();
+            _runner.ForgetSession();
+            ResetCookieJar();
         }
 
         // Sling.md §5.1. Saying so out loud matters as much as doing it, because this
