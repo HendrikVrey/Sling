@@ -1,5 +1,3 @@
-using System.Text;
-
 namespace Sling.Import.Curl;
 
 /// <summary>
@@ -342,7 +340,9 @@ internal sealed class CurlRequest
     /// with a 401 the user then debugs — but converted loudly. The whole premise of the
     /// <c>.http</c> format is that the file gets committed, and this writes a working
     /// credential into it (<c>Sling.md</c> §5.1). Saying so at the point it happens is the
-    /// only honest option until the secrets file exists in M3.
+    /// only honest option here: a paste produces one request and nowhere to put a secret.
+    /// The Postman importer moves credentials into <c>http-client.private.env.json</c>
+    /// instead, and can do that only because it produces a whole workspace.
     /// </remarks>
     internal void SetBasicAuth(string credentials)
     {
@@ -367,8 +367,11 @@ internal sealed class CurlRequest
     {
         var clean = StripControl(part);
 
-        Note(
-            $"A multipart form field was dropped, because multipart bodies arrive in M3: {clean}");
+        // Sling can send a multipart body — it is written out with a '< ./file' per part —
+        // but generating the boundary, the parts and the imports from -F is its own piece of
+        // work, and a half-right multipart body is worse than a note saying what was dropped.
+        // The Postman importer does generate one; this does not yet.
+        Note($"A multipart form field was dropped: {clean}");
     }
 
     /// <summary>
@@ -434,57 +437,11 @@ internal sealed class CurlRequest
     /// Removes CR, LF and other control characters from a value taken out of the command.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b>This is a security boundary, not tidying.</b> The output is a newline-delimited
-    /// document: a header value containing a line break would become an additional header
-    /// line, and a URL containing one would end the request line early. A curl command is
-    /// untrusted input — it comes from a chat message or a web page as often as from the
-    /// user's own shell history — so a crafted one must not be able to write structure
-    /// into the file the user is about to trust and send.
-    /// </para>
-    /// <para>
-    /// Stripped rather than rejected, and rejected rather than escaped: there is no escape
-    /// mechanism in a header field, and refusing the whole import over one stray character
-    /// would be a worse outcome than importing the value without it. The removal is
-    /// invisible in the output by design — the value is simply the value, minus characters
-    /// that could never have been part of it.
-    /// </para>
+    /// <b>This is a security boundary, not tidying</b>, and it now has one home for both
+    /// importers — see <see cref="TextSafety.StripControl"/>, which carries the reasoning
+    /// and the reason it moved. The forwarder stays because every call site here reads as
+    /// a statement about a curl value.
     /// </remarks>
-    internal static string StripControl(string value, bool keepLineBreaks = false)
-    {
-        // Tab survives everywhere: it is legal inside a header value and appears in real
-        // ones. A line feed survives only in a body, where it is content rather than
-        // structure. A carriage return never survives — the document is written with \n
-        // line endings, and a lone \r inside a value is invisible and confusing.
-        static bool Keep(char c, bool keepLineBreaks) =>
-            !char.IsControl(c) || c == '\t' || (keepLineBreaks && c == '\n');
-
-        var needsWork = false;
-
-        foreach (var c in value)
-        {
-            if (!Keep(c, keepLineBreaks))
-            {
-                needsWork = true;
-                break;
-            }
-        }
-
-        if (!needsWork)
-        {
-            return value;
-        }
-
-        var clean = new StringBuilder(value.Length);
-
-        foreach (var c in value)
-        {
-            if (Keep(c, keepLineBreaks))
-            {
-                clean.Append(c);
-            }
-        }
-
-        return clean.ToString();
-    }
+    internal static string StripControl(string value, bool keepLineBreaks = false) =>
+        TextSafety.StripControl(value, keepLineBreaks);
 }

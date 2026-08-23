@@ -61,11 +61,18 @@ public sealed class ArchitectureTests
                 + "one project.");
     }
 
-    [Fact]
-    public void Core_does_not_reach_for_the_disk()
+    /// <summary>
+    /// <c>Sling.Import</c> is held to this as well as <c>Sling.Core</c>, and it has a reason
+    /// of its own: an importer that can read files is an importer a hostile collection can
+    /// aim at one. Being pure text-to-text is also what lets it be tested against a corpus.
+    /// </summary>
+    [Theory]
+    [InlineData("Sling.Core")]
+    [InlineData("Sling.Import")]
+    public void Pure_projects_do_not_reach_for_the_disk(string project)
     {
         AssertNoMatch(
-            "Sling.Core",
+            project,
             new Regex(@"\b(File|Directory|FileStream|FileInfo)\s*\.", RegexOptions.Compiled),
             "Disk I/O belongs in Sling.Persistence. Keeping it there is what lets the "
                 + "'secrets never land in a committed file' rule be checked by reading one "

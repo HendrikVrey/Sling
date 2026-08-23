@@ -16,6 +16,14 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Sling.Core\Sling.Core.csproj" />
+    <!--
+      ImportStore puts the files a Postman import produced on disk. The importer is
+      pure by design, so somebody has to own that write, and this is the project that
+      owns writes — doing it from Sling.App instead would put file-system calls in the
+      UI and break the property that makes the secrets rule checkable by reading one
+      project.
+    -->
+    <ProjectReference Include="..\Sling.Import\Sling.Import.csproj" />
   </ItemGroup>
 
   <ItemGroup>

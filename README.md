@@ -35,6 +35,30 @@ No account, no cloud, no sync, no collection tree, no save dialog.
 
 ## Status
 
+**M4 — the Postman importer.** `Ctrl+I`, pick your collection export and its environment
+exports in the same dialog, pick a folder. Sling writes the `.http` files, writes both
+environment files, and opens the folder.
+
+A collection becomes a folder of files: requests at the root go into one named after the
+collection, a folder `Orders` becomes `orders.http`, `Orders / Refunds` becomes
+`orders/refunds.http`. Bodies come across in every mode Postman has, including form-data —
+which becomes a real multipart body, because that is how the `.http` format expresses one.
+Auth comes across too, inherited the way Postman inherits it, and an OAuth 2.0
+client-credentials block becomes a real `# @auth oauth2` grant.
+
+**No credential is ever written into a `.http` file.** An export routinely carries a live
+token in plain text, and an imported document is meant to be committed — so every literal
+credential moves into the gitignored `http-client.private.env.json` and the request gets a
+`{{name}}`. Read both environment files before you commit: Postman only marks a value
+secret when its owner ticked the box, so anything whose *name* reads like a credential is
+treated as one too.
+
+Scripts are not run — that is a non-goal, not a gap — but they are copied into the document
+as comments so you can see what they did. Everything else the importer cannot do exactly
+becomes a comment naming what was lost. Nothing is dropped silently.
+[docs/postman-import.md](docs/postman-import.md) has the whole account, including what a
+collection can and cannot make Sling do with it.
+
 **M3 slice 2 — cookies, OAuth2, history, run-all, settings.** Sling keeps a cookie jar
 per environment, by RFC 6265's rules for domain, path and `Secure`, so a cookie set by
 staging cannot reach production. It lives in memory and is discarded when you switch
@@ -102,7 +126,7 @@ express becomes a comment saying what was dropped;
 [docs/curl-import.md](docs/curl-import.md) has the rules, including the two flags it
 deliberately refuses.
 
-Still to come: the Postman collection importer (M4) and a release build (M5).
+Still to come: a release build (M5).
 
 The exact dialect Sling reads, and every place it differs from the VS Code REST Client,
 is written down in [docs/http-dialect.md](docs/http-dialect.md).
@@ -115,6 +139,7 @@ is written down in [docs/http-dialect.md](docs/http-dialect.md).
 | `Ctrl+Shift+Enter` | Send every request in the file |
 | `Esc` | Cancel the run, or close settings |
 | `Ctrl+O` / `Ctrl+Shift+O` | Open a file / a folder |
+| `Ctrl+I` | Import a Postman export |
 | `Ctrl+S` / `Ctrl+Shift+S` | Save / save as |
 | `Ctrl+N` | New document |
 | `Ctrl+F` | Find, in either pane |

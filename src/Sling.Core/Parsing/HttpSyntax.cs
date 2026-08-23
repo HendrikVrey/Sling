@@ -7,12 +7,21 @@ namespace Sling.Core.Parsing;
 /// resolver need.
 /// </summary>
 /// <remarks>
+/// <para>
 /// One home on purpose. These predicates are the enforcement point for
 /// <c>Sling.md</c> §5.7 — a value that arrives from a response body must not be able to
 /// inject a header or a request line — and a rule written in two places will eventually
 /// disagree, with the tested copy not necessarily being the one that ships.
+/// </para>
+/// <para>
+/// Public rather than internal because <c>Sling.Import</c> asks the same questions of the
+/// header names it finds inside a Postman collection, and answering them with a private
+/// copy of the predicate is precisely the two-homes failure above. A generated header name
+/// that is not a token would otherwise reach the parser and be refused there, several
+/// layers from the collection that supplied it.
+/// </para>
 /// </remarks>
-internal static class HttpSyntax
+public static class HttpSyntax
 {
     private const char Delete = (char)0x7F;
     private const string TokenPunctuation = "!#$%&'*+-.^_`|~";

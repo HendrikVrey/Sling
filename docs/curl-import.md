@@ -16,15 +16,15 @@ application afterwards and you still get the curl command.
 
 It is the escape hatch for every request not yet migrated. Postman copies as curl,
 browsers copy as curl from the network tab, and API documentation is written in curl — so
-this is the shortest path from anywhere into Sling, and the thing that makes dogfooding
-possible before the Postman importer exists (`Sling.md` §4b).
+this is the shortest path from anywhere into Sling (`Sling.md` §4b). For moving a whole
+collection across, see [postman-import.md](postman-import.md).
 
 ## Nothing is dropped silently
 
 Anything the converter cannot express becomes a comment at the top of the request, naming
-what was lost. That is the same rule the Postman importer will follow, and the reason is
-that a silent drop turns an import into a request that *looks* right and behaves
-differently — which is worse than an import that visibly did not finish.
+what was lost. That is the same rule the Postman importer follows, and the reason is that
+a silent drop turns an import into a request that *looks* right and behaves differently —
+which is worse than an import that visibly did not finish.
 
 ```
 # --insecure was NOT applied. Sling verifies TLS certificates and has no global way to
@@ -68,11 +68,11 @@ converted rather than dropped — a request that silently loses its credentials 
 gitignored `http-client.private.env.json` and referencing it as `{{name}}` is manual; see
 [environments.md](environments.md).
 
-**`-F` / `--form` fields are named, not converted.** Sling can now *send* a multipart body
-— written out with a `< ./file` per part, which is how the `.http` format expresses one —
-but the importer still names these fields rather than generating the boundary, the parts
-and the imports for them. Converting `-F` is its own piece of work, and a half-right
-multipart body is worse than a note saying what was dropped.
+**`-F` / `--form` fields are named, not converted.** Sling *sends* multipart bodies —
+written out with a `< ./file` per part, which is how the `.http` format expresses one — and
+the [Postman importer](postman-import.md) generates them. Converting `-F` is its own piece
+of work and has not been done; a half-right multipart body is worse than a note saying what
+was dropped.
 
 **File references are dropped.** `-d @payload.json`, `--data-urlencode name@file` and
 `-b cookies.txt` all read from disk, and the importer does no I/O — it is a pure

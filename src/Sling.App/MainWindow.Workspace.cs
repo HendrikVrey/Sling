@@ -105,6 +105,10 @@ public partial class MainWindow
                 RunGuarded(shift ? OpenFolderAsync : OpenDocumentAsync);
                 return true;
 
+            case Key.I when !shift:
+                RunGuarded(ImportPostmanAsync);
+                return true;
+
             case Key.S:
                 RunGuarded(shift ? () => SaveAsAsync() : () => SaveAsync());
                 return true;
