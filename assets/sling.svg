@@ -1,1 +1,16 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256"><defs><linearGradient id="p" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2C313B"/><stop offset="1" stop-color="#151920"/></linearGradient><linearGradient id="a" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7FE9D4"/><stop offset="1" stop-color="#1B93D8"/></linearGradient></defs><rect x="16" y="16" width="224" height="224" rx="50" fill="url(#p)"/><g fill="url(#a)"><rect x="58.0" y="82.0" width="80.0" height="18.0" rx="7.0"/><rect x="58.0" y="119.0" width="88.0" height="18.0" rx="7.0"/><rect x="58.0" y="156.0" width="62.0" height="18.0" rx="7.0"/><path d="M 144.0 96.0 L 198.0 128.0 L 144.0 160.0 Z" stroke="url(#a)" stroke-width="16.0" stroke-linejoin="round"/></g><rect x="17" y="17" width="222" height="222" rx="49" fill="none" stroke="#ffffff" stroke-opacity="0.10" stroke-width="2"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <defs>
+    <linearGradient id="plate" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="rgb(43, 48, 57)"/>
+      <stop offset="1" stop-color="rgb(21, 24, 29)"/>
+    </linearGradient>
+    <linearGradient id="ink" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="rgb(127, 233, 212)"/>
+      <stop offset="1" stop-color="rgb(27, 147, 216)"/>
+    </linearGradient>
+  </defs>
+  <rect x="14" y="14" width="228" height="228" rx="54" fill="url(#plate)"/>
+  <rect x="14.5" y="14.5" width="227" height="227" rx="54" fill="none" stroke="rgb(58, 64, 74)" stroke-width="1"/>
+  <path d="M 44.00 81.00 L 148.00 81.00 L 148.00 67.00 L 214.00 97.00 L 148.00 127.00 L 148.00 113.00 L 44.00 113.00 Z" fill="url(#ink)"/>
+  <path d="M 212.00 150.00 L 108.00 150.00 L 108.00 137.00 L 42.00 163.00 L 108.00 189.00 L 108.00 176.00 L 212.00 176.00 Z" fill="url(#ink)"/>
+</svg>
