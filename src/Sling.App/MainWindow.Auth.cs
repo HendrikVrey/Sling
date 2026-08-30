@@ -204,17 +204,30 @@ public partial class MainWindow
     }
 
     /// <summary>The sentence naming where the credential is declared.</summary>
-    private static string DescribeOrigin(RequestAuthView view) => view.Origin switch
+    /// <remarks>
+    /// The block is named by the directive that actually opens it. Calling a code-flow block
+    /// <c># @auth oauth2</c> would send somebody looking for a line that is not in their
+    /// document - and it would describe a flow that does not involve them when this one does.
+    /// </remarks>
+    private static string DescribeOrigin(RequestAuthView view)
     {
-        AuthOrigin.Grant =>
-            $"From a '# @auth oauth2' block on line {view.Line.ToString(CultureInfo.InvariantCulture)}. "
-                + "Sling fetches the token and caches it for this session.",
+        var line = view.Line.ToString(CultureInfo.InvariantCulture);
 
-        AuthOrigin.Header =>
-            $"From a '{view.HeaderName}' header on line {view.Line.ToString(CultureInfo.InvariantCulture)}.",
+        return view switch
+        {
+            { Scheme: AuthScheme.AuthorizationCode } =>
+                $"From a '# @auth oauth2-code' block on line {line}. Sending this opens your "
+                    + "browser to sign in, then exchanges the code for a token.",
 
-        _ => "This request sends no credential.",
-    };
+            { Origin: AuthOrigin.Grant } =>
+                $"From a '# @auth oauth2' block on line {line}. Sling fetches the token and "
+                    + "caches it for this session.",
+
+            { Origin: AuthOrigin.Header } => $"From a '{view.HeaderName}' header on line {line}.",
+
+            _ => "This request sends no credential.",
+        };
+    }
 
     /// <summary>
     /// Says whether the variable the credential names actually resolves, and offers to define

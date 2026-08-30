@@ -555,7 +555,9 @@
                                 pane still puts the caret in the document.
                             -->
                             <StackPanel x:Name="EmptyDocument"
+                                        MaxWidth="340"
                                         Margin="14,44,14,14"
+                                        HorizontalAlignment="Left"
                                         VerticalAlignment="Top">
                                 <TextBlock FontSize="12"
                                            IsHitTestVisible="False"
@@ -1499,7 +1501,7 @@
                                        VerticalAlignment="Top"
                                        FontSize="11"
                                        Opacity="0.45"
-                                       Text="No token has been fetched this session. One appears here the first time a request with a '# @auth oauth2' block is sent."
+                                       Text="No token has been fetched this session. One appears here the first time a request with a '# @auth' block is sent."
                                        TextWrapping="Wrap" />
 
                             <ScrollViewer Padding="4" VerticalScrollBarVisibility="Auto">
