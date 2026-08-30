@@ -64,7 +64,7 @@ public sealed class MethodPaletteTests
     public void The_verbs_worth_telling_apart_have_different_colours()
     {
         // A palette that clamps GET and DELETE to the same byte value passes a contrast test
-        // and defeats the point — the reason for colouring verbs at all is that a
+        // and defeats the point - the reason for colouring verbs at all is that a
         // destructive one should not look like a safe one. This is the tripwire
         // SyntaxPalette.RolesAreDistinct is for, applied to the same hazard here.
         var brushes = MethodPalette.Build(Page);

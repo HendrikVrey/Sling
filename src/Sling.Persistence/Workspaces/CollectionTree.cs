@@ -3,7 +3,7 @@ namespace Sling.Persistence.Workspaces;
 /// <summary>What one row in the collections rail stands for on disk.</summary>
 public enum CollectionEntryKind
 {
-    /// <summary>A directory — what Sling calls a collection.</summary>
+    /// <summary>A directory - what Sling calls a collection.</summary>
     Folder,
 
     /// <summary>A <c>.http</c> or <c>.rest</c> document.</summary>
@@ -16,7 +16,7 @@ public enum CollectionEntryKind
 /// <param name="Name">The single path segment this node adds.</param>
 /// <param name="RelativePath">
 /// The whole path from the workspace root, with <c>/</c> separators regardless of platform
-/// — it is joined back onto the root before it is used, and a stable separator is what
+/// - it is joined back onto the root before it is used, and a stable separator is what
 /// makes the tree comparable in a test.
 /// </param>
 /// <param name="Children">Folders first, then documents; each group ordered by name.</param>
@@ -34,7 +34,7 @@ public sealed record CollectionEntry(
 /// <b>This is the whole of "there are no collections", made visible.</b> <c>Sling.md</c> §1
 /// is unchanged: a collection is a folder of <c>.http</c> files, hierarchy is directories,
 /// and sharing is <c>git push</c>. What was missing was a way to <em>see</em> that, which
-/// is a different question from what the artifact is — Postman's tree is a good affordance
+/// is a different question from what the artifact is - Postman's tree is a good affordance
 /// attached to a bad format, and there is no reason to give up the affordance along with
 /// the format.
 /// </para>
@@ -47,7 +47,7 @@ public sealed record CollectionEntry(
 /// <para>
 /// <b>A folder holding no request files is not in the tree</b>, because the walk that feeds
 /// this only reports files. That is the right answer for a checkout full of source
-/// directories, and it is why creating a collection also creates a document inside it —
+/// directories, and it is why creating a collection also creates a document inside it,
 /// see <see cref="WorkspaceEditor"/>.
 /// </para>
 /// </remarks>
@@ -123,7 +123,7 @@ public static class CollectionTree
         public Node Folder(string segment)
         {
             // Keyed case-insensitively because Windows paths are, and the walk that feeds
-            // this reports whatever casing the file system gave it — two spellings of one
+            // this reports whatever casing the file system gave it - two spellings of one
             // directory would otherwise become two collections holding half the files each.
             if (!_folders.TryGetValue(segment, out var child))
             {

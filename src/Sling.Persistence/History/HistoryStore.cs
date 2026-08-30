@@ -24,7 +24,7 @@ namespace Sling.Persistence.History;
 /// </para>
 /// <para>
 /// Everything written here has already been through <see cref="Core.Redaction.Redactor"/>
-/// — a <see cref="HistoryEntry"/> cannot be built any other way. This class does not
+/// - a <see cref="HistoryEntry"/> cannot be built any other way. This class does not
 /// redact and must not start to: two redaction points is one too many, and the second one
 /// is where the rule quietly diverges.
 /// </para>
@@ -41,14 +41,14 @@ public sealed class HistoryStore
     /// <remarks>
     /// <para>
     /// Trimming reads the whole file and rewrites it, which is more work than an append
-    /// deserves — but the setting is called "history entries kept", so the cap has to be a
+    /// deserves - but the setting is called "history entries kept", so the cap has to be a
     /// count and has to be exact. This makes it both: if the file is smaller than the cap
     /// times this number, it <em>cannot</em> hold more than the cap, because no entry is
     /// this small.
     /// </para>
     /// <para>
-    /// The bound holds because the fixed JSON — the eight keys that are always present,
-    /// plus a round-tripped timestamp of thirty-three characters — is already past 150
+    /// The bound holds because the fixed JSON - the eight keys that are always present,
+    /// plus a round-tripped timestamp of thirty-three characters - is already past 150
     /// bytes before any URL, status or header appears. A test asserts it rather than
     /// trusting this paragraph, because a field removed from
     /// <see cref="Serialize"/> would otherwise turn an exact cap into an approximate one
@@ -135,7 +135,7 @@ public sealed class HistoryStore
     /// </summary>
     /// <remarks>
     /// An entry dropped in silence makes this method report success for a run it did not
-    /// record, which is the one thing a log must never do — history that quietly has a
+    /// record, which is the one thing a log must never do - history that quietly has a
     /// hole in it is worse than history that says it has one.
     /// </remarks>
     private static string? DroppedNote(int dropped) =>
@@ -361,7 +361,7 @@ public sealed class HistoryStore
                 element.GetString(),
                 CultureInfo.InvariantCulture,
                 // A round-tripped "o" string carries its own offset. AssumeUniversal covers
-                // the case of a hand-edited line that dropped it — without which the value
+                // the case of a hand-edited line that dropped it - without which the value
                 // would be read as machine-local and the entry would move by hours.
                 DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
                 out var parsed)

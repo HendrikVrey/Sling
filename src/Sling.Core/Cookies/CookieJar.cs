@@ -10,7 +10,7 @@ namespace Sling.Core.Cookies;
 /// <para>
 /// <strong>One jar per environment</strong> (<c>Sling.md</c> §5.6). A cookie set by
 /// staging must not be sent to production, and the reliable way to guarantee that is for
-/// the two never to share storage — not for a check somewhere to remember to compare
+/// the two never to share storage - not for a check somewhere to remember to compare
 /// environments. Sling holds a jar per selected environment and swaps the whole thing
 /// when the selection changes.
 /// </para>
@@ -64,7 +64,7 @@ public sealed class CookieJar
     /// <param name="nowUtc">The instant the response arrived.</param>
     /// <returns>
     /// A sentence per refused cookie. Empty when everything was stored, which is the
-    /// common case — a refusal is worth surfacing because a session that silently does
+    /// common case - a refusal is worth surfacing because a session that silently does
     /// not work is the hardest kind to debug.
     /// </returns>
     public IReadOnlyList<string> Store(
@@ -130,7 +130,7 @@ public sealed class CookieJar
                 return null;
             }
 
-            // Sending is an access, and eviction is by least-recently-used — so a cookie
+            // Sending is an access, and eviction is by least-recently-used - so a cookie
             // that is actually in play must not be the one dropped when the jar fills.
             foreach (var match in matches)
             {
@@ -139,7 +139,7 @@ public sealed class CookieJar
         }
 
         // RFC 6265 §5.4 step 2: longer paths first, then oldest first. Servers are not
-        // supposed to depend on the order, and some do — the specified order is the one
+        // supposed to depend on the order, and some do - the specified order is the one
         // they were written against.
         matches.Sort(static (left, right) =>
         {

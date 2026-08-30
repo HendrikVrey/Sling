@@ -178,7 +178,7 @@ public sealed class RequestRunnerTests
     [Fact]
     public async Task A_url_the_transport_rejects_is_reported_rather_than_lost()
     {
-        // The real trigger is a host holding a character that is illegal under IDN — for
+        // The real trigger is a host holding a character that is illegal under IDN - for
         // example U+FF0F FULLWIDTH SOLIDUS, which Uri.TryCreate accepts and the transport
         // then rejects while resolving IdnHost. A stub handler never resolves a host, so
         // the throw is staged here instead: what is under test is that the catch exists,
@@ -197,7 +197,7 @@ public sealed class RequestRunnerTests
     public async Task A_connection_reset_while_reading_the_body_is_reported_rather_than_lost()
     {
         // With ResponseHeadersRead this arrives from the body read as an IOException, not
-        // from the send as an HttpRequestException — so it missed every catch and
+        // from the send as an HttpRequestException - so it missed every catch and
         // disappeared the same way.
         var handler = new StubHandler((_, _) => new HttpResponseMessage(System.Net.HttpStatusCode.OK)
         {

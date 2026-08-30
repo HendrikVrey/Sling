@@ -31,7 +31,7 @@
       readable at a glance; an icon beside it would take width from a label that already
       trims.
 
-      assets/ holds the .ico, the SVGs and the PNGs — one copy, outside the project. The
+      assets/ holds the .ico, the SVGs and the PNGs - one copy, outside the project. The
       script that emitted them from the geometry was written as a throwaway and is NOT in
       this repository, so the icon cannot currently be regenerated: changing it means
       writing that generator again. Said here rather than left to be discovered, which is
@@ -61,7 +61,7 @@
     <!--
       Sling.md §3: the response buffer runs Etch's transform chain, and Sling.App is
       where that lands. It goes here rather than in Sling.Core because the buffer is a
-      UI object — highlighting, folding and the palette are editor concerns — and
+      UI object - highlighting, folding and the palette are editor concerns - and
       because ArchitectureTests holds Sling.Core to zero package references. Etch.Core
       would qualify on merit (pure, no dependencies, no I/O), but the rule is a bright
       line and this dependency does not need it moved.

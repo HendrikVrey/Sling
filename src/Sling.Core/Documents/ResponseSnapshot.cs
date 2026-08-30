@@ -7,8 +7,8 @@ namespace Sling.Core.Documents;
 /// </summary>
 /// <param name="StatusCode">The numeric status of the final response, after any redirects.</param>
 /// <param name="BodyByteCount">
-/// Bytes of body held. Not the decoded string's length, and — when
-/// <paramref name="BodyTruncated"/> is set — not the response's true length either, but
+/// Bytes of body held. Not the decoded string's length, and - when
+/// <paramref name="BodyTruncated"/> is set - not the response's true length either, but
 /// the cap: the point of the cap is that the rest is never read.
 /// </param>
 /// <param name="BodyTruncated">True when the body hit the read cap and what is held is a prefix.</param>

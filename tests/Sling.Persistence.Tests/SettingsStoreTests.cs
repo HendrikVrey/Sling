@@ -69,8 +69,8 @@ public sealed class SettingsStoreTests
     [Fact]
     public void A_key_of_the_wrong_type_keeps_its_default_rather_than_throwing()
     {
-        // JsonElement.TryGetInt32 throws when the element is not a Number — the Try only
-        // suppresses a malformed number — so the kind has to be checked first.
+        // JsonElement.TryGetInt32 throws when the element is not a Number - the Try only
+        // suppresses a malformed number - so the kind has to be checked first.
         using var folder = new TemporaryFolder();
         folder.Write(SettingsStore.FileName, """{"timeoutSeconds": "thirty", "cookiesEnabled": 1}""");
 

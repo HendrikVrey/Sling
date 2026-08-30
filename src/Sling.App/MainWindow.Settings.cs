@@ -11,7 +11,7 @@ using Sling.Persistence.Settings;
 namespace Sling.App;
 
 /// <summary>
-/// The settings overlay, the local history, and the cookie jar — the three things Sling
+/// The settings overlay, the local history, and the cookie jar - the three things Sling
 /// keeps <em>about</em> requests rather than in them.
 /// </summary>
 /// <remarks>
@@ -31,7 +31,7 @@ namespace Sling.App;
 public partial class MainWindow
 {
     /// <summary>
-    /// Both stores are pointed at <see cref="LocalData.DefaultFolder"/> here — the one
+    /// Both stores are pointed at <see cref="LocalData.DefaultFolder"/> here - the one
     /// place in the application that decides where Sling's own state lives, which is what
     /// lets their tests point them somewhere disposable.
     /// </summary>
@@ -146,7 +146,7 @@ public partial class MainWindow
     /// Each control's own value is read back rather than accumulated from the event, so a
     /// value the user typed and one clamped by <see cref="SlingSettings.Clamped"/> cannot
     /// drift apart. The controls carry the same bounds, so clamping should never actually
-    /// change anything — which is the point of stating them twice.
+    /// change anything - which is the point of stating them twice.
     /// </remarks>
     private void SaveSettings()
     {
@@ -185,7 +185,7 @@ public partial class MainWindow
 
     /// <summary>
     /// A <c>NumberBox</c> whose text has been cleared reports null, which means "nothing
-    /// typed yet" rather than zero — keeping the previous value is the only answer that is
+    /// typed yet" rather than zero - keeping the previous value is the only answer that is
     /// not a silent edit.
     /// </summary>
     private static int ReadNumber(double? value, int fallback) =>
@@ -245,7 +245,7 @@ public partial class MainWindow
     /// The redactor is built here, at the one point that knows both halves of what counts
     /// as a secret: the values the private environment file supplied, and the access tokens
     /// this session has fetched. Neither is knowable inside <c>Sling.Core</c>, and neither
-    /// is optional — <see cref="Core.History.HistoryEntry.Record"/> will not build an entry
+    /// is optional - <see cref="Core.History.HistoryEntry.Record"/> will not build an entry
     /// without a redactor at all.
     /// </para>
     /// <para>
@@ -289,7 +289,7 @@ public partial class MainWindow
     /// </summary>
     /// <remarks>
     /// The first note in full and a count for the rest, matching how diagnostics are
-    /// summarised — a status bar cannot hold a list, and truncating each of several
+    /// summarised - a status bar cannot hold a list, and truncating each of several
     /// messages leaves several half-sentences instead of one whole one.
     /// </remarks>
     private static string SummariseNotes(IReadOnlyList<string> notes) =>

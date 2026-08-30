@@ -6,7 +6,7 @@
 
     No UI, no I/O, no network, and no PackageReference. Everything of value in the
     product lives here so it can be exhaustively unit-tested without a GUI or a
-    socket. ArchitectureTests enforces this — it is not merely a convention.
+    socket. ArchitectureTests enforces this - it is not merely a convention.
   -->
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>

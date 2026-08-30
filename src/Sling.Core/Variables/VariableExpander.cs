@@ -22,7 +22,7 @@ internal enum FieldKind
 /// </summary>
 /// <remarks>
 /// <para>
-/// <c>Sling.md</c> §5.7 — <em>chained values are data, never code</em> — is enforced
+/// <c>Sling.md</c> §5.7 - <em>chained values are data, never code</em> - is enforced
 /// here and only here. Three things make it hold.
 /// </para>
 /// <para>
@@ -35,12 +35,12 @@ internal enum FieldKind
 /// token containing a newline cannot smuggle a header in behind the one it was asked for.
 /// </para>
 /// <para>
-/// Third — and this is the part that took a review to find — a value read from a
+/// Third - and this is the part that took a review to find - a value read from a
 /// <em>response</em> is percent-encoded when it lands in a URL. Character rules alone are
 /// not enough there: <c>@</c>, <c>:</c> and a backslash are all legal URL characters, and
 /// <see cref="Uri"/> parses the authority after the check runs, so a value of
 /// <c>@evil.example.com</c> substituted after a host silently retargets the whole request
-/// — with the <c>Authorization</c> header attached, before any redirect policy can apply.
+/// - with the <c>Authorization</c> header attached, before any redirect policy can apply.
 /// Encoding makes the value data rather than syntax, which is the only form of the rule
 /// that does not depend on remembering which characters matter.
 /// </para>
@@ -49,7 +49,7 @@ internal enum FieldKind
 /// variables the user wrote, and the environment they selected are deliberately
 /// <em>not</em> encoded and not checked: a request someone typed by hand is theirs to get
 /// wrong, and <c>@base</c> holding <c>https://api.example.com</c> is the format's central
-/// idiom — as is an environment supplying that same value per deployment.
+/// idiom - as is an environment supplying that same value per deployment.
 /// </para>
 /// </remarks>
 internal sealed class VariableExpander
@@ -67,7 +67,7 @@ internal sealed class VariableExpander
     /// <remarks>
     /// Depth alone does not bound this. <c>@v0 = xxxxxxxx</c> followed by
     /// <c>@vN = {{vN-1}}{{vN-1}}</c> doubles per level, so thirty legal levels reach
-    /// several gigabytes — a hang and then an out-of-memory, from a document that looks
+    /// several gigabytes - a hang and then an out-of-memory, from a document that looks
     /// like nothing. A megabyte is far past any real request target or header.
     /// </remarks>
     private const int MaxExpandedHeaderChars = 1024 * 1024;
@@ -78,8 +78,8 @@ internal sealed class VariableExpander
     /// <remarks>
     /// A separate, much larger number, because a body is not a header and applying the
     /// header's cap to one made ordinary payloads fail. A 3 MB fixture imported with
-    /// <c>&lt;@</c> was refused — while the same fixture imported with <c>&lt;</c> went
-    /// through, and <c>WorkspaceFileSource</c> advertises 32 MB — and the message blamed a
+    /// <c>&lt;@</c> was refused - while the same fixture imported with <c>&lt;</c> went
+    /// through, and <c>WorkspaceFileSource</c> advertises 32 MB - and the message blamed a
     /// doubling variable the document did not contain. The failure even depended on
     /// whether the body happened to hold a <c>{{reference}}</c> at all.
     /// <para>
@@ -135,7 +135,7 @@ internal sealed class VariableExpander
             var closing = template.IndexOf("}}", opening + 2, StringComparison.Ordinal);
             if (closing < 0)
             {
-                _errors.Add(ParseDiagnostic.Error("'{{' is never closed — a reference is written '{{name}}'.", line));
+                _errors.Add(ParseDiagnostic.Error("'{{' is never closed - a reference is written '{{name}}'.", line));
                 break;
             }
 
@@ -213,7 +213,7 @@ internal sealed class VariableExpander
 
         // The environment is consulted before the document's own variables, and that
         // ordering is the whole point of having environments (Sling.md §4c). The obvious
-        // alternative — the file wins, as it does in the reference dialect — means a
+        // alternative - the file wins, as it does in the reference dialect - means a
         // document containing '@base = https://api.example.com' cannot be pointed at
         // staging without editing the line the environment exists to replace. Recorded as
         // a deliberate divergence in docs/http-dialect.md.
@@ -240,7 +240,7 @@ internal sealed class VariableExpander
     /// </summary>
     /// <param name="definitionLine">
     /// The line to report a self-reference against. An environment value has no line in
-    /// the document, so for one of those it is the line that referenced it — which is the
+    /// the document, so for one of those it is the line that referenced it - which is the
     /// only line the user can be shown.
     /// </param>
     private bool TryExpandDefinition(
@@ -269,7 +269,7 @@ internal sealed class VariableExpander
             // The definition's own text is expanded against the same field, because that
             // is where its value is about to land. Any response value inside it was
             // already encoded by the recursive call, so this level only re-checks
-            // characters — encoding here as well would double-encode it.
+            // characters - encoding here as well would double-encode it.
             var expanded = Expand(definitionText, definitionLine, field, depth + 1);
             return Accept(expanded, reference, line, field, encode: false, out value);
         }

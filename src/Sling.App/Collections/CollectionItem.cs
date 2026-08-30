@@ -20,7 +20,7 @@ internal enum CollectionItemKind
     /// The stand-in under an unexpanded document, so the chevron is there to click.
     /// </summary>
     /// <remarks>
-    /// A document's requests are only read when its node is opened — a workspace can hold
+    /// A document's requests are only read when its node is opened - a workspace can hold
     /// hundreds of files and parsing all of them to draw a rail is work nobody asked for.
     /// A <c>TreeViewItem</c> with no children draws no expander at all, so without
     /// a placeholder there is nothing to click and the laziness is invisible in the worst
@@ -42,7 +42,7 @@ internal enum CollectionItemKind
 /// </para>
 /// <para>
 /// It owns no logic. Everything that reads a file, parses one or writes one is in
-/// <c>MainWindow.Collections.cs</c> and <c>Sling.Persistence</c> — this is the shape the
+/// <c>MainWindow.Collections.cs</c> and <c>Sling.Persistence</c> - this is the shape the
 /// binding needs and nothing else.
 /// </para>
 /// </remarks>
@@ -91,7 +91,7 @@ internal sealed class CollectionItem : INotifyPropertyChanged
     /// </summary>
     /// <remarks>
     /// A <c>DataTrigger</c> on the enum itself would need <see cref="CollectionItemKind"/>
-    /// resolvable from XAML, and it is <c>internal</c> — BAML's type resolution for an
+    /// resolvable from XAML, and it is <c>internal</c> - BAML's type resolution for an
     /// internal type in the same assembly works often enough to look reliable and not
     /// always. Three predicates cost nothing and cannot fail at load time.
     /// </remarks>

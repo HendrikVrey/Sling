@@ -9,7 +9,7 @@ namespace Sling.Import.Postman;
 /// <para>
 /// Hand-walked with <see cref="JsonDocument"/> rather than deserialised into a model, the
 /// same choice <c>EnvironmentFile</c> made and for the same reasons: the schema is large,
-/// mostly optional, and real exports disagree with it in corners — several fields are
+/// mostly optional, and real exports disagree with it in corners - several fields are
 /// documented as one shape and emitted as two. A model would turn each of those into an
 /// exception naming a type nobody has heard of, where a walk turns it into a note naming
 /// the request. It also keeps <c>Sling.Import</c> AOT-compatible with no source generation.
@@ -62,7 +62,7 @@ internal static class PostmanJson
     /// <remarks>
     /// <para>
     /// <b>Every string in this project's Postman reading goes through here, and it is not
-    /// defensive tidiness.</b> <c>"\ud800"</c> — a lone surrogate — is <em>syntactically
+    /// defensive tidiness.</b> <c>"\ud800"</c> - a lone surrogate - is <em>syntactically
     /// valid JSON</em>, so <see cref="JsonDocument.Parse(string, JsonDocumentOptions)"/>
     /// accepts it and <see cref="JsonElement.GetString"/> throws
     /// <see cref="InvalidOperationException"/> later, at read time, long past the only place
@@ -70,7 +70,7 @@ internal static class PostmanJson
     /// therefore killed the whole import with a framework message about UTF-16.
     /// </para>
     /// <para>
-    /// The value reads as absent, which every caller already handles — a URL that vanishes
+    /// The value reads as absent, which every caller already handles - a URL that vanishes
     /// becomes "this request has no URL", a name that vanishes becomes a fallback. Absent is
     /// the honest answer: an unpaired surrogate is not text, and there is nothing to
     /// preserve.
@@ -129,7 +129,7 @@ internal static class PostmanJson
     /// Postman does not send it. Importing it would produce a request that differs from the
     /// one they were running, which is the failure mode this whole importer exists to
     /// avoid. Anything other than a literal <c>true</c> counts as enabled, including the
-    /// string <c>"true"</c> — guessing at a string here would silently drop a field on an
+    /// string <c>"true"</c> - guessing at a string here would silently drop a field on an
     /// export that spells the flag differently.
     /// </remarks>
     public static bool IsDisabled(this JsonElement element) =>
@@ -140,8 +140,8 @@ internal static class PostmanJson
     /// <c>{ "content": "…", "type": "text/markdown" }</c>.
     /// </summary>
     /// <remarks>
-    /// Both shapes are in real exports — the object form arrives from the API, the string
-    /// form from the app — and reading only one of them silently loses every description in
+    /// Both shapes are in real exports - the object form arrives from the API, the string
+    /// form from the app - and reading only one of them silently loses every description in
     /// half the collections there are.
     /// </remarks>
     public static string? Description(this JsonElement element)
@@ -160,7 +160,7 @@ internal static class PostmanJson
     }
 
     /// <summary>
-    /// The lines of a script block, which Postman writes as <c>exec</c> — an array of lines,
+    /// The lines of a script block, which Postman writes as <c>exec</c> - an array of lines,
     /// or occasionally one string.
     /// </summary>
     public static string? ScriptSource(this JsonElement scriptEvent)

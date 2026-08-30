@@ -7,7 +7,7 @@ A folder-shaped NuGet source, and the offline fallback for exactly one package:
 
 Sling runs [Etch](https://github.com/HendrikVrey/Etch)'s transform engine over
 response bodies, and consumes it as a package rather than as a submodule or a copied
-folder. That package is **private** — it is not on nuget.org and it never will be,
+folder. That package is **private** - it is not on nuget.org and it never will be,
 because Etch's licence forbids making any part of it available to a third party and
 a public package is precisely that (see `docs/etch-core-package.md`).
 
@@ -23,7 +23,7 @@ dotnet pack src/Etch.Core/Etch.Core.csproj -c Release -o <path-to-Sling>/local-f
 ```
 
 The version must match the one pinned in `Directory.Packages.props`. If NuGet says
-the package cannot be found, that mismatch is the first thing to check — a folder
+the package cannot be found, that mismatch is the first thing to check - a folder
 source is matched by version, not by "whatever is newest".
 
 ## What is tracked

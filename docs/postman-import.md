@@ -1,7 +1,7 @@
 # Importing from Postman
 
-`Ctrl+I`. Pick your collection export — and any environment exports beside it, in the same
-dialog — then pick a folder to import into. Sling writes the `.http` files, writes the two
+`Ctrl+I`. Pick your collection export - and any environment exports beside it, in the same
+dialog - then pick a folder to import into. Sling writes the `.http` files, writes the two
 environment files, opens the folder as a workspace and puts the first document on screen.
 
 Two dialogs and nothing else. There is no wizard and no mapping screen, because what an
@@ -20,7 +20,7 @@ produces documents that resolve nothing.
 ## What you get
 
 A collection becomes **a folder of `.http` files** (`Sling.md` §1). There is no collection
-tree, no index and no metadata file — grouping is `###` separators inside a file, hierarchy
+tree, no index and no metadata file - grouping is `###` separators inside a file, hierarchy
 is directories, and sharing is `git push`.
 
 | In Postman | On disk |
@@ -58,7 +58,7 @@ Sling adds `http-client.private.env.json` to your `.gitignore` itself, and the i
 summary says which file holds the credentials.
 
 **Read both environment files before you commit.** Postman only marks a value secret when
-its owner ticked the box, and most people do not — so anything whose *name* reads like a
+its owner ticked the box, and most people do not - so anything whose *name* reads like a
 credential (`token`, `secret`, `password`, `api_key`, …) is treated as one too. That is a
 guess, deliberately biased towards the gitignored file, and it will occasionally put
 something harmless there.
@@ -70,7 +70,7 @@ something harmless there.
 | Bearer | `Authorization: Bearer {{bearer_token}}` |
 | Basic | `Authorization: Basic {{basic_auth}}`, base64-encoded into the secrets file |
 | API key | a header, or a query parameter if that is where the collection had it |
-| OAuth 2.0, **client credentials** | a real `# @auth oauth2` block — see [http-dialect.md](http-dialect.md) |
+| OAuth 2.0, **client credentials** | a real `# @auth oauth2` block - see [http-dialect.md](http-dialect.md) |
 | OAuth 2.0, any other grant | a note; the static access token is carried if there is one |
 | No auth | nothing |
 | Digest, NTLM, AWS, Hawk, OAuth 1 | a note saying the request is unauthenticated |
@@ -97,19 +97,19 @@ authenticating as nobody.
 A `Content-Type` the collection stated is never overridden.
 
 **Files are not copied.** A collection records the path the file had on the machine it was
-exported from, and a body import may only read files inside the workspace — so a file part
+exported from, and a body import may only read files inside the workspace - so a file part
 becomes `< ./avatar.png` with a note asking you to put that file beside the `.http` file.
 Only the bare file name survives; `../../../etc/passwd` imports as `passwd`.
 
 ## What is not converted, and why
 
-**Pre-request and test scripts.** Sling does not run scripts — that is a deliberate non-goal
+**Pre-request and test scripts.** Sling does not run scripts - that is a deliberate non-goal
 (`Sling.md` §1), not a gap. The script is copied into the document as comments so you can see
 what it did, capped at forty lines. **Nothing in a collection is ever executed.**
 
 Postman's most common use of a pre-request script is fetching a token. If that is what yours
 does, look at `# @auth oauth2` for client credentials, and at request chaining
-(`{{login.response.body.$.access_token}}`) for anything else — both are in
+(`{{login.response.body.$.access_token}}`) for anything else - both are in
 [http-dialect.md](http-dialect.md).
 
 **Saved example responses.** Sling shows real responses only. The count is noted.
@@ -118,7 +118,7 @@ does, look at `# @auth oauth2` for client credentials, and at request chaining
 written, which is what Postman does with an unset one.
 
 Everything the importer cannot do exactly is written into the file it belongs to as a
-comment. Nothing is dropped silently — a silent drop turns an import into a request that
+comment. Nothing is dropped silently - a silent drop turns an import into a request that
 *looks* right and behaves differently, which is worse than an import that visibly did not
 finish.
 
@@ -130,16 +130,16 @@ as hostile (`Sling.md` §5.8):
 - **Nothing is executed**, including script blocks.
 - **No name inside the collection can decide where a file lands.** Folder and request names
   are reduced to letters, digits, `-` and `_`, which makes `..`, `/`, `\` and `:` impossible
-  by construction rather than by a list of things to refuse — and the destination is checked
+  by construction rather than by a list of things to refuse - and the destination is checked
   again before anything is written.
 - **No value can write structure into a document.** Control characters are stripped from
   every value; a header value carrying a newline cannot become a second header.
 - **A description cannot name a request.** A line beginning `@` would come back as
-  `# @name …`, which the parser reads as a directive — so such a line is quoted with `>`.
+  `# @name …`, which the parser reads as a directive - so such a line is quoted with `>`.
   Left alone, a crafted description could name a request and have another one send that
   API's token somewhere else.
 - **A body containing a line that starts with `###`** would split the document, and nothing
-  can escape it — so the body is **not written at all**. It is reproduced as comments, the
+  can escape it - so the body is **not written at all**. It is reproduced as comments, the
   way a script is, and the note tells you to put it in a file and import it with
   `< ./file`. A comment saying "this will not read back correctly" above a body that then
   gets written anyway is not a mitigation: the injected text becomes real requests.

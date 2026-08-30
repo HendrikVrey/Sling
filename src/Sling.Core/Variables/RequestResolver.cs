@@ -58,13 +58,13 @@ public static class RequestResolver
 
         // Substitution first, with no file opened. A body import whose path still holds an
         // unresolved {{reference}} would otherwise be reported as a missing file, burying
-        // the real cause under a symptom — the same reason the URL is checked last.
+        // the real cause under a symptom - the same reason the URL is checked last.
         var body = SubstituteBody(request, expander);
 
         // The disk is touched only once substitution has come out clean, so a request whose
         // variables do not resolve never opens a file. Not a blanket promise: the URL is
         // validated afterwards, so a request with an unusable URL does read its imports
-        // first — worth the ordering, because reporting a missing file for a path that is
+        // first - worth the ordering, because reporting a missing file for a path that is
         // still {{braced}} would bury the cause under a symptom.
         byte[]? bytes = null;
         var canRead = errors.Count == 0
@@ -81,7 +81,7 @@ public static class RequestResolver
         // Missing responses can arrive from inside an imported file as easily as from the
         // request line, and they are still not errors: the runner sends the dependency and
         // resolves again, which re-reads the file. Re-reading is the honest behaviour
-        // anyway — the file may have changed in between.
+        // anyway - the file may have changed in between.
         if (errors.Count > 0 || expander.MissingResponses.Count > 0)
         {
             return new ResolutionResult(null, expander.MissingResponses, errors);
@@ -109,13 +109,13 @@ public static class RequestResolver
     /// <see cref="TryBuildGrant"/>.
     /// </summary>
     /// <remarks>
-    /// The token URL is expanded as a target — same character rules, and the same
+    /// The token URL is expanded as a target - same character rules, and the same
     /// percent-encoding of any value that came from a response, which is what stops a
     /// chained value retargeting the token request at a host of its choosing.
     /// <para>
     /// Everything else is expanded as a body field, meaning no character restrictions. That
     /// is safe because a client id and secret only ever reach the wire percent-encoded, in
-    /// a form field or inside a base64 Basic credential — there is no syntax left for them
+    /// a form field or inside a base64 Basic credential - there is no syntax left for them
     /// to break. Restricting characters instead would refuse perfectly ordinary secrets.
     /// </para>
     /// </remarks>
@@ -174,13 +174,13 @@ public static class RequestResolver
         // on the wire in clear.
         //
         // This check covers one hop, which is why the token request refuses to be
-        // redirected — see ResolvedRequest.FollowRedirects. Checking here and following a
+        // redirected - see ResolvedRequest.FollowRedirects. Checking here and following a
         // 307 would make the rule about where the secret was first addressed rather than
         // where it actually goes.
         if (!SecureContext.Is(tokenUrl))
         {
             errors.Add(ParseDiagnostic.Error(
-                $"'@token-url' must use https — '{tokenUrl.Scheme}' would send the client secret "
+                $"'@token-url' must use https - '{tokenUrl.Scheme}' would send the client secret "
                     + "in clear. Plain http is allowed only for localhost.",
                 asWritten.Line));
             return false;
@@ -204,7 +204,7 @@ public static class RequestResolver
     /// <remarks>
     /// An environment where <c>scope</c> is not set expands <c>{{scope}}</c> to an empty
     /// string, and sending <c>scope=</c> is not the same request as sending no scope at
-    /// all — some authorization servers reject it and others issue a token with no scopes.
+    /// all - some authorization servers reject it and others issue a token with no scopes.
     /// </remarks>
     private static string? NullIfEmpty(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value;
@@ -228,7 +228,7 @@ public static class RequestResolver
             {
                 BodyText text => new BodyText(expander.Expand(text.Value, request.StartLine, FieldKind.Body)),
 
-                // A path is expanded as a body field — no character restrictions — because
+                // A path is expanded as a body field - no character restrictions - because
                 // restricting characters is not what keeps a document from reading an
                 // arbitrary file. Containment is, and it lives behind IRequestFileSource
                 // where it applies to a literal path and a substituted one alike.
@@ -248,7 +248,7 @@ public static class RequestResolver
     /// <remarks>
     /// Text is UTF-8 encoded, which is what it would have been on the wire anyway. An
     /// import contributes its bytes unaltered unless it was written as <c>&lt;@</c>, the
-    /// form that asks for the file to be read as text and substituted into — and that one
+    /// form that asks for the file to be read as text and substituted into - and that one
     /// cannot carry a PNG, which is the whole reason the two forms are different.
     /// </remarks>
     private static bool TryAssembleBody(
@@ -266,7 +266,7 @@ public static class RequestResolver
             return true;
         }
 
-        // The overwhelmingly common shape — a body typed into the document, no imports.
+        // The overwhelmingly common shape - a body typed into the document, no imports.
         // Worth its own path so the ordinary case does not copy through a MemoryStream.
         if (body is [BodyText only])
         {
@@ -317,7 +317,7 @@ public static class RequestResolver
         if (!files.TryRead(file.Path, out var bytes, out var error))
         {
             // Quoted as written, still braced. The resolved path routinely holds a secret
-            // — '< ./{{token}}.json' substitutes before it can fail — and ParseDiagnostic
+            // - '< ./{{token}}.json' substitutes before it can fail - and ParseDiagnostic
             // promises its messages never carry one.
             errors.Add(ParseDiagnostic.Error($"'< {file.AsWritten}' could not be read: {error}.", file.Line));
             return false;
@@ -340,7 +340,7 @@ public static class RequestResolver
         // way out would be a second decision about bytes nobody asked for.
         //
         // A byte order mark is consumed rather than sent. '<@' says "read this as text",
-        // and a leading U+FEFF is not text content — a JSON body starting with one is
+        // and a leading U+FEFF is not text content - a JSON body starting with one is
         // rejected by most servers. GetString would keep it; a StreamReader given the
         // encoding does not. BOM'd files are the Windows norm and a UTF-16 file essentially
         // always has one. The raw '<' form is untouched by this: verbatim means verbatim.
@@ -371,7 +371,7 @@ public static class RequestResolver
         catch (ArgumentException)
         {
             // Deliberately does not offer code page names. CodePagesEncodingProvider is
-            // never registered — and registering it is a process-wide side effect that
+            // never registered - and registering it is a process-wide side effect that
             // would belong in Sling.App, making this pure method behave differently under
             // test than in the application. So 'windows-1252' genuinely does not resolve,
             // and the message says what actually works rather than what sounds complete.
@@ -399,7 +399,7 @@ public static class RequestResolver
             if (!HttpSyntax.IsToken(name))
             {
                 // Reports the name as written, still braced. Reporting the substituted
-                // name would put a resolved secret in a message that goes on screen —
+                // name would put a resolved secret in a message that goes on screen,
                 // '{{token}}' resolves before this check runs, and ParseDiagnostic
                 // promises its messages never carry one.
                 errors.Add(ParseDiagnostic.Error(
@@ -420,7 +420,7 @@ public static class RequestResolver
     /// <param name="target">The resolved text, which may contain secrets.</param>
     /// <param name="asWritten">
     /// The same target still braced, which is what any diagnostic quotes. A resolved
-    /// target routinely holds a token — the very reason to quote the unresolved form.
+    /// target routinely holds a token - the very reason to quote the unresolved form.
     /// </param>
     private static bool TryBuildUrl(
         string target,
@@ -434,7 +434,7 @@ public static class RequestResolver
         if (!Uri.TryCreate(target, UriKind.Absolute, out var parsed))
         {
             errors.Add(ParseDiagnostic.Error(
-                $"'{asWritten}' is not an absolute URL. Write the scheme and host in full — "
+                $"'{asWritten}' is not an absolute URL. Write the scheme and host in full - "
                     + "reusable base URLs arrive with environments.",
                 line));
             return false;
@@ -461,7 +461,7 @@ public static class RequestResolver
         if (parsed.UserInfo.Length > 0)
         {
             errors.Add(ParseDiagnostic.Error(
-                "A URL may not carry a username or password before the host — the part before "
+                "A URL may not carry a username or password before the host - the part before "
                     + "the '@'. It hides which host the request actually goes to. Send credentials "
                     + "in an Authorization header instead.",
                 line));

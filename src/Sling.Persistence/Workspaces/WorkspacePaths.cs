@@ -11,7 +11,7 @@ namespace Sling.Persistence.Workspaces;
 /// opposite directions: <see cref="WorkspaceFileSource"/> decides which files a document
 /// may <em>read</em>, and <see cref="WorkspaceEditor"/> decides where a new collection may
 /// be <em>written</em>. A workspace whose read boundary and write boundary disagree is a
-/// workspace where a file can be created somewhere it could never be read from — or,
+/// workspace where a file can be created somewhere it could never be read from - or,
 /// worse, the other way round.
 /// </para>
 /// <para>
@@ -53,7 +53,7 @@ internal static class WorkspacePaths
     /// <para>
     /// <strong>The leaf is not enough, and checking only the leaf was a real hole.</strong>
     /// <see cref="FileSystemInfo.ResolveLinkTarget"/> inspects the entry it is called on,
-    /// and <see cref="Path.GetFullPath(string)"/> is purely lexical — neither follows a
+    /// and <see cref="Path.GetFullPath(string)"/> is purely lexical - neither follows a
     /// reparse point on an <em>intermediate</em> component. So a directory symlink or
     /// junction anywhere above a file was invisible to both, and
     /// <c>&lt; ./fixtures/Users/me/.ssh/id_rsa</c> through a committed

@@ -9,7 +9,7 @@ namespace Sling.Core.Cookies;
 /// </summary>
 /// <remarks>
 /// <para>
-/// A rejected cookie is not an error the user needs to see — servers set cookies Sling
+/// A rejected cookie is not an error the user needs to see - servers set cookies Sling
 /// has no business storing all the time. It is reported anyway, because a session that
 /// silently does not work is far worse to debug than one that says which cookie it
 /// refused and why.
@@ -58,8 +58,8 @@ public static class CookieParser
     /// <para>
     /// Validating it, which is what a <c>ddd</c> in the pattern does, is wrong in both
     /// directions at once: a future expiry with a mismatched day name silently becomes a
-    /// session cookie that never expires, and a server's own deletion — <c>Expires</c> in
-    /// 1970, the standard way to log a user out — is ignored, so the session keeps
+    /// session cookie that never expires, and a server's own deletion - <c>Expires</c> in
+    /// 1970, the standard way to log a user out - is ignored, so the session keeps
     /// travelling.
     /// </para>
     /// </remarks>
@@ -154,7 +154,7 @@ public static class CookieParser
         // that cookie back to the origin that set it, so the only thing storing it
         // achieves is letting whoever controls that plain-HTTP response plant a cookie for
         // the HTTPS site of the same name. That is cookie forcing, and it is why RFC
-        // 6265bis §5.5 added the rule. Loopback counts as secure — see SecureContext —
+        // 6265bis §5.5 added the rule. Loopback counts as secure - see SecureContext,
         // so a local development server issuing Secure cookies still works.
         if (attributes.Secure && !secure)
         {
@@ -248,7 +248,7 @@ public static class CookieParser
 
     /// <summary>
     /// True for a host that is a literal address rather than a name. Such a host can only
-    /// ever set a host-only cookie — there is no subdomain of an address.
+    /// ever set a host-only cookie - there is no subdomain of an address.
     /// </summary>
     private static bool IsIpAddress(string host) =>
         host.Contains(':', StringComparison.Ordinal)
@@ -271,7 +271,7 @@ public static class CookieParser
             return true;
         }
 
-        // The leading dot is legacy syntax with no meaning of its own in RFC 6265 — a
+        // The leading dot is legacy syntax with no meaning of its own in RFC 6265 - a
         // Domain attribute always covers subdomains, dot or no dot.
         domain = Canonicalize(attribute.TrimStart('.'));
         hostOnly = false;
@@ -317,7 +317,7 @@ public static class CookieParser
     /// <c>Max-Age</c> beats <c>Expires</c> when both are present (RFC 6265 §5.3 step 3),
     /// because it does not depend on the two clocks agreeing. A zero or negative
     /// <c>Max-Age</c> is how a server deletes a cookie, and it arrives here as an expiry
-    /// already in the past — which the jar treats as a removal.
+    /// already in the past - which the jar treats as a removal.
     /// </remarks>
     private static DateTimeOffset? ResolveExpiry(Attributes attributes, DateTimeOffset nowUtc)
     {
@@ -470,7 +470,7 @@ public static class CookieParser
 
     /// <summary>
     /// Drops a leading day name, with or without its comma. RFC 6265 §5.1.1 never looks at
-    /// it — see <see cref="ExpiresFormats"/>.
+    /// it - see <see cref="ExpiresFormats"/>.
     /// </summary>
     private static string StripDayOfWeek(string value)
     {
@@ -484,7 +484,7 @@ public static class CookieParser
 
         // The comma is optional in the asctime form, 'Sun Nov  6 08:49:37 1994'. Only a
         // token that is all letters and is followed by something starting with a digit is
-        // taken as a day name, so 'Nov 6 08:49:37 1994' — which begins with a month —
+        // taken as a day name, so 'Nov 6 08:49:37 1994' - which begins with a month,
         // keeps its first token.
         var space = trimmed.IndexOf(' ', StringComparison.Ordinal);
         if (space <= 0 || !trimmed[..space].All(char.IsAsciiLetter))

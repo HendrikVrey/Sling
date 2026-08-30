@@ -28,8 +28,8 @@ public static partial class RequestDocumentParser
 {
     /// <summary>
     /// Verbs that identify a request line on sight. An unrecognised all-caps token in
-    /// the same position is still treated as a method — extension verbs exist (WebDAV,
-    /// and every API that invented one) — but it earns a warning.
+    /// the same position is still treated as a method - extension verbs exist (WebDAV,
+    /// and every API that invented one) - but it earns a warning.
     /// </summary>
     private static readonly string[] KnownMethods =
         ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS", "TRACE", "CONNECT"];
@@ -64,7 +64,7 @@ public static partial class RequestDocumentParser
     /// <remarks>
     /// The whitespace after the marker is what makes this safe to apply to every body
     /// line. Without it the pattern would claim <c>&lt;?xml version="1.0"?&gt;</c> and
-    /// <c>&lt;html&gt;</c> — the opening line of two body formats people actually send —
+    /// <c>&lt;html&gt;</c> - the opening line of two body formats people actually send,
     /// and turn them into imports of files that do not exist.
     /// </remarks>
     [GeneratedRegex(@"^<(?:@([A-Za-z0-9._\-]+)?)?[ \t]+(\S.*)$")]
@@ -75,7 +75,7 @@ public static partial class RequestDocumentParser
     /// </summary>
     /// <remarks>
     /// The terminator is kept because a body is bytes, not lines. Normalising it to
-    /// <c>\n</c> — which this parser used to do — is wrong for the one body format that
+    /// <c>\n</c> - which this parser used to do - is wrong for the one body format that
     /// specifies its own framing: RFC 2046 multipart requires CRLF between parts, and a
     /// multipart body typed on Windows and sent with LF is rejected by strict servers for
     /// a reason nothing in the document could explain.
@@ -242,7 +242,7 @@ public static partial class RequestDocumentParser
         /// <remarks>
         /// <para>
         /// RFC 2046 separates multipart parts with CRLF, and Sling sends a body exactly as
-        /// the document holds it — so a repository carrying <c>*.http text eol=lf</c> in
+        /// the document holds it - so a repository carrying <c>*.http text eol=lf</c> in
         /// its <c>.gitattributes</c>, or a file written on Linux, produces a body that
         /// lenient servers accept and strict ones reject. That is the same failure
         /// preserving line endings was meant to remove, arriving from the other direction.
@@ -298,7 +298,7 @@ public static partial class RequestDocumentParser
         /// Left unreported this is the worst kind of defect the format can produce.
         /// <c>BlockNamed</c> returns the first match while the response store is keyed by
         /// name, so a chain's dependency graph points at one request and its substituted
-        /// value comes from another — with nothing sent, shown or logged to say so.
+        /// value comes from another - with nothing sent, shown or logged to say so.
         /// </remarks>
         private void RejectDuplicateName(string name, int line)
         {
@@ -321,7 +321,7 @@ public static partial class RequestDocumentParser
             var space = trimmed.IndexOf(' ', StringComparison.Ordinal);
 
             // "GET https://..." versus a bare "https://...". The distinguishing test is
-            // whether the first token looks like a verb, not whether a space exists — a
+            // whether the first token looks like a verb, not whether a space exists - a
             // URL can carry a space in a query value.
             var firstToken = space < 0 ? trimmed : trimmed[..space];
             var method = firstToken.ToUpperInvariant();
@@ -333,7 +333,7 @@ public static partial class RequestDocumentParser
             if (!looksLikeMethod)
             {
                 // A line holding nothing but a verb reaches here, because the verb test
-                // needs a space. Without this it became the request target — surfacing
+                // needs a space. Without this it became the request target - surfacing
                 // much later, and much less usefully, as "'GET' is not an absolute URL".
                 if (space < 0 && KnownMethods.Contains(method, StringComparer.Ordinal))
                 {
@@ -353,7 +353,7 @@ public static partial class RequestDocumentParser
             }
 
             // rest is non-empty: trimmed was already trimmed, so a trailing space cannot
-            // survive to make it empty. A version-only tail can, though — "GET HTTP/1.1".
+            // survive to make it empty. A version-only tail can, though - "GET HTTP/1.1".
             var rest = trimmed[(space + 1)..].Trim();
             var target = StripVersion(rest, out var version);
 
@@ -448,7 +448,7 @@ public static partial class RequestDocumentParser
                 {
                     _diagnostics.Add(ParseDiagnostic.Error(
                         "Expected a header in the form 'Name: value'. A blank line separates "
-                            + "the headers from the body — add one if this line is meant to be body text.",
+                            + "the headers from the body - add one if this line is meant to be body text.",
                         LineNumber));
                     _index++;
                     continue;
@@ -456,7 +456,7 @@ public static partial class RequestDocumentParser
 
                 var name = match.Groups[1].Value;
 
-                // A name holding a {{reference}} cannot be checked yet — braces are not
+                // A name holding a {{reference}} cannot be checked yet - braces are not
                 // token characters, and what the reference becomes is not known until
                 // send time. RequestResolver settles it after substitution.
                 if (!HttpSyntax.IsToken(name) && !name.Contains("{{", StringComparison.Ordinal))
@@ -482,7 +482,7 @@ public static partial class RequestDocumentParser
         /// <remarks>
         /// <para>
         /// Everything in that span is body text, including lines that begin with <c>#</c>
-        /// — a JSON body full of comments would otherwise lose them, and a shell script in
+        /// - a JSON body full of comments would otherwise lose them, and a shell script in
         /// a body would lose most of itself. The one casualty is a body line that begins
         /// with <c>###</c>, which no dialect can represent; that is in the divergence table.
         /// </para>
@@ -551,7 +551,7 @@ public static partial class RequestDocumentParser
             for (var i = first; i <= last; i++)
             {
                 // The last line's own terminator ends the body rather than belonging to
-                // it — it is the blank line before the next separator, or end of file.
+                // it - it is the blank line before the next separator, or end of file.
                 var ending = i == last ? string.Empty : lines[i].Ending;
 
                 if (TryReadBodyImport(lines[i].Text, i + 1, out var import))
@@ -653,7 +653,7 @@ public static partial class RequestDocumentParser
         /// </summary>
         /// <remarks>
         /// <para>
-        /// A divergence from the reference dialect, which has no syntax for this at all —
+        /// A divergence from the reference dialect, which has no syntax for this at all,
         /// recorded in <c>docs/http-dialect.md</c>. One directive per parameter rather than
         /// a positional line, because the positional form puts a client id and a client
         /// secret next to each other with nothing but order distinguishing them, and
@@ -725,7 +725,7 @@ public static partial class RequestDocumentParser
                 _diagnostics.Add(ParseDiagnostic.Error(
                     "'@auth' takes 'oauth2' (the client-credentials grant), which is the only "
                         + "flow Sling performs. The authorization-code flow needs a browser and is "
-                        + "not supported — send the token you already have as a header instead.",
+                        + "not supported - send the token you already have as a header instead.",
                     LineNumber));
 
                 return;

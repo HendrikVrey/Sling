@@ -21,7 +21,7 @@ public sealed record Exchange(ResolvedRequest Request, ResponseSnapshot Response
 /// the evidence needed to understand the second.
 /// </remarks>
 /// <param name="Notes">
-/// Things worth saying that stopped nothing — a cookie the jar refused, so far.
+/// Things worth saying that stopped nothing - a cookie the jar refused, so far.
 /// <para>
 /// A separate list rather than a warning appended to <paramref name="Errors"/>, because
 /// <paramref name="Errors"/> is the list whose emptiness decides whether a run worked.

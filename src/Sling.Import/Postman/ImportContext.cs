@@ -8,8 +8,8 @@ namespace Sling.Import.Postman;
 /// <remarks>
 /// <para>
 /// <b>Its real job is that no credential found in a collection is ever written into a
-/// <c>.http</c> file.</b> An imported document is meant to be committed — that is the whole
-/// premise of the format — and a Postman export routinely carries a live bearer token, a
+/// <c>.http</c> file.</b> An imported document is meant to be committed - that is the whole
+/// premise of the format - and a Postman export routinely carries a live bearer token, a
 /// basic password or a client secret in plain text. <c>Sling.md</c> §5.1 says a secret must
 /// never be resolvable from a committed file, so every literal credential goes through
 /// <see cref="Reference"/>, lands in the gitignored <c>http-client.private.env.json</c>, and
@@ -33,13 +33,13 @@ internal sealed class ImportContext
     /// <para>
     /// Load-bearing rather than tidy. Auth is usually declared once on the collection and
     /// inherited by every request in it, so without this a forty-request collection would
-    /// produce forty copies of the same token under forty names — and rotating it would mean
+    /// produce forty copies of the same token under forty names - and rotating it would mean
     /// editing all of them.
     /// </para>
     /// <para>
     /// <b>Keyed by the value <em>and</em> whether it is a credential, which is not a detail.</b>
-    /// Keyed by value alone, a client id and a client secret that happen to be equal — both
-    /// <c>REPLACE-ME</c>, which is exactly what a published or vendor collection carries —
+    /// Keyed by value alone, a client id and a client secret that happen to be equal - both
+    /// <c>REPLACE-ME</c>, which is exactly what a published or vendor collection carries,
     /// shared one reference, and because the id is resolved first and is not a credential,
     /// the secret inherited its name and landed in <c>http-client.env.json</c>. That is the
     /// file that gets committed, and it is the one thing this class exists to prevent.
@@ -58,7 +58,7 @@ internal sealed class ImportContext
     /// </summary>
     /// <remarks>
     /// Kept under the name the collection used, because the requests already reference it by
-    /// that name — renaming it here would silently break every <c>{{…}}</c> in the export.
+    /// that name - renaming it here would silently break every <c>{{…}}</c> in the export.
     /// A collision between the two files is not one: a name may legitimately have a
     /// placeholder in the committed file and a real value in the secrets file, which is how
     /// the two are meant to work together.
@@ -86,7 +86,7 @@ internal sealed class ImportContext
     /// </param>
     /// <returns>
     /// A <c>{{reference}}</c>, or null when there was nothing to reference. A value that is
-    /// <em>already</em> a reference comes back untouched — a collection that says
+    /// <em>already</em> a reference comes back untouched - a collection that says
     /// <c>{{access_token}}</c> is already doing the right thing, and wrapping it in a second
     /// variable would only add a layer.
     /// </returns>
@@ -128,7 +128,7 @@ internal sealed class ImportContext
     /// </summary>
     /// <remarks>
     /// A collection that already says <c>{{access_token}}</c> is doing the right thing and
-    /// wrapping it in a second variable would only add a layer — but that is true only when
+    /// wrapping it in a second variable would only add a layer - but that is true only when
     /// the value <em>is</em> the reference. A value that merely contains one is a literal
     /// with a hole in it, and treating it as safe wrote the surrounding characters, which
     /// are usually the credential, into the document.
@@ -173,7 +173,7 @@ internal sealed class ImportContext
     /// </summary>
     /// <remarks>
     /// The parser's own pattern is <c>[A-Za-z_][A-Za-z0-9_.\-]*</c>, so a generated name
-    /// that strays outside it produces a <c>{{reference}}</c> nothing resolves — and the
+    /// that strays outside it produces a <c>{{reference}}</c> nothing resolves - and the
     /// request then sends the literal braces to the server, which is the quietest possible
     /// way for an import to be wrong.
     /// </remarks>

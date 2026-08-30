@@ -11,7 +11,7 @@ namespace Sling.Core.Tests;
 /// <remarks>
 /// Deliberately checked against the project files and sources on disk rather than
 /// against loaded assemblies. A compiled assembly only references what its IL actually
-/// uses, so an assembly-level check silently passes while a project is still empty —
+/// uses, so an assembly-level check silently passes while a project is still empty,
 /// which is exactly when these rules are easiest to break and cheapest to fix. Reading
 /// the csproj catches a forbidden <c>PackageReference</c> the moment it is added.
 /// </remarks>
@@ -56,7 +56,7 @@ public sealed class ArchitectureTests
         AssertNoMatch(
             "Sling.Core",
             new Regex(@"\bSystem\.Net\b|\bHttpClient\b", RegexOptions.Compiled),
-            "Sling.Http is the only project that touches the network — that is what makes "
+            "Sling.Http is the only project that touches the network - that is what makes "
                 + "the credential-stripping and TLS rules in Sling.md §5 auditable by reading "
                 + "one project.");
     }
@@ -90,7 +90,7 @@ public sealed class ArchitectureTests
         // Sling.md §5.5. A response body is untrusted input from a system the user does
         // not control, so it renders as text; a WebBrowser or WebView2 control would
         // execute whatever is in it. Checked across every project rather than the UI one
-        // alone — the rule is about the product, not about one assembly's dependencies.
+        // alone - the rule is about the product, not about one assembly's dependencies.
         AssertNoMatch(
             project,
             new Regex(@"\bWebBrowser\b|\bWebView2?\b|\bCoreWebView2\b", RegexOptions.Compiled),
@@ -102,7 +102,7 @@ public sealed class ArchitectureTests
         var offenders = Directory
             .EnumerateFiles(Path.Combine(RepoRoot, "src", project), "*.cs", SearchOption.AllDirectories)
             .Where(f => !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
-            // Not named 'File' — Etch lost an afternoon to an x:Name that shadowed a type,
+            // Not named 'File' - Etch lost an afternoon to an x:Name that shadowed a type,
             // and System.IO.File is in scope right here.
             .Select(f => (Relative: Path.GetRelativePath(RepoRoot, f), Match: forbidden.Match(CodeOnly(File.ReadAllText(f)))))
             .Where(x => x.Match.Success)
@@ -125,7 +125,7 @@ public sealed class ArchitectureTests
     /// explaining itself teaches people to stop explaining.
     /// <para>
     /// Whole lines only, deliberately. A trailing comment on a line of code is still
-    /// matched — the parsing needed to strip one safely (string literals, verbatim and
+    /// matched - the parsing needed to strip one safely (string literals, verbatim and
     /// raw strings, block comments) is more machinery than a grep should carry, and
     /// erring strict is the right side to err on here.
     /// </para>

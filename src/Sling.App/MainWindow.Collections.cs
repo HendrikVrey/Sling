@@ -24,7 +24,7 @@ namespace Sling.App;
 /// nothing here writes an index, a manifest or an ordering, and deleting Sling leaves a
 /// folder of <c>.http</c> files that git, Rider and VS Code all still read. A collection
 /// <em>is</em> a directory and an endpoint <em>is</em> a <c>###</c> block. The tree is a
-/// projection of the folder walk, recomputed whenever it is drawn — an affordance, not a
+/// projection of the folder walk, recomputed whenever it is drawn - an affordance, not a
 /// format.
 /// </para>
 /// <para>
@@ -35,7 +35,7 @@ namespace Sling.App;
 /// opened.
 /// </para>
 /// <para>
-/// <b>Creating is all the rail does.</b> There is no rename and no delete —
+/// <b>Creating is all the rail does.</b> There is no rename and no delete,
 /// <see cref="WorkspaceEditor"/> says why, and the short version is that both are file
 /// manager operations with real consequences for a git working tree.
 /// </para>
@@ -49,7 +49,7 @@ public partial class MainWindow
     /// Characters rather than UTF-8 bytes, and unlike <c>DocumentSizePolicy</c> that is the
     /// right measure here: this bounds the cost of a parse, which scales with the length the
     /// parser walks, not the memory the text occupies. The open dialog will take anything up
-    /// to <see cref="RequestFileStore.MaxDocumentBytes"/> — past this ceiling the rail
+    /// to <see cref="RequestFileStore.MaxDocumentBytes"/> - past this ceiling the rail
     /// updates when the file is saved or reopened instead, which is a stale rail rather than
     /// a stuttering window.
     /// </remarks>
@@ -61,7 +61,7 @@ public partial class MainWindow
     /// <remarks>
     /// <see cref="MaxLiveRefreshLength"/> bounds the parse, which is the cheap half. A
     /// <c>TreeView</c> does not virtualise by default, so what actually costs is generating a
-    /// container per row — and a document is allowed to be sixteen megabytes, which is tens
+    /// container per row - and a document is allowed to be sixteen megabytes, which is tens
     /// of thousands of requests. A rail nobody could scroll is not worth freezing the window
     /// to draw, so the overflow is counted and named instead.
     /// </remarks>
@@ -83,7 +83,7 @@ public partial class MainWindow
     /// </summary>
     /// <remarks>
     /// Keyed by absolute path rather than by node, because the nodes are rebuilt from
-    /// scratch every time — the tree is a projection of the walk, and holding onto the old
+    /// scratch every time - the tree is a projection of the walk, and holding onto the old
     /// objects to preserve a bit of view state is how a projection quietly becomes a model.
     /// </remarks>
     private readonly HashSet<string> _expanded = new(StringComparer.OrdinalIgnoreCase);
@@ -110,14 +110,14 @@ public partial class MainWindow
     /// <para>
     /// <b>The <c>_rebuildingLists</c> flag does not cover a selection, and that was a real
     /// bug.</b> A row inside a collapsed branch has no <c>TreeViewItem</c>, so its
-    /// <c>IsSelected</c> binding has nowhere to land — the tree applies it later, when the
+    /// <c>IsSelected</c> binding has nowhere to land - the tree applies it later, when the
     /// branch is expanded and containers are generated, long after the flag is back down.
     /// <see cref="OnCollectionSelected"/> then read a selection the code had made as a click,
     /// and moved the caret onto a stale request. In a tool whose whole interaction is "send
     /// what is under the caret", that is the wrong request going out.
     /// </para>
     /// <para>
-    /// Keyed to the row rather than to a window of time, because the delay is unbounded —
+    /// Keyed to the row rather than to a window of time, because the delay is unbounded,
     /// it lasts until the user opens that branch. Cleared the moment the user touches the
     /// tree, so a genuine click on the same row is never mistaken for the deferred one.
     /// </para>
@@ -142,7 +142,7 @@ public partial class MainWindow
         CollectionsTree.AddHandler(TreeViewItem.CollapsedEvent, new RoutedEventHandler(OnNodeCollapsed));
 
         // A TreeViewItem selects on the LEFT button only, so a right-click leaves the
-        // selection wherever it was — and every command on the context menu resolves its
+        // selection wherever it was - and every command on the context menu resolves its
         // target from the selection. Without this, right-clicking one collection and
         // choosing "New request file" created it in a different one.
         CollectionsTree.PreviewMouseRightButtonDown += OnTreeRightButtonDown;
@@ -154,7 +154,7 @@ public partial class MainWindow
 
         // The rail follows the caret, which is a claim docs/collections.md makes: the
         // highlighted row is the request Ctrl+Enter would send. Nothing else fires on a
-        // caret move — the idle timer is driven by text changes — so arrowing around a file
+        // caret move - the idle timer is driven by text changes - so arrowing around a file
         // left the highlight where it was.
         RequestPane.TextArea.Caret.PositionChanged += OnCaretMoved;
 
@@ -164,7 +164,7 @@ public partial class MainWindow
     /// <summary>Swaps the rail between its empty state and the tree.</summary>
     /// <remarks>
     /// Called from <see cref="SetWorkspace"/> rather than driven by a binding, because the
-    /// rail has exactly two states and one of them is the startup state — a converter and a
+    /// rail has exactly two states and one of them is the startup state - a converter and a
     /// notifying property would be three moving parts for a boolean that changes once.
     /// </remarks>
     private void ShowWorkspaceRail(bool hasWorkspace)
@@ -181,7 +181,7 @@ public partial class MainWindow
     /// <summary>The brush table, built against the pane colour the first time it is asked for.</summary>
     /// <remarks>
     /// Lazily, because building it reads the merged theme dictionaries and nothing on the
-    /// startup path needs a rail — a window with no folder open has no tree at all.
+    /// startup path needs a rail - a window with no folder open has no tree at all.
     /// <para>
     /// Through <see cref="Page"/> rather than this window's own <c>Resources</c>. A
     /// <see cref="ResourceDictionary"/>'s indexer searches only itself and what it merges;
@@ -275,7 +275,7 @@ public partial class MainWindow
     /// <summary>Brings a document node's children into line with the requests in <paramref name="text"/>.</summary>
     /// <remarks>
     /// <b>Replaced only when they actually differ.</b> This runs on every idle tick after a
-    /// keystroke, and a <c>TreeView</c> does not virtualise — clearing and refilling
+    /// keystroke, and a <c>TreeView</c> does not virtualise - clearing and refilling
     /// regenerates a container per row, which for a few hundred requests is a visible freeze
     /// every time typing pauses. Typing inside a body does not change the request set at all,
     /// which is the common case and now costs one comparison.
@@ -326,7 +326,7 @@ public partial class MainWindow
         }
         else if (parsed.Requests.Count > MaxRequestRows)
         {
-            // Counted and named rather than silently dropped — a rail that stops at five
+            // Counted and named rather than silently dropped - a rail that stops at five
             // hundred without saying so is a rail that looks like the file ends there.
             var more = (parsed.Requests.Count - MaxRequestRows).ToString(CultureInfo.InvariantCulture);
 
@@ -451,7 +451,7 @@ public partial class MainWindow
         }
 
         // Right-clicked the empty space below the rows. The selection is cleared rather than
-        // left behind, so "New collection" lands at the workspace root — which is what the
+        // left behind, so "New collection" lands at the workspace root - which is what the
         // gesture means, and better than silently using whatever was clicked last.
         ClearTreeSelection();
     }
@@ -488,7 +488,7 @@ public partial class MainWindow
     /// </summary>
     /// <remarks>
     /// A request row puts the caret on its request line, which is the only thing it needs to
-    /// do — <c>Ctrl+Enter</c> already sends the request under the caret, so selecting an
+    /// do - <c>Ctrl+Enter</c> already sends the request under the caret, so selecting an
     /// endpoint and sending it is two keystrokes without the rail knowing anything about
     /// sending.
     /// </remarks>
@@ -580,13 +580,13 @@ public partial class MainWindow
                 Reveal(item);
                 _selectedFromCode = item;
 
-                // And open the file's own branch. Its rows are already in memory — they came
-                // from the buffer — and a rail that shows a selected file with its endpoints
+                // And open the file's own branch. Its rows are already in memory - they came
+                // from the buffer - and a rail that shows a selected file with its endpoints
                 // hidden is a rail that looks like the file has none.
                 item.IsExpanded = true;
 
                 // Recorded here as well as in the Expanded handler: that only fires once a
-                // container exists, and a row inside a branch nobody has opened has none —
+                // container exists, and a row inside a branch nobody has opened has none,
                 // so the next rebuild would collapse the file that is on screen.
                 if (item.Path is not null)
                 {
@@ -695,7 +695,7 @@ public partial class MainWindow
     {
         if (_workspace is null)
         {
-            StatusLeft.Text = "Open a folder first with Ctrl+Shift+O — a collection is a folder in it.";
+            StatusLeft.Text = "Open a folder first with Ctrl+Shift+O. A collection is a folder in it.";
             return;
         }
 
@@ -778,7 +778,7 @@ public partial class MainWindow
 
         var full = Path.GetFullPath(Path.Combine(_workspace.Root, relative));
 
-        // The file is on disk either way, so a Cancel here must not undo it — it only means
+        // The file is on disk either way, so a Cancel here must not undo it - it only means
         // "do not replace what I am editing", and saying where the new file went is what
         // stops that reading as a failure.
         if (!await ConfirmDiscardAsync().ConfigureAwait(true))
@@ -802,7 +802,7 @@ public partial class MainWindow
     private async Task NewRequestAsync()
     {
         // A file, not a buffer. An untitled document has nowhere for the request to be
-        // saved, and on first run the buffer holds the seeded sample — which the constructor
+        // saved, and on first run the buffer holds the seeded sample - which the constructor
         // deliberately left unmarked, so appending to it would ask the user to save text they
         // never wrote.
         if (_documentPath is null)
@@ -825,7 +825,7 @@ public partial class MainWindow
         }
 
         // The document's own terminator, not a hard '\n'. A file loaded from a checkout with
-        // CRLF endings would otherwise gain one LF line in the middle of it — invisible in
+        // CRLF endings would otherwise gain one LF line in the middle of it - invisible in
         // the editor, and a whole-file diff for whoever reviews it next.
         var text = RequestPane.Text;
         var newLine = text.Contains("\r\n", StringComparison.Ordinal) ? "\r\n" : "\n";
@@ -861,8 +861,8 @@ public partial class MainWindow
     /// <remarks>
     /// <para>
     /// The completion source runs its continuations asynchronously on purpose. Without it
-    /// the button click that answers the prompt would run the whole rest of the command —
-    /// a directory creation, a file write and a document load — inside the click handler,
+    /// the button click that answers the prompt would run the whole rest of the command,
+    /// a directory creation, a file write and a document load - inside the click handler,
     /// on the stack of the input event. That is the shape of the close-path hang that M3
     /// slice 1 shipped and had to fix.
     /// </para>
@@ -948,7 +948,7 @@ public partial class MainWindow
     /// </summary>
     /// <remarks>
     /// For the file being navigated away from. Its rows were filled from the buffer, which
-    /// may hold edits that were just discarded — leaving them would show requests that are
+    /// may hold edits that were just discarded - leaving them would show requests that are
     /// in no file, under a document nobody has open.
     /// </remarks>
     private void ResetRailDocument(string? path)
@@ -986,7 +986,7 @@ public partial class MainWindow
 
     /// <summary>Re-reads the open document's requests from the buffer, if the rail shows it.</summary>
     /// <remarks>
-    /// The open document is always worth filling, expanded or not — its rows come from
+    /// The open document is always worth filling, expanded or not - its rows come from
     /// memory, so there is no read to defer. The size ceiling is still honoured: the open
     /// dialog will take a document far larger than anything the parser should be run over on
     /// the dispatcher.
@@ -1022,7 +1022,7 @@ public partial class MainWindow
 
     /// <summary>Moves the rail's highlight onto the request the caret is in.</summary>
     /// <remarks>
-    /// The last request at or above the caret — the same "resolve backwards" rule
+    /// The last request at or above the caret - the same "resolve backwards" rule
     /// <c>RequestDocument.BlockAtLine</c> uses to decide what <c>Ctrl+Enter</c> sends, so the
     /// highlighted row is always the one that would go.
     /// <para>
@@ -1059,7 +1059,7 @@ public partial class MainWindow
     /// Straight through rather than through the idle timer: moving the highlight reads rows
     /// that are already built, so it costs a scan of one document's children and there is
     /// nothing to defer. Re-parsing on every arrow key is what would need a timer, and it is
-    /// also unnecessary — the caret moving cannot change what the requests are.
+    /// also unnecessary - the caret moving cannot change what the requests are.
     /// </remarks>
     private void OnCaretMoved(object? sender, EventArgs e)
     {
@@ -1095,7 +1095,7 @@ public partial class MainWindow
     /// <remarks>
     /// Deliberately <b>not</b> gated on there being a workspace any more. The tick now drives
     /// the command bar's send target as well as the rail, and that label has to be right in
-    /// an untitled buffer — which is the state the application starts in and the state a
+    /// an untitled buffer - which is the state the application starts in and the state a
     /// pasted curl command lands in. <see cref="RefreshOpenDocumentRequests"/> still declines
     /// on its own when there is no rail to fill, so the tick costs one parse and nothing else.
     /// </remarks>

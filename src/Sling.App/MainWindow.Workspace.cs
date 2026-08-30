@@ -25,7 +25,7 @@ namespace Sling.App;
 /// </para>
 /// <para>
 /// A folder rather than a workspace format. There is no index, no metadata file and
-/// nothing for Sling to own — the folder is very often a checkout of the API's own
+/// nothing for Sling to own - the folder is very often a checkout of the API's own
 /// repository, with the request files beside the code they exercise.
 /// </para>
 /// </remarks>
@@ -71,7 +71,7 @@ public partial class MainWindow
 
         RequestPane.TextChanged += OnRequestTextChanged;
 
-        // Environment files are edited outside Sling — that is the point of them being
+        // Environment files are edited outside Sling - that is the point of them being
         // plain JSON beside the requests. Re-reading them when the window comes forward
         // covers the whole of that workflow without a file watcher, and two small files
         // is not a cost worth a mechanism.
@@ -127,7 +127,7 @@ public partial class MainWindow
     /// Every document command is started from a key handler and its task is discarded, so
     /// without this an exception nobody anticipated vanishes completely: no message, no
     /// dialog, and a command that silently does nothing every time it is pressed. Each
-    /// method already maps the failures it knows about — this is for the ones nobody has
+    /// method already maps the failures it knows about - this is for the ones nobody has
     /// met yet, which is the whole category that reaches a last-resort catch.
     /// </remarks>
     private async void RunGuarded(Func<Task> work)
@@ -211,7 +211,7 @@ public partial class MainWindow
     /// <para>
     /// Three things are dropped and they are the same hazard three times over: stored
     /// responses, cached access tokens, and the cookie jar. <c>Sling.md</c> §5.6 scopes the
-    /// jar per environment for exactly this reason — a session cookie carried across a
+    /// jar per environment for exactly this reason - a session cookie carried across a
     /// switch is a credential the receiving server cannot tell was meant for somewhere
     /// else.
     /// </para>
@@ -295,7 +295,7 @@ public partial class MainWindow
     /// A different folder is a different set of APIs. Leaving this to
     /// <see cref="ReloadEnvironments"/> was not enough: it resets only when the selected
     /// environment's <em>values</em> change, and two folders that define no environments at
-    /// all both select an empty set — so opening the second kept the first one's cookies
+    /// all both select an empty set - so opening the second kept the first one's cookies
     /// and tokens, in a window whose file rail said it was somewhere else.
     /// </remarks>
     private void SetWorkspace(Workspace workspace)
@@ -343,7 +343,7 @@ public partial class MainWindow
     /// Every path that replaces the document goes through here, which is why the stored
     /// responses are forgotten here rather than at the call sites. Opening a file did it
     /// and <see cref="NewDocumentAsync"/> did not, so <c>Ctrl+N</c> left the previous
-    /// file's <c>login</c> response live — and a fresh buffer's
+    /// file's <c>login</c> response live - and a fresh buffer's
     /// <c>{{login.response.body.$.access_token}}</c> resolved against it and sent that
     /// token wherever the new document pointed. Request names are per-file; a response
     /// store that outlives the file is a store keyed by the wrong thing.
@@ -351,7 +351,7 @@ public partial class MainWindow
     private void SetDocument(string text, string? path)
     {
         // The outgoing file's rail rows were filled from the buffer, and the buffer is about
-        // to be replaced — including, on a discarded edit, by text that was never on disk.
+        // to be replaced - including, on a discarded edit, by text that was never on disk.
         ResetRailDocument(_documentPath);
 
         _loadingDocument = true;
@@ -387,7 +387,7 @@ public partial class MainWindow
     /// <summary>Saves, asking where to put it if the document has never been saved.</summary>
     /// <param name="adoptWorkspace">
     /// False on the closing path. Saving an untitled buffer normally adopts its folder as
-    /// the workspace, which enumerates a tree and may edit a <c>.gitignore</c> — none of
+    /// the workspace, which enumerates a tree and may edit a <c>.gitignore</c> - none of
     /// which anyone wants happening on the way out of the application.
     /// </param>
     private async Task<bool> SaveAsync(bool adoptWorkspace = true)
@@ -451,7 +451,7 @@ public partial class MainWindow
         // Both captured before the await, and the version is the load-bearing half: the
         // write is not instant, and a keystroke landing during it sets _dirty again.
         // Clearing the flag unconditionally afterwards would mark the document clean with
-        // that edit neither on disk nor flagged — so closing the window would discard it
+        // that edit neither on disk nor flagged - so closing the window would discard it
         // silently, which is the one outcome the dirty marker exists to prevent.
         var text = RequestPane.Text;
         var saved = RequestPane.Document.Version;
@@ -480,7 +480,7 @@ public partial class MainWindow
         UpdateTitle();
 
         StatusLeft.Text = editedDuringWrite
-            ? $"Saved {Path.GetFileName(path)}, but it changed while it was being written — save again."
+            ? $"Saved {Path.GetFileName(path)}, but it changed while it was being written - save again."
             : $"Saved {Path.GetFileName(path)}.";
 
         return true;
@@ -522,7 +522,7 @@ public partial class MainWindow
     /// <para>
     /// The <c>.gitignore</c> check belongs here rather than only on folder-open, and the
     /// reason is specific to this slice: nothing in it <em>creates</em> a secrets file, so
-    /// the only way a user gets one is by writing it themselves — after the folder is
+    /// the only way a user gets one is by writing it themselves - after the folder is
     /// already open. Checking on open alone covered every case except the one that
     /// actually happens.
     /// </para>
@@ -540,7 +540,7 @@ public partial class MainWindow
         RebuildEnvironmentPicker();
 
         // A name can keep pointing at a different deployment without the selection ever
-        // changing — someone edits 'base' in the file from staging to production and
+        // changing - someone edits 'base' in the file from staging to production and
         // alt-tabs back. That has to invalidate what was fetched under the old value for
         // the same reason switching environments does.
         if (!before.HasSameValuesAs(_environments.Select(_selectedEnvironment)))
@@ -550,19 +550,19 @@ public partial class MainWindow
         }
 
         // Sling.md §5.1. Saying so out loud matters as much as doing it, because this
-        // edits somebody's repository. Cheap when there is nothing to do — one File.Exists.
+        // edits somebody's repository. Cheap when there is nothing to do - one File.Exists.
         var added = EnvironmentStore.ProtectSecrets(_workspace);
         if (added.Count > 0)
         {
             StatusLeft.Text =
-                $"Added {string.Join(" and ", added.Select(a => $"'{a}'"))} to .gitignore — "
+                $"Added {string.Join(" and ", added.Select(a => $"'{a}'"))} to .gitignore - "
                     + "this folder has a secrets file that was not ignored.";
             return;
         }
 
         // Reported once per distinct set of problems. Without that, every alt-tab back
-        // overwrites whatever the status bar was saying — a send result, or "Saved
-        // requests.http." — with a message the user has already read.
+        // overwrites whatever the status bar was saying - a send result, or "Saved
+        // requests.http." - with a message the user has already read.
         var problems = string.Join('\n', _environments.Problems);
         if (problems.Length > 0 && !string.Equals(problems, _reportedProblems, StringComparison.Ordinal))
         {
@@ -577,7 +577,7 @@ public partial class MainWindow
     private void RebuildEnvironmentPicker()
     {
         // A workspace with no environment file gets no picker at all rather than a picker
-        // with one entry meaning "off" — an empty control invites the question of what is
+        // with one entry meaning "off" - an empty control invites the question of what is
         // missing.
         if (_environments.Names.Count == 0)
         {
@@ -599,8 +599,8 @@ public partial class MainWindow
             return;
         }
 
-        // A selection that no longer exists — the environment was renamed or removed in
-        // the file since it was chosen — must not survive as a name nothing resolves. It
+        // A selection that no longer exists - the environment was renamed or removed in
+        // the file since it was chosen - must not survive as a name nothing resolves. It
         // goes through SelectEnvironment because arriving here is the same transition as
         // picking a different one from the combo box, and the stored responses have to be
         // dropped either way.
@@ -630,12 +630,12 @@ public partial class MainWindow
     {
         var marker = _dirty ? " •" : string.Empty;
 
-        Title = $"{DocumentName}{marker} — Sling";
+        Title = $"{DocumentName}{marker} - Sling";
         RequestLabel.Text = $"{DocumentName.ToUpperInvariant()}{marker}";
         RequestLabel.ToolTip = _documentPath;
 
         // The Save button's enabled state is the dirty marker in another form, so it is
-        // recomputed here rather than at each of the several places that set _dirty — one of
+        // recomputed here rather than at each of the several places that set _dirty - one of
         // which would eventually be forgotten.
         UpdateToolbar();
     }
@@ -645,7 +645,7 @@ public partial class MainWindow
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Cancel the close, save, then close again — rather than blocking on the save here.
+    /// Cancel the close, save, then close again - rather than blocking on the save here.
     /// <see cref="CancelEventArgs.Cancel"/> is read the moment this returns, so the close
     /// has to be called off while the answer is still unknown and re-issued once it is.
     /// </para>
@@ -653,7 +653,7 @@ public partial class MainWindow
     /// <strong>Blocking is not an option, and the obvious reason it looks like one is
     /// wrong.</strong> An earlier version called <c>SaveAsync().GetAwaiter().GetResult()</c>
     /// on the grounds that the write underneath uses <c>ConfigureAwait(false)</c>. It does
-    /// — but <see cref="WriteAsync"/>'s own await does not, so its continuation is posted
+    /// - but <see cref="WriteAsync"/>'s own await does not, so its continuation is posted
     /// to the dispatcher that <c>GetResult</c> is blocking. That is a guaranteed hang on
     /// "save before closing? yes", which destroys exactly the work the prompt exists to
     /// protect. <c>ConfigureAwait(false)</c> two layers down buys nothing; what matters is

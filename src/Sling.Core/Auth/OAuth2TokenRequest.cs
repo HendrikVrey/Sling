@@ -12,7 +12,7 @@ namespace Sling.Core.Auth;
 /// It produces a <see cref="ResolvedRequest"/> rather than something bespoke, which means
 /// the token exchange goes down the same path as every other request: the same redirect
 /// policy, the same cross-origin credential stripping, the same timeout, the same body
-/// cap — and it lands in <c>RunResult.Exchanges</c>, so a call Sling made on the user's
+/// cap - and it lands in <c>RunResult.Exchanges</c>, so a call Sling made on the user's
 /// behalf is visible like every other one.
 /// </para>
 /// <para>
@@ -88,7 +88,7 @@ public static class OAuth2TokenRequest
     /// RFC 6749 §2.3.1 says the identifier and secret are form-urlencoded <em>before</em>
     /// being joined with a colon and base64-encoded. Skipping that step is invisible for
     /// the usual alphanumeric secret and wrong for one containing a colon, a plus or a
-    /// space — where it produces a credential the server splits in the wrong place and
+    /// space - where it produces a credential the server splits in the wrong place and
     /// reports as invalid, with the true cause two layers down.
     /// </remarks>
     private static string BasicCredential(ResolvedOAuth2Grant grant)
@@ -103,7 +103,7 @@ public static class OAuth2TokenRequest
     /// <remarks>
     /// <see cref="Uri.EscapeDataString(string)"/> writes a space as <c>%20</c> rather than
     /// as <c>+</c>. Both decode to a space under every form-urlencoded reader, and
-    /// <c>%20</c> is unambiguous in a way <c>+</c> is not — which matters here because a
+    /// <c>%20</c> is unambiguous in a way <c>+</c> is not - which matters here because a
     /// scope is a space-separated list and a literal <c>+</c> inside a scope value would
     /// otherwise be indistinguishable from a separator.
     /// </remarks>

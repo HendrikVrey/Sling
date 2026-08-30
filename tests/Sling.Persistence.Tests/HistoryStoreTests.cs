@@ -76,7 +76,7 @@ public sealed class HistoryStoreTests
     public async Task The_entry_cap_is_exact()
     {
         // The setting is called "history entries kept", so the cap has to be a count and
-        // has to hold after every append — not a byte heuristic that lets the file drift
+        // has to hold after every append - not a byte heuristic that lets the file drift
         // past it between rewrites.
         using var folder = new TemporaryFolder();
         var store = new HistoryStore(folder.Path);
@@ -102,8 +102,8 @@ public sealed class HistoryStoreTests
     {
         // The size pre-check skips the read when the file cannot hold too many entries,
         // and that is only sound while no entry is smaller than the bound. The entry here
-        // is the *minimum* the writer can produce — no environment name, no headers on
-        // either side, an empty reason phrase and the shortest URL a Uri will accept —
+        // is the *minimum* the writer can produce - no environment name, no headers on
+        // either side, an empty reason phrase and the shortest URL a Uri will accept,
         // because measuring a typical entry would leave the check safe by accident and
         // would not notice a field being removed from Serialize.
         using var folder = new TemporaryFolder();

@@ -12,7 +12,7 @@ namespace Sling.Import;
 /// newline-delimited document: a header value holding a line break becomes an extra header
 /// line, a URL holding one ends the request line early, and a comment holding one becomes
 /// a comment followed by <em>live document text</em>. A crafted curl command did exactly
-/// that during M2's review, and a Postman collection is a strictly easier file to craft —
+/// that during M2's review, and a Postman collection is a strictly easier file to craft,
 /// it arrives as a download rather than being typed by the person pasting it.
 /// </para>
 /// <para>
@@ -30,7 +30,7 @@ internal static class TextSafety
     /// </summary>
     /// <param name="value">The value as it arrived.</param>
     /// <param name="keepLineBreaks">
-    /// True only for a request body, where a newline is content rather than structure — a
+    /// True only for a request body, where a newline is content rather than structure - a
     /// body is terminated by a blank line and then end-of-request, not by a delimiter the
     /// value could contain. Stripping them there would silently rewrite a pretty-printed
     /// JSON payload into one long line, which changes the bytes sent.
@@ -38,7 +38,7 @@ internal static class TextSafety
     /// <remarks>
     /// Stripped rather than rejected, and rejected rather than escaped: a header field has
     /// no escape mechanism, and refusing a whole import over one stray character would be a
-    /// worse outcome than importing the value without it. Tab survives everywhere — it is
+    /// worse outcome than importing the value without it. Tab survives everywhere - it is
     /// legal inside a header value and appears in real ones. A carriage return never
     /// survives, even in a body: the caller that needs CRLF framing (a multipart body)
     /// writes the terminators itself rather than trusting them to arrive intact.

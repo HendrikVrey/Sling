@@ -29,7 +29,7 @@ public sealed record CurlImportResult(string Http, IReadOnlyList<string> Notes, 
 /// <remarks>
 /// <para>
 /// The escape hatch for every request not yet migrated (<c>Sling.md</c> §4b). Postman
-/// copies as curl, browsers copy as curl, documentation is written in curl — so this is
+/// copies as curl, browsers copy as curl, documentation is written in curl - so this is
 /// the shortest path from anywhere into Sling, and it is worth more than its size
 /// suggests.
 /// </para>
@@ -40,12 +40,12 @@ public sealed record CurlImportResult(string Http, IReadOnlyList<string> Notes, 
 /// which is worse than an import that visibly did not finish.
 /// </para>
 /// <para>
-/// <b>Security.</b> A pasted command is untrusted input — it comes from a chat message or
+/// <b>Security.</b> A pasted command is untrusted input - it comes from a chat message or
 /// a web page as often as from the user's own history. Two rules follow. Nothing is ever
 /// executed: this is a quoting parser and a table of flags, with no shell and no file
 /// access. And no value taken from the command may carry a CR or LF into the generated
 /// document, because the <c>.http</c> format is newline-delimited and a header value
-/// containing a newline would silently become an extra header — an injection into the
+/// containing a newline would silently become an extra header - an injection into the
 /// artifact, one layer above the request-splitting the resolver already refuses.
 /// </para>
 /// </remarks>
@@ -102,8 +102,8 @@ public static class CurlImport
             i = Apply(request, tokens, i);
         }
 
-        // Everything curl does implicitly — the -G query fold, the default Content-Type,
-        // the body/separator collision — is applied here, after every flag has been seen.
+        // Everything curl does implicitly - the -G query fold, the default Content-Type,
+        // the body/separator collision - is applied here, after every flag has been seen.
         // Doing it as the flags arrive would make the answer depend on their order.
         request.Finish();
 
@@ -113,7 +113,7 @@ public static class CurlImport
         }
 
         // Kept, not replaced. An earlier version returned only "no URL", which threw away
-        // the note explaining *why* there was none — and the commonest reason is that an
+        // the note explaining *why* there was none - and the commonest reason is that an
         // argument was refused as a URL for carrying line breaks. Answering "no URL" while
         // discarding the sentence that says what happened to it is the least useful thing
         // this could do.
@@ -190,7 +190,7 @@ public static class CurlImport
 
             // --data-raw is the one form that does NOT read from a file when the value
             // starts with '@'. Every other spelling does, and treating them alike turned
-            // `-d @payload.json` — one of the commonest shapes in API documentation — into
+            // `-d @payload.json` - one of the commonest shapes in API documentation - into
             // a POST whose body was the literal thirteen characters of the file name, with
             // no note saying so.
             case "--data-raw":
@@ -285,7 +285,7 @@ public static class CurlImport
 
         // Every line of a note gets its own '#', not just the first. CurlRequest.Note
         // already strips the control characters that could produce a second line, so this
-        // is the second line of defence rather than the first — but a note is written into
+        // is the second line of defence rather than the first - but a note is written into
         // a live document, and one comment marker per note was exactly the assumption that
         // made a crafted command able to inject a whole extra request.
         foreach (var note in request.Notes)

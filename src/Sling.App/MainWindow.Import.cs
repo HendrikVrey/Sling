@@ -12,7 +12,7 @@ namespace Sling.App;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Two dialogs and nothing else — pick the exports, pick a folder, and the workspace opens
+/// Two dialogs and nothing else - pick the exports, pick a folder, and the workspace opens
 /// on the result. There is no wizard, no mapping screen and no preview, because every one
 /// of those would be a decision the user cannot make yet: what an import turns into is
 /// readable text in files they are about to have open, and reading it there is a better
@@ -124,7 +124,7 @@ public partial class MainWindow
 
         // Said here rather than left to the status bar. SetWorkspace reports the .gitignore
         // entry it added by writing StatusLeft, and the import's own summary overwrites that
-        // line a moment later — so the one message about editing somebody's repository was
+        // line a moment later - so the one message about editing somebody's repository was
         // the one message nobody saw.
         if (write.Written.Contains(Workspace.PrivateEnvironmentFileName, StringComparer.Ordinal))
         {
@@ -150,7 +150,7 @@ public partial class MainWindow
         StatusLeft.Text = refusals.Count == 0
             ? $"Imported {Count(write.Written.Count, "file")}. The details are in the response pane."
             : $"Imported {Count(write.Written.Count, "file")}, and "
-                + $"{Count(refusals.Count, "file")} could not be written — see the response pane.";
+                + $"{Count(refusals.Count, "file")} could not be written - see the response pane.";
     }
 
     /// <summary>
@@ -159,7 +159,7 @@ public partial class MainWindow
     /// <remarks>
     /// The first <c>.http</c> file rather than the first file written, because the
     /// environment files are also written and opening one of those would put a wall of JSON
-    /// in the request pane — including, on the private one, the credentials the import just
+    /// in the request pane - including, on the private one, the credentials the import just
     /// took care to move out of the documents.
     /// </remarks>
     private async Task OpenFirstImportedFileAsync(string destination, IReadOnlyList<string> written)
@@ -178,7 +178,7 @@ public partial class MainWindow
     /// <remarks>
     /// It goes in the buffer rather than a dialog because it is a list, and a list in a
     /// message box is a list you scroll with the keyboard and cannot copy. The buffer
-    /// already searches, folds and copies — the same argument that put history and the
+    /// already searches, folds and copies - the same argument that put history and the
     /// cookie jar there.
     /// </remarks>
     private static string Report(

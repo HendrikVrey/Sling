@@ -6,8 +6,8 @@ namespace Sling.Core.Tests;
 /// The cookie rules from RFC 6265 §5.1 to §5.4.
 /// </summary>
 /// <remarks>
-/// These are the tests that make <c>Sling.md</c> §5.6 — "the cookie jar respects domain,
-/// path and <c>Secure</c>" — a statement rather than an intention. Each of them names a
+/// These are the tests that make <c>Sling.md</c> §5.6 - "the cookie jar respects domain,
+/// path and <c>Secure</c>" - a statement rather than an intention. Each of them names a
 /// specific way a credential reaches the wrong host.
 /// </remarks>
 public sealed class CookieTests
@@ -91,8 +91,8 @@ public sealed class CookieTests
     [Fact]
     public void A_secure_cookie_set_over_plain_http_is_refused()
     {
-        // Refusing costs nothing real — a correct client could never send it back to the
-        // http origin — and storing it is how cookie forcing works.
+        // Refusing costs nothing real - a correct client could never send it back to the
+        // http origin - and storing it is how cookie forcing works.
         var insecure = new Uri("http://api.example.com/v1/orders");
 
         Assert.False(CookieParser.TryParse("sid=abc; Secure", insecure, Now, out _, out var reason));
@@ -158,8 +158,8 @@ public sealed class CookieTests
     public void An_expires_value_is_read_by_its_date_and_not_by_its_day_name(string expires)
     {
         // Validating the day name is wrong in both directions at once: a future expiry
-        // becomes a session cookie that never expires, and a server's own logout — Expires
-        // in 1970 — is ignored, so the session keeps travelling.
+        // becomes a session cookie that never expires, and a server's own logout - Expires
+        // in 1970 - is ignored, so the session keeps travelling.
         Assert.True(CookieParser.TryParse($"sid=abc; Expires={expires}", Origin, Now, out var cookie, out _));
 
         // UTC, not machine-local: reading it as local would make a cookie's lifetime depend
@@ -193,7 +193,7 @@ public sealed class CookieTests
     {
         // The same rule the OAuth2 token endpoint uses. Without it a local development
         // server issuing Secure session cookies cannot hold a session, while the identity
-        // provider beside it authenticates happily — one diff disagreeing with itself.
+        // provider beside it authenticates happily - one diff disagreeing with itself.
         var local = new Uri("http://localhost:3000/v1/orders");
 
         Assert.True(CookieParser.TryParse("sid=abc; Secure; Path=/", local, Now, out _, out _));

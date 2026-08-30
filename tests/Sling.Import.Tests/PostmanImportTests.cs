@@ -10,15 +10,15 @@ namespace Sling.Import.Tests;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>The assertion that matters is not what the output looks like — it is that the output
+/// <b>The assertion that matters is not what the output looks like - it is that the output
 /// parses back into the request that was meant.</b> What an importer prints is not the
 /// point; whether its result is a request is. So most of what follows converts, then runs
 /// <see cref="RequestDocumentParser"/> over the result and asserts against the parsed
 /// document, which is the same shape M2's curl tests settled on.
 /// </para>
 /// <para>
-/// The other half is about refusal. A collection is a file from somewhere else — downloaded,
-/// forwarded, published by an API vendor — so a crafted one must not be able to write
+/// The other half is about refusal. A collection is a file from somewhere else - downloaded,
+/// forwarded, published by an API vendor - so a crafted one must not be able to write
 /// structure into the document, name a request, escape the destination folder, or get a
 /// credential into a file destined for a commit.
 /// </para>
@@ -252,7 +252,7 @@ public sealed class PostmanImportTests
             }
             """);
 
-        // ':kind' had no value, so it is left as written rather than guessed at — which is
+        // ':kind' had no value, so it is left as written rather than guessed at - which is
         // also what Postman does with an unset path variable.
         Assert.Equal("https://api.example.com/orders/42/items/:kind", request.Target);
     }
@@ -385,7 +385,7 @@ public sealed class PostmanImportTests
 
     /// <summary>
     /// The <c>.http</c> format has no multipart syntax, so a multipart body is the body
-    /// written out with a <c>&lt; ./file</c> per file part — which is what M3's import line
+    /// written out with a <c>&lt; ./file</c> per file part - which is what M3's import line
     /// was built for.
     /// </summary>
     [Fact]
@@ -419,7 +419,7 @@ public sealed class PostmanImportTests
         Assert.Contains("--" + boundary + "--", request.LiteralText, StringComparison.Ordinal);
 
         // RFC 2046 separates parts with CRLF, and the parser keeps each line's own
-        // terminator — which is the whole reason a CRLF body can live in an LF document.
+        // terminator - which is the whole reason a CRLF body can live in an LF document.
         Assert.Contains("\r\n", request.LiteralText, StringComparison.Ordinal);
 
         // The exporter's own absolute path is reduced to a bare file name: it does not exist
@@ -554,7 +554,7 @@ public sealed class PostmanImportTests
 
     /// <summary>
     /// A Basic header is base64 of <c>user:password</c>, which cannot be assembled from
-    /// variables — so the honest output is a reference that fails loudly plus a note saying
+    /// variables - so the honest output is a reference that fails loudly plus a note saying
     /// what to put where.
     /// </summary>
     [Fact]
@@ -609,7 +609,7 @@ public sealed class PostmanImportTests
     }
 
     /// <summary>
-    /// <c>Sling.md</c> §4e — the one OAuth2 grant that survives the trip, and the reason
+    /// <c>Sling.md</c> §4e - the one OAuth2 grant that survives the trip, and the reason
     /// <c># @auth oauth2</c> exists.
     /// </summary>
     [Fact]
@@ -700,7 +700,7 @@ public sealed class PostmanImportTests
 
     /// <summary>
     /// <b>A request's own auth lives inside its <c>request</c> object, not on the item that
-    /// holds it</b> — only a folder carries one at item level. Reading it from the item alone
+    /// holds it</b> - only a folder carries one at item level. Reading it from the item alone
     /// made an explicit <c>noauth</c> on a request do nothing, so a collection-wide bearer
     /// token was attached to the one request that had asked not to have it. Found by sending
     /// an imported document at a real server, not here.
@@ -775,7 +775,7 @@ public sealed class PostmanImportTests
     }
 
     /// <summary>
-    /// "Already a reference" has to mean <em>is</em> one, not <em>contains</em> one — the
+    /// "Already a reference" has to mean <em>is</em> one, not <em>contains</em> one - the
     /// looser test wrote the literal characters around the braces, which are the credential.
     /// </summary>
     [Fact]
@@ -793,8 +793,8 @@ public sealed class PostmanImportTests
 
     /// <summary>
     /// Deduplication by value alone let a client secret inherit a client id's reference when
-    /// the two were equal — <c>REPLACE-ME</c> in both, which is what a published collection
-    /// carries — and the id is not a credential, so the secret went into the committed file.
+    /// the two were equal - <c>REPLACE-ME</c> in both, which is what a published collection
+    /// carries - and the id is not a credential, so the secret went into the committed file.
     /// </summary>
     [Fact]
     public void A_secret_never_inherits_a_non_secrets_variable()
@@ -980,7 +980,7 @@ public sealed class PostmanImportTests
     /// <summary>
     /// <b>A note is not a mitigation for structure injection.</b> The first version of this
     /// asserted only that the note was present, and the body was written out underneath it
-    /// anyway — so the document parsed into extra requests, one of them named, and the test
+    /// anyway - so the document parsed into extra requests, one of them named, and the test
     /// certified the comment while the property it stood in for did not hold. It parses the
     /// result now, which is the only assertion that could have caught it.
     /// </summary>
@@ -1009,7 +1009,7 @@ public sealed class PostmanImportTests
 
         Assert.Contains("line starting with ###", file.Text, StringComparison.Ordinal);
 
-        // Still reproduced, so the body can be recovered — as comments, which is what a
+        // Still reproduced, so the body can be recovered - as comments, which is what a
         // script gets and for the same reason.
         Assert.Contains("#     payload", file.Text, StringComparison.Ordinal);
 
@@ -1128,13 +1128,13 @@ public sealed class PostmanImportTests
         Assert.Contains("https://staging.example.com", committed, StringComparison.Ordinal);
         Assert.Contains("st-secret", secrets, StringComparison.Ordinal);
 
-        // Switched off in Postman means switched off here — a disabled value is very often a
+        // Switched off in Postman means switched off here - a disabled value is very often a
         // stale token, and resurrecting one is a confusing way to be wrong.
         Assert.DoesNotContain("old.example.com", committed, StringComparison.Ordinal);
     }
 
     /// <summary>
-    /// Postman only marks a value secret when its owner ticked the box, and most do not — so
+    /// Postman only marks a value secret when its owner ticked the box, and most do not - so
     /// the label alone would put a live token in the file destined for a commit.
     /// </summary>
     [Theory]
@@ -1175,7 +1175,7 @@ public sealed class PostmanImportTests
     }
 
     /// <summary>
-    /// Selecting two exports with the same name is one dialog action away — two workspaces,
+    /// Selecting two exports with the same name is one dialog action away - two workspaces,
     /// or a re-export beside the original. Assigning would have dropped the first entirely
     /// and said nothing about it.
     /// </summary>
@@ -1204,7 +1204,7 @@ public sealed class PostmanImportTests
 
     /// <summary>
     /// The normal shape of a real collection: every request lives in a folder, so the root
-    /// document holds only the collection's description and its collection-level scripts —
+    /// document holds only the collection's description and its collection-level scripts,
     /// which is exactly the content a "write it only if it has a request" rule discarded.
     /// </summary>
     [Fact]

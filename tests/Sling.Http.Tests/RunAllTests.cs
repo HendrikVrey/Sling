@@ -53,7 +53,7 @@ public sealed class RunAllTests
             GET https://api.example.com/three
             """);
 
-        // A 500 is a response, not a transport failure — all three exchanges happened.
+        // A 500 is a response, not a transport failure - all three exchanges happened.
         Assert.Equal(3, result.Exchanges.Count);
         Assert.Equal(500, result.Exchanges[1].Response.StatusCode);
     }
@@ -102,7 +102,7 @@ public sealed class RunAllTests
     {
         // The ordering the forward test does not reach, and the one that costs something:
         // 'login' is auto-sent for '/me' and then reached again on its own turn, which
-        // without a guard is a duplicated POST against a live API — a second login, and on
+        // without a guard is a duplicated POST against a live API - a second login, and on
         // an identity provider that rotates on issue, a token invalidated the moment after
         // the request that used it.
         var handler = new StubHandler((_, _) => StubHandler.Ok("""{"access_token":"s3cret"}"""));

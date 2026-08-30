@@ -12,7 +12,7 @@ namespace Sling.Import.Postman;
 /// <remarks>
 /// <para>
 /// <b>This is the feature that makes "switching" a real word</b> (<c>Sling.md</c> §4a).
-/// Without it, moving off Postman means retyping every request, and nobody does that — so
+/// Without it, moving off Postman means retyping every request, and nobody does that - so
 /// it is worth more than any three features on the milestone list even though it lands
 /// late, because an import into a tool that is not yet good is a wasted import.
 /// </para>
@@ -23,7 +23,7 @@ namespace Sling.Import.Postman;
 /// </para>
 /// <para>
 /// <b>Two security rules run through the whole of it.</b> Nothing found in a collection is
-/// ever executed, including its script blocks (§5.8) — they are copied out as comments and
+/// ever executed, including its script blocks (§5.8) - they are copied out as comments and
 /// nothing more. And no literal credential is ever written into a <c>.http</c> file (§5.1);
 /// it goes to the gitignored environment file and the document gets a <c>{{name}}</c>.
 /// </para>
@@ -36,7 +36,7 @@ public static class PostmanImport
     /// <remarks>
     /// A collection is written by a person and never approaches this. A file that does is
     /// either generated or hostile, and either way the useful answer is to import what fits
-    /// and say that it stopped — not to spend an unbounded amount of time on the dispatcher
+    /// and say that it stopped - not to spend an unbounded amount of time on the dispatcher
     /// producing a workspace nobody can read.
     /// </remarks>
     private const int MaxRequests = 5000;
@@ -50,7 +50,7 @@ public static class PostmanImport
     /// <remarks>
     /// The documents are classified by shape rather than by file name, so the user can select
     /// a collection and its environments together in one dialog and does not have to tell
-    /// Sling which is which. Anything that is neither is named and skipped — silently
+    /// Sling which is which. Anything that is neither is named and skipped - silently
     /// ignoring a file somebody deliberately selected is how an import comes out missing
     /// half its environments with no explanation.
     /// </remarks>
@@ -276,7 +276,7 @@ public static class PostmanImport
     /// </para>
     /// <para>
     /// The collection's own root requests go in a file named after the collection, and its
-    /// top-level folders sit beside that file rather than under it — nesting everything one
+    /// top-level folders sit beside that file rather than under it - nesting everything one
     /// level deeper to preserve a name that is already the folder's would only make every
     /// path longer.
     /// </para>
@@ -406,7 +406,7 @@ public static class PostmanImport
     /// because they do not differ per deployment; each Postman environment becomes an
     /// environment of the same name. That is exactly the layering
     /// <c>EnvironmentSet.Select</c> already implements, so nothing new had to be invented for
-    /// it — which is the payoff for having chosen Rider's and Visual Studio's file names.
+    /// it - which is the payoff for having chosen Rider's and Visual Studio's file names.
     /// </para>
     /// </remarks>
     private static void WriteEnvironments(
@@ -442,7 +442,7 @@ public static class PostmanImport
                 continue;
             }
 
-            // Two exports carrying the same name is one dialog action away — two workspaces,
+            // Two exports carrying the same name is one dialog action away - two workspaces,
             // or a re-export beside the original. Assigning would have dropped the first
             // entirely and said nothing, so they merge and the collision is reported.
             if (!seen.Add(name))
@@ -470,7 +470,7 @@ public static class PostmanImport
                     + (guessed + context.Secret.Count == 1 ? "" : "s")
                     + " went into http-client.private.env.json, which is gitignored. Postman only "
                     + "marks a value secret when its owner ticked the box, so the split was partly "
-                    + "guessed from the names — read both files before you commit.");
+                    + "guessed from the names - read both files before you commit.");
         }
     }
 
@@ -512,7 +512,7 @@ public static class PostmanImport
     /// <remarks>
     /// Built with <see cref="Utf8JsonWriter"/> rather than by concatenation. Every key and
     /// value here came out of somebody else's file, and hand-escaping arbitrary text into
-    /// JSON is how a generated file stops being JSON — with the added twist that the failure
+    /// JSON is how a generated file stops being JSON - with the added twist that the failure
     /// would land in the file holding the credentials.
     /// </remarks>
     private static string Json(Dictionary<string, Dictionary<string, string>> environments)
@@ -545,7 +545,7 @@ public static class PostmanImport
     /// A name for an environment whose export did not carry one.
     /// </summary>
     /// <remarks>
-    /// Taken from the file name, with Postman's own suffix removed — an export is called
+    /// Taken from the file name, with Postman's own suffix removed - an export is called
     /// <c>Staging.postman_environment.json</c>, and an environment called
     /// <c>Staging.postman_environment</c> would be a poor thing to put in a picker.
     /// </remarks>

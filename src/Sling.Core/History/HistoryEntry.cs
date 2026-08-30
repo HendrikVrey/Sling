@@ -20,7 +20,7 @@ public sealed record HistoryHeader(string Name, string Value);
 /// <para>
 /// <strong>No bodies. History records the exchange, not the payload.</strong> A login
 /// response body <em>is</em> the token, and redacting an arbitrary body means recognising
-/// credentials in JSON, XML, form encoding and whatever else a server sends — a guess that
+/// credentials in JSON, XML, form encoding and whatever else a server sends - a guess that
 /// fails silently in the direction that matters. Storing no body at all cannot leak one,
 /// and the question history answers in practice is "what did I send, when, and what came
 /// back", which needs the status and the timing rather than the payload. The bodies of the
@@ -61,7 +61,7 @@ public sealed class HistoryEntry
 
     public string Method { get; }
 
-    /// <summary>The final URL, redacted. The fragment is not kept — it is never sent.</summary>
+    /// <summary>The final URL, redacted. The fragment is not kept - it is never sent.</summary>
     public string Url { get; }
 
     public int StatusCode { get; }

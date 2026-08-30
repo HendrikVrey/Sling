@@ -32,7 +32,7 @@ internal static class RequestConverter
         writer.Comment(item.Description);
 
         // A request carries its own description as well as the item's, and they are usually
-        // the same string. Written once — a doubled paragraph above every request reads like
+        // the same string. Written once - a doubled paragraph above every request reads like
         // a bug in the importer, which is not a good first impression of one.
         if (!string.Equals(request.Description, item.Description, StringComparison.Ordinal))
         {
@@ -56,8 +56,8 @@ internal static class RequestConverter
         }
 
         // The request's own block first, then the item's, then whatever was inherited. The
-        // first two are both "this request's auth" — the schema puts a request's on the
-        // request object and a folder's on the item — and a request item can legally carry
+        // first two are both "this request's auth" - the schema puts a request's on the
+        // request object and a folder's on the item - and a request item can legally carry
         // either, because the app has written both.
         var plan = AuthConverter.Convert(request.Auth ?? item.Auth ?? inherited, writer, context);
         var target = TargetBuilder.Build(request.Url, writer);
@@ -95,14 +95,14 @@ internal static class RequestConverter
     /// <para>
     /// <b>A note is not a mitigation for structure injection, and treating it as one was a
     /// real hole.</b> <c>###</c> at the start of a line separates requests in this format,
-    /// and nothing can escape it — so a body carrying one, written out with a comment above
+    /// and nothing can escape it - so a body carrying one, written out with a comment above
     /// it saying so, produced a document that <em>parsed into extra requests</em>. A crafted
     /// collection used that to add a request named <c>login</c> and a second one carrying
     /// <c>{{login.response.body.$.token}}</c> to another host, and run-all would have sent
     /// both. The comment made it look handled.
     /// </para>
     /// <para>
-    /// So the body is not written at all. It is reproduced as comments instead — the
+    /// So the body is not written at all. It is reproduced as comments instead - the
     /// treatment a script gets, and for the same reason: the user needs to see it, and it
     /// must not be part of the document. Restoring it means putting it in a file and
     /// importing it with <c>&lt; ./file</c>, which is what the note says.
@@ -122,7 +122,7 @@ internal static class RequestConverter
 
         writer.Excerpt(
             "The body contains a line starting with ###, which separates requests in a .http "
-                + "file — so it CANNOT be written here without splitting this document, and it "
+                + "file - so it CANNOT be written here without splitting this document, and it "
                 + "has been left out. It is reproduced below. Put it in a file beside this one "
                 + "and import it with '< ./file'.",
             body.Text);
@@ -190,7 +190,7 @@ internal static class RequestConverter
     /// An auth header never displaces one the collection wrote by hand. Postman resolves
     /// that collision in its own way and the export does not record which won, so the
     /// defensible answer is to keep what the author typed and say that the auth block also
-    /// wanted that header — a silent choice either way would produce a request that
+    /// wanted that header - a silent choice either way would produce a request that
     /// authenticates differently from the one they were running.
     /// </remarks>
     private static void WriteHeaders(

@@ -4,7 +4,7 @@ using System.Text.Json;
 namespace Sling.Import.Postman;
 
 /// <summary>
-/// A Postman environment export — a different file from a collection, and the one that
+/// A Postman environment export - a different file from a collection, and the one that
 /// actually holds the values.
 /// </summary>
 /// <remarks>
@@ -17,7 +17,7 @@ namespace Sling.Import.Postman;
 /// </para>
 /// <para>
 /// Postman spells "switched off" as <c>enabled: false</c> here and as <c>disabled: true</c>
-/// inside a collection — both are read, because a value the owner had switched off is very
+/// inside a collection - both are read, because a value the owner had switched off is very
 /// often a stale token, and resurrecting one is a confusing way for an import to be wrong.
 /// </para>
 /// </remarks>
@@ -28,7 +28,7 @@ internal sealed record PostmanEnvironment(string Name, IReadOnlyList<PostmanPair
     /// </summary>
     /// <remarks>
     /// <b>The label cannot be trusted on its own.</b> Postman only marks a value secret when
-    /// its owner ticked the box, and most do not — so honouring the flag alone would put a
+    /// its owner ticked the box, and most do not - so honouring the flag alone would put a
     /// live bearer token in <c>http-client.env.json</c>, which is the file destined for a
     /// commit. That is the exact failure <c>Sling.md</c> §5.1 exists to prevent, so a name
     /// that reads like a credential is treated as one.
@@ -46,7 +46,7 @@ internal sealed record PostmanEnvironment(string Name, IReadOnlyList<PostmanPair
     /// <b>The short names are the common ones, and substring matching missed all of them.</b>
     /// <c>apikey</c> matched and a bare <c>key</c> did not; <c>password</c> matched and
     /// <c>pass</c> and <c>pwd</c> did not; <c>jwt</c>, <c>pat</c> and <c>hmac</c> were absent
-    /// — so live credentials under the shortest, most-used names went into the file that
+    /// - so live credentials under the shortest, most-used names went into the file that
     /// gets committed, in a heuristic documented as biased the other way. They cannot go on
     /// the substring list: <c>key</c> would claim <c>keyword</c> and <c>pat</c> would claim
     /// <c>path</c>, and a base URL in the gitignored file breaks a colleague's checkout.
@@ -59,13 +59,13 @@ internal sealed record PostmanEnvironment(string Name, IReadOnlyList<PostmanPair
     /// </summary>
     /// <remarks>
     /// <c>auth_url</c> and <c>authorization_endpoint</c> match <see cref="CredentialWords"/>
-    /// and are addresses, not credentials — and putting an address in the gitignored file is
+    /// and are addresses, not credentials - and putting an address in the gitignored file is
     /// not a safe failure either: a colleague cloning the repository gets a workspace whose
     /// requests do not resolve, with nothing saying why.
     /// </remarks>
     /// <remarks>
     /// <c>base</c> is deliberately not on this list. It would have excused
-    /// <c>database_password</c>, which is a credential in a file about to be committed — and
+    /// <c>database_password</c>, which is a credential in a file about to be committed - and
     /// a bare <c>base</c> never reaches this check anyway, because it matches no credential
     /// word in the first place.
     /// </remarks>
@@ -120,7 +120,7 @@ internal sealed record PostmanEnvironment(string Name, IReadOnlyList<PostmanPair
     /// Splits a variable name into its words, at punctuation and at camel-case boundaries.
     /// </summary>
     /// <remarks>
-    /// Both spellings are everywhere in these files — <c>api_key</c> and <c>apiKey</c> are
+    /// Both spellings are everywhere in these files - <c>api_key</c> and <c>apiKey</c> are
     /// the same variable to everyone except a string comparison.
     /// </remarks>
     private static IEnumerable<string> Words(string name)

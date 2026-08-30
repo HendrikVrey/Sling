@@ -10,7 +10,7 @@ namespace Sling.Import.Postman;
 /// <remarks>
 /// <para>
 /// <b>This is a security boundary, not a tidying pass.</b> Every name here comes out of a
-/// JSON file that arrived from somewhere else — a colleague, a public API's published
+/// JSON file that arrived from somewhere else - a colleague, a public API's published
 /// collection, a download. A folder called <c>..\..\..\Windows\System32</c> is two
 /// keystrokes to write and, without this, would decide where a file lands. The importer
 /// itself does no I/O, so the escape would not happen here; it would happen in
@@ -20,7 +20,7 @@ namespace Sling.Import.Postman;
 /// <b>The rule is a whitelist, deliberately.</b> A slug keeps Unicode letters and digits,
 /// <c>-</c> and <c>_</c>, and turns everything else into <c>-</c>. That makes <c>..</c>,
 /// <c>/</c>, <c>\</c>, <c>:</c>, NUL, a trailing dot and a trailing space impossible by
-/// construction rather than by a list of things to refuse — rejecting characters is a
+/// construction rather than by a list of things to refuse - rejecting characters is a
 /// deny-list in disguise, and the one you forget is the one that matters. Unicode letters
 /// survive because a collection whose folders are named in Japanese should not import as a
 /// tree of dashes.
@@ -38,7 +38,7 @@ internal sealed class FileNames
     /// </summary>
     /// <remarks>
     /// A Postman folder name is occasionally a whole sentence, and several of those in one
-    /// path reach Windows' limit — where the failure arrives as an exception from the
+    /// path reach Windows' limit - where the failure arrives as an exception from the
     /// write rather than as anything a person could connect to a name in their collection.
     /// </remarks>
     private const int MaxSegment = 60;
@@ -47,7 +47,7 @@ internal sealed class FileNames
     /// How many directory levels a file may sit under.
     /// </summary>
     /// <remarks>
-    /// Not a safety limit — <see cref="MaxSegment"/> and the containment check cover that —
+    /// Not a safety limit - <see cref="MaxSegment"/> and the containment check cover that,
     /// but a bound on total path length, which is otherwise the product of two things the
     /// collection chooses. Folders deeper than this land in the deepest directory allowed,
     /// each still getting a file of its own through the numeric suffix below. The walk that
@@ -61,7 +61,7 @@ internal sealed class FileNames
 
     /// <summary>
     /// The DOS device names, which Windows still resolves ahead of a file of the same
-    /// stem — <c>con.http</c> opens the console, whatever directory it sits in.
+    /// stem - <c>con.http</c> opens the console, whatever directory it sits in.
     /// </summary>
     /// <remarks>
     /// Checked against the stem rather than the whole file name, because that is how
@@ -80,7 +80,7 @@ internal sealed class FileNames
     /// </summary>
     /// <remarks>
     /// Ordinal-ignore-case, because two Postman folders called "Orders" and "orders" are
-    /// different folders to Postman and the same file to Windows — and the second silently
+    /// different folders to Postman and the same file to Windows - and the second silently
     /// overwriting the first is the kind of data loss an import must not have.
     /// </remarks>
     private readonly HashSet<string> _taken = new(StringComparer.OrdinalIgnoreCase);
@@ -105,7 +105,7 @@ internal sealed class FileNames
     /// <remarks>
     /// For the two environment files, whose names are fixed by the format
     /// (<c>Sling.md</c> §8) rather than taken from the collection. Nothing untrusted
-    /// reaches this, which is why it may bypass <see cref="Slug"/> — and it still goes
+    /// reaches this, which is why it may bypass <see cref="Slug"/> - and it still goes
     /// through <see cref="_taken"/>, so an export that somehow produced two of them cannot
     /// have the second silently replace the first.
     /// </remarks>
@@ -152,7 +152,7 @@ internal sealed class FileNames
     /// <remarks>
     /// Walks runes rather than chars. <c>char.IsLetterOrDigit</c> is false for both halves
     /// of every surrogate pair, so a name written in an astral script would slug away to
-    /// dashes — the same defect that once deleted the ideograph out of Etch's word splitter.
+    /// dashes - the same defect that once deleted the ideograph out of Etch's word splitter.
     /// </remarks>
     public static string Slug(string? name, string fallback)
     {
@@ -168,7 +168,7 @@ internal sealed class FileNames
 
             if (Rune.IsLetterOrDigit(rune) || rune.Value is '-' or '_')
             {
-                // Collapsed rather than emitted as they arrive: "Orders — refunds (v2)"
+                // Collapsed rather than emitted as they arrive: "Orders - refunds (v2)"
                 // would otherwise become "orders----refunds--v2-".
                 if (pendingSeparator && slug.Length > 0)
                 {

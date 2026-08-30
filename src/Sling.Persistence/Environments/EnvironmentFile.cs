@@ -49,7 +49,7 @@ internal sealed class EnvironmentFile
         _environments.GetValueOrDefault(environment) ?? [];
 
     /// <summary>
-    /// Loads <paramref name="path"/>. A file that is not there is not a problem — most
+    /// Loads <paramref name="path"/>. A file that is not there is not a problem - most
     /// workspaces have no environments, and one that has no secrets should not be nagged
     /// about a file it does not need.
     /// </summary>

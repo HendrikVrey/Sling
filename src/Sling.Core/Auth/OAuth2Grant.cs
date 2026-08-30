@@ -27,7 +27,7 @@ public enum ClientAuthPlacement
 /// <c>Sling.md</c> §4 puts client-credentials in v1 because it is the flow a developer
 /// actually meets when moving off Postman: a machine-to-machine API where every request
 /// needs a bearer token that expires. The authorization-code flow is not here and is
-/// documented as absent — it needs a browser, a redirect listener and a consent screen,
+/// documented as absent - it needs a browser, a redirect listener and a consent screen,
 /// which is a different product.
 /// </para>
 /// <para>
@@ -39,7 +39,7 @@ public enum ClientAuthPlacement
 /// The values stay unresolved on purpose. A client secret belongs in
 /// <c>http-client.private.env.json</c> and reaches the document as
 /// <c>{{client_secret}}</c>, so keeping the braced form here is what lets a diagnostic
-/// quote the grant without printing the secret — the rule
+/// quote the grant without printing the secret - the rule
 /// <see cref="Documents.ParseDiagnostic"/> holds everywhere else.
 /// </para>
 /// </remarks>
@@ -48,7 +48,7 @@ public enum ClientAuthPlacement
 /// <param name="ClientSecret">The client secret, as written.</param>
 /// <param name="Scope">The requested scope, or null. Space-separated when there are several.</param>
 /// <param name="Audience">
-/// An <c>audience</c> form field, or null. Not in RFC 6749 — it is how Auth0 and several
+/// An <c>audience</c> form field, or null. Not in RFC 6749 - it is how Auth0 and several
 /// others name which API the token is for, and omitting it makes Sling unable to talk to
 /// them.
 /// </param>
@@ -64,7 +64,7 @@ public sealed record OAuth2Grant(
     int Line);
 
 /// <summary>
-/// An <see cref="OAuth2Grant"/> with every variable substituted — the only shape a token
+/// An <see cref="OAuth2Grant"/> with every variable substituted - the only shape a token
 /// request is built from.
 /// </summary>
 /// <remarks>
@@ -94,7 +94,7 @@ public sealed record ResolvedOAuth2Grant(
     /// <remarks>
     /// Every field that changes which token comes back is in the key, and nothing else is.
     /// Leaving the scope out would hand a request asking for <c>orders.write</c> a cached
-    /// token carrying only <c>orders.read</c> — which fails at the API with a message
+    /// token carrying only <c>orders.read</c> - which fails at the API with a message
     /// about permissions and no hint that the cache is the reason. The client secret is in
     /// it too, so rotating a secret takes effect at once rather than at the old token's
     /// expiry.

@@ -16,8 +16,8 @@ public sealed record RequestDocument(
     /// The request a caret on <paramref name="line"/> belongs to.
     /// </summary>
     /// <remarks>
-    /// A caret between requests — on a <c>###</c> separator, a comment or a variable
-    /// definition — resolves forward to the next request rather than to nothing, because
+    /// A caret between requests - on a <c>###</c> separator, a comment or a variable
+    /// definition - resolves forward to the next request rather than to nothing, because
     /// pressing send with the caret on the separator above a request means that request.
     /// A caret past the last request resolves back to it for the same reason.
     /// </remarks>

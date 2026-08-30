@@ -21,7 +21,7 @@ internal readonly record struct TransformOutcome(bool Applied, string Message, i
 /// <para>
 /// The differentiator, and the reason `Etch.Core` is a dependency rather than an
 /// inspiration. A response arrives base64-encoded inside a JSON field often enough that
-/// "decode, then format, then sort the keys" is a real workflow — and in Sling it is
+/// "decode, then format, then sort the keys" is a real workflow - and in Sling it is
 /// three clicks in the pane the response landed in, with no copying into another tool.
 /// </para>
 /// <para>
@@ -60,8 +60,8 @@ internal static class BodyTransforms
     /// <remarks>
     /// <para>
     /// The read-only flag on the pane is about typing, not about this. A response is not
-    /// something to edit by hand — a stray keystroke in a body you are reading is pure
-    /// loss — but a transform is a deliberate act with a visible result and one
+    /// something to edit by hand - a stray keystroke in a body you are reading is pure
+    /// loss - but a transform is a deliberate act with a visible result and one
     /// <c>Ctrl+Z</c> behind it. <c>TextDocument.Replace</c> goes under the read-only
     /// section provider, which only guards the editing commands.
     /// </para>
@@ -103,7 +103,7 @@ internal static class BodyTransforms
 
         // The only part that runs off the UI thread, and the only part that can be slow.
         // Everything above reads the document and everything below writes it, both of
-        // which AvalonEdit requires on the thread that owns it — so the boundary is drawn
+        // which AvalonEdit requires on the thread that owns it - so the boundary is drawn
         // exactly around the pure function.
         //
         // ConfigureAwait(true) is load-bearing rather than incidental: the continuation
@@ -116,7 +116,7 @@ internal static class BodyTransforms
                 cancellationToken)
             .ConfigureAwait(true);
 
-        // The buffer can have moved while the transform ran — a response arriving, or the
+        // The buffer can have moved while the transform ran - a response arriving, or the
         // pane being reset. Applying an answer computed from text that is no longer there
         // would write a transform of one body over another.
         if (document.TextLength < selection.Start + selection.Length
@@ -124,7 +124,7 @@ internal static class BodyTransforms
         {
             return new TransformOutcome(
                 Applied: false,
-                $"{transform.Name} was abandoned — the buffer changed while it ran.",
+                $"{transform.Name} was abandoned - the buffer changed while it ran.",
                 null);
         }
 
@@ -132,7 +132,7 @@ internal static class BodyTransforms
         {
             // The offset the transform reports is relative to the text it was handed,
             // which is the selection when there was one. Only the caller knows where that
-            // started, so only the caller can turn it into a document offset — reporting
+            // started, so only the caller can turn it into a document offset - reporting
             // the raw number would put the caret in the wrong place on every selection.
             var offset = result.ErrorOffset is { } relative
                 ? Math.Clamp(selection.Start + relative, 0, document.TextLength)

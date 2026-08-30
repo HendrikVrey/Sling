@@ -6,8 +6,8 @@ namespace Sling.Import.Curl;
 /// </summary>
 /// <remarks>
 /// Separate from <see cref="CurlImport"/> so that the flag table there reads as a table.
-/// The interesting decisions — what curl's defaults are, and what must not be allowed
-/// through — live here.
+/// The interesting decisions - what curl's defaults are, and what must not be allowed
+/// through - live here.
 /// </remarks>
 internal sealed class CurlRequest
 {
@@ -42,7 +42,7 @@ internal sealed class CurlRequest
     /// <remarks>
     /// curl's rule, not an invention: an explicit <c>-X</c> always wins, a body without
     /// one implies POST, and everything else is GET. Reproducing it exactly matters more
-    /// than reproducing it simply — a copied command that silently becomes a GET is a
+    /// than reproducing it simply - a copied command that silently becomes a GET is a
     /// request that looks identical and does nothing.
     /// </remarks>
     internal string Method =>
@@ -58,7 +58,7 @@ internal sealed class CurlRequest
                 return null;
             }
 
-            // curl joins repeated -d arguments with '&'. It is not a formatting choice —
+            // curl joins repeated -d arguments with '&'. It is not a formatting choice,
             // it is how two -d flags become one form-encoded body.
             return string.Join('&', _data);
         }
@@ -72,7 +72,7 @@ internal sealed class CurlRequest
     /// <b>Sanitising happens here, at the one place every note goes through, and that is
     /// the entire point.</b> Notes are written into the output as <c>#</c> comments, and
     /// several of them quote a value taken straight off the command line. A value carrying
-    /// a newline turns one comment into a comment followed by *live document text* — a
+    /// a newline turns one comment into a comment followed by *live document text* - a
     /// crafted command could add a whole extra request, complete with an
     /// <c>Authorization: Bearer {{…}}</c> header, and the caret would resolve to it. That
     /// was a real defect, found in review, and it existed because three call sites
@@ -120,7 +120,7 @@ internal sealed class CurlRequest
     /// <para>
     /// "Better" means carrying a scheme, and the rule exists because an unknown flag's
     /// value arrives here looking exactly like a bare argument. Sling does not step over
-    /// the value of a flag it does not recognise — guessing wrong there eats the URL — so
+    /// the value of a flag it does not recognise - guessing wrong there eats the URL - so
     /// <c>curl --some-flag json https://api.example.com</c> offers <c>json</c> first and
     /// the real URL second. Preferring the one with a scheme gets that right.
     /// </para>
@@ -144,7 +144,7 @@ internal sealed class CurlRequest
         }
 
         // The candidate in hand has a scheme and the one already held does not. Name the
-        // displaced one rather than letting it vanish — it was almost certainly the value
+        // displaced one rather than letting it vanish - it was almost certainly the value
         // of a flag Sling did not recognise, and the note above it says which.
         Note($"Treated as the URL instead: {url}. The earlier bare argument was dropped.");
 
@@ -161,14 +161,14 @@ internal sealed class CurlRequest
     /// A substring test is not enough, and the difference is the whole of a bug found in
     /// review. An argument carrying injected line breaks was collapsed by
     /// <see cref="StripControl"/> into one long token that happened to contain the
-    /// attacker's <c>https://</c> — so it counted as "has a scheme", and the *real* URL
+    /// attacker's <c>https://</c> - so it counted as "has a scheme", and the *real* URL
     /// that followed it was rejected as a duplicate. Parsing it as a URI instead answers
     /// the question actually being asked.
     /// </remarks>
     /// <remarks>
     /// The <c>://</c> requirement is not redundant beside the parse. <c>Uri.TryCreate</c>
     /// accepts <c>C:\tools\thing</c> as an absolute <c>file:</c> URI and <c>mailto:x</c>
-    /// as an absolute <c>mailto:</c> one — neither is a request target, and treating
+    /// as an absolute <c>mailto:</c> one - neither is a request target, and treating
     /// either as "already has a scheme" would skip the <c>https://</c> that makes a bare
     /// host sendable.
     /// </remarks>
@@ -183,7 +183,7 @@ internal sealed class CurlRequest
         // the right trade. Stripping a newline out of a header value leaves a wrong
         // header; stripping one out of a URL silently decides *which host is contacted*,
         // by welding two lines into an address that resembles neither. An argument with a
-        // line break in it is not a URL, so it is named and set aside — which also lets
+        // line break in it is not a URL, so it is named and set aside - which also lets
         // the next candidate, usually the real one, be taken.
         if (url.Any(char.IsControl))
         {
@@ -204,7 +204,7 @@ internal sealed class CurlRequest
         // the assumption is made here and made visible, rather than producing a request
         // that will not send for a reason the user did not cause. https rather than http
         // because defaulting a credential-carrying tool to cleartext would be indefensible
-        // — and saying so is what makes it correctable.
+        // - and saying so is what makes it correctable.
         if (!_urlHadScheme)
         {
             Note("No scheme was given, so https:// was assumed. curl would have used http://.");
@@ -251,7 +251,7 @@ internal sealed class CurlRequest
     /// <remarks>
     /// Unlike every other value here, a body keeps its line breaks. A body is terminated
     /// by a blank line and then by end-of-request rather than by a delimiter, so a newline
-    /// inside one is content and not structure — stripping them would silently rewrite a
+    /// inside one is content and not structure - stripping them would silently rewrite a
     /// pretty-printed JSON payload into one long line, which changes the bytes sent. The
     /// one structural sequence a body *can* still collide with is handled in
     /// <see cref="Finish"/>.
@@ -263,8 +263,8 @@ internal sealed class CurlRequest
     /// which read from a file when the value begins with <c>@</c>.
     /// </summary>
     /// <remarks>
-    /// The importer does no I/O — it is a pure text-to-text function, which is what makes
-    /// it testable against a corpus — so a file reference is named rather than followed.
+    /// The importer does no I/O - it is a pure text-to-text function, which is what makes
+    /// it testable against a corpus - so a file reference is named rather than followed.
     /// <c>-</c> after the <c>@</c> means standard input, which has even less meaning here.
     /// </remarks>
     internal void AddDataOrFile(string data)
@@ -336,8 +336,8 @@ internal sealed class CurlRequest
     /// <c>-u user:pass</c>, which becomes a Basic <c>Authorization</c> header.
     /// </summary>
     /// <remarks>
-    /// Converted rather than dropped — a request that silently loses its credentials fails
-    /// with a 401 the user then debugs — but converted loudly. The whole premise of the
+    /// Converted rather than dropped - a request that silently loses its credentials fails
+    /// with a 401 the user then debugs - but converted loudly. The whole premise of the
     /// <c>.http</c> format is that the file gets committed, and this writes a working
     /// credential into it (<c>Sling.md</c> §5.1). Saying so at the point it happens is the
     /// only honest option here: a paste produces one request and nowhere to put a secret.
@@ -360,14 +360,14 @@ internal sealed class CurlRequest
 
         Note(
             "-u became an Authorization header below. THAT IS A CREDENTIAL IN A FILE that is "
-                + "meant to be committed — move it out before you commit this.");
+                + "meant to be committed - move it out before you commit this.");
     }
 
     internal void AddFormPart(string part)
     {
         var clean = StripControl(part);
 
-        // Sling can send a multipart body — it is written out with a '< ./file' per part —
+        // Sling can send a multipart body - it is written out with a '< ./file' per part,
         // but generating the boundary, the parts and the imports from -F is its own piece of
         // work, and a half-right multipart body is worse than a note saying what was dropped.
         // The Postman importer does generate one; this does not yet.
@@ -382,7 +382,7 @@ internal sealed class CurlRequest
         if (DataBecomesQuery && _data.Count > 0 && Url is { } url)
         {
             // Stripped again, and NOT redundantly. Accept() strips the URL as it arrives,
-            // but the -G fold happens afterwards and builds the query out of _data — which
+            // but the -G fold happens afterwards and builds the query out of _data - which
             // deliberately keeps its line breaks, because the same values are a body in
             // every other case. Trusting the earlier strip let a newline back into the
             // request line, where the parser reads what follows as real headers on a
@@ -406,8 +406,8 @@ internal sealed class CurlRequest
             }
 
             // The one sequence a body cannot contain. '###' at the start of a line
-            // separates requests in this format — in the reference dialect too, so it is a
-            // limitation of .http rather than of Sling — and a body carrying one would be
+            // separates requests in this format - in the reference dialect too, so it is a
+            // limitation of .http rather than of Sling - and a body carrying one would be
             // read back as two requests, the second of them nonsense. Nothing can be
             // escaped away, so it is named instead of being quietly corrupted.
             if (StartsARequestSeparator(body))
@@ -438,7 +438,7 @@ internal sealed class CurlRequest
     /// </summary>
     /// <remarks>
     /// <b>This is a security boundary, not tidying</b>, and it now has one home for both
-    /// importers — see <see cref="TextSafety.StripControl"/>, which carries the reasoning
+    /// importers - see <see cref="TextSafety.StripControl"/>, which carries the reasoning
     /// and the reason it moved. The forwarder stays because every call site here reads as
     /// a statement about a curl value.
     /// </remarks>

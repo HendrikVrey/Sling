@@ -5,7 +5,7 @@ namespace Sling.Persistence.Tests;
 /// </summary>
 /// <remarks>
 /// A real one, not an abstraction over the file system. Everything these tests are about
-/// — containment, atomic replacement, links, byte order marks — is behaviour of the file
+/// - containment, atomic replacement, links, byte order marks - is behaviour of the file
 /// system itself, and a fake would only ever confirm that the fake agrees with the
 /// production code's assumptions.
 /// </remarks>

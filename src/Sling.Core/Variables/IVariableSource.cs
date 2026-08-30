@@ -3,7 +3,7 @@ using System.Diagnostics.CodeAnalysis;
 namespace Sling.Core.Variables;
 
 /// <summary>
-/// Variables supplied from outside the document — the selected environment — so
+/// Variables supplied from outside the document - the selected environment - so
 /// <c>Sling.Core</c> can resolve them without knowing that environments are JSON files
 /// on disk.
 /// </summary>

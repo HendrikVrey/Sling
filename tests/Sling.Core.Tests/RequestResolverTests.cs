@@ -191,7 +191,7 @@ public sealed class RequestResolverTests
     public void A_response_value_cannot_retarget_the_request_to_another_host(string hostile)
     {
         // The attack this exists for. '@' is a legal URL character, so a character check
-        // passes it — and Uri parses the authority afterwards, making everything before
+        // passes it - and Uri parses the authority afterwards, making everything before
         // the '@' userinfo and everything after it the host. The Authorization header
         // then goes to a server the document never named, on the FIRST request, where no
         // redirect policy can intervene. Following a 'next' link out of a paginated
@@ -287,7 +287,7 @@ public sealed class RequestResolverTests
     public void A_body_is_not_held_to_the_header_expansion_budget()
     {
         // The budget was sized for a request target and then, when bodies started going
-        // through the same expander, silently governed them too — so a payload well inside
+        // through the same expander, silently governed them too - so a payload well inside
         // the 32 MB import cap was refused, with a message blaming a doubling variable the
         // document does not contain. Worse, it depended on whether the body happened to
         // hold a reference at all: the same bytes with no {{name}} in them went through.
@@ -309,7 +309,7 @@ public sealed class RequestResolverTests
     public void A_chain_reference_with_a_trailing_dot_does_not_return_the_whole_body()
     {
         // It walked zero path steps and returned the root, so this quietly sent the entire
-        // login response — every secret in it — as a header value.
+        // login response - every secret in it - as a header value.
         var result = Resolve(
             """
             GET https://api.example.com/me
@@ -354,7 +354,7 @@ public sealed class RequestResolverTests
     public void A_percent_encoded_control_character_stays_encoded_through_url_parsing()
     {
         // The character check runs on the substituted text, but System.Uri canonicalises
-        // afterwards — so the guard would be worthless if Uri decoded escapes. Probed
+        // afterwards - so the guard would be worthless if Uri decoded escapes. Probed
         // rather than assumed: Uri unescapes only unreserved characters (%41 becomes A)
         // and leaves %0d%0a alone, and a raw CR would be encoded rather than passed
         // through. This pins that, because a future change to how the target is built is
@@ -530,7 +530,7 @@ public sealed class RequestResolverTests
     public void An_environment_value_defined_in_terms_of_itself_is_reported_not_hung()
     {
         // The environment shadows the file, so '{{base}}' inside the environment's own
-        // 'base' cannot fall through to the file's — it is a cycle, and saying so beats
+        // 'base' cannot fall through to the file's - it is a cycle, and saying so beats
         // hanging.
         var result = Resolve(
             """
@@ -676,7 +676,7 @@ public sealed class RequestResolverTests
     public void An_import_is_read_after_the_chain_it_depends_on_has_run()
     {
         // Reported as missing rather than as an error, so the runner sends the dependency
-        // and resolves again — the same loop a chained URL drives.
+        // and resolves again - the same loop a chained URL drives.
         var result = Resolve(
             "POST https://api.example.com/upload\n\n<@ ./template.json",
             files: Files(("./template.json", "{{login.response.body.$.token}}")));
@@ -689,7 +689,7 @@ public sealed class RequestResolverTests
     [Fact]
     public void An_interpolating_import_consumes_a_byte_order_mark()
     {
-        // '<@' says "read this as text", and a leading U+FEFF is not text content — a JSON
+        // '<@' says "read this as text", and a leading U+FEFF is not text content - a JSON
         // body starting with one is rejected by most servers. Encoding.GetString keeps it;
         // a StreamReader given the encoding does not. BOM'd files are the Windows norm.
         var withBom = new byte[] { 0xEF, 0xBB, 0xBF }
@@ -776,7 +776,7 @@ public sealed class RequestResolverTests
     }
 
     /// <summary>
-    /// Files by the path the document wrote, recording what was asked for — which is how
+    /// Files by the path the document wrote, recording what was asked for - which is how
     /// "nothing was opened" is asserted.
     /// </summary>
     private sealed class StubFiles : Dictionary<string, byte[]>, IRequestFileSource

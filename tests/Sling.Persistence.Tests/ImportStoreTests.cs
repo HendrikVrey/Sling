@@ -50,7 +50,7 @@ public sealed class ImportStoreTests
 
     /// <summary>
     /// An import lands in a folder picked from a dialog, and picking the wrong one is a
-    /// single mis-click — one that could otherwise replace a request file somebody wrote by
+    /// single mis-click - one that could otherwise replace a request file somebody wrote by
     /// hand, or an <c>http-client.private.env.json</c> holding their real tokens.
     /// </summary>
     [Fact]
@@ -90,7 +90,7 @@ public sealed class ImportStoreTests
     /// <summary>
     /// Asserted against the function that implements the rule rather than through a
     /// conversion, because the importer's slug rules already make these paths impossible to
-    /// produce — which would leave this passing for a reason that has nothing to do with
+    /// produce - which would leave this passing for a reason that has nothing to do with
     /// what it claims.
     /// </summary>
     [Theory]

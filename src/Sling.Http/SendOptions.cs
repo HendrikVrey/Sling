@@ -23,7 +23,7 @@ public sealed record SendOptions
     /// <remarks>
     /// A streaming endpoint answers a GET with a body that never ends; without a cap the
     /// first person to point Sling at one loses the application. The real answer for very
-    /// large responses — Etch has large-file modes — is an open question in
+    /// large responses - Etch has large-file modes - is an open question in
     /// <c>Sling.md</c> §8; this is the bound that keeps the question from being urgent.
     /// </remarks>
     public long MaxBodyBytes { get; init; } = 16L * 1024 * 1024;

@@ -19,8 +19,8 @@ public sealed record ImportWriteResult(IReadOnlyList<string> Written, IReadOnlyL
 /// <para>
 /// <b>Containment is checked here as well as in the importer, and that is deliberate rather
 /// than redundant.</b> Every path comes from folder and request names inside somebody else's
-/// JSON file. <c>FileNames</c> makes a traversal impossible by construction — the slug
-/// whitelist has no <c>.</c>, <c>/</c> or <c>\</c> in it — and this checks the finished path
+/// JSON file. <c>FileNames</c> makes a traversal impossible by construction - the slug
+/// whitelist has no <c>.</c>, <c>/</c> or <c>\</c> in it - and this checks the finished path
 /// against the destination anyway, because the two would have to be wrong in the same way on
 /// the same day for a file to escape. It is the same shape as the curl importer stripping
 /// control characters where a note is built <em>and</em> commenting every line where one is
@@ -29,8 +29,8 @@ public sealed record ImportWriteResult(IReadOnlyList<string> Written, IReadOnlyL
 /// <para>
 /// <b>Nothing is ever overwritten.</b> An import lands in a folder the user picked from a
 /// dialog, and picking the wrong one is a single mis-click; replacing a request file
-/// somebody wrote by hand — or an <c>http-client.private.env.json</c> holding their real
-/// tokens — is not recoverable from inside Sling. A refusal is reported and the rest of the
+/// somebody wrote by hand - or an <c>http-client.private.env.json</c> holding their real
+/// tokens - is not recoverable from inside Sling. A refusal is reported and the rest of the
 /// import still lands.
 /// </para>
 /// </remarks>
@@ -41,7 +41,7 @@ public static class ImportStore
     /// </summary>
     /// <remarks>
     /// Constructed rather than <see cref="Encoding.UTF8"/>, whose singleton emits a byte
-    /// order mark — and a <c>.http</c> file that starts with one is a file whose first
+    /// order mark - and a <c>.http</c> file that starts with one is a file whose first
     /// request line does not parse in half the tools that read the format. The same reason
     /// <see cref="RequestFileStore"/> does it.
     /// </remarks>
@@ -68,7 +68,7 @@ public static class ImportStore
     /// <remarks>
     /// A file's name is carried alongside its text because the importer quotes it in
     /// diagnostics and falls back to it for an environment whose export forgot its own name.
-    /// It is never used to build an output path — those come from inside the collection, and
+    /// It is never used to build an output path - those come from inside the collection, and
     /// only through <c>FileNames</c>.
     /// </remarks>
     public static async Task<IReadOnlyList<PostmanSource>> ReadAsync(
@@ -142,13 +142,13 @@ public static class ImportStore
 
             if (Resolve(root, file.RelativePath) is not { } full)
             {
-                refused.Add($"{file.RelativePath} — that path does not stay inside the folder.");
+                refused.Add($"{file.RelativePath} - that path does not stay inside the folder.");
                 continue;
             }
 
             if (File.Exists(full) || Directory.Exists(full))
             {
-                refused.Add($"{file.RelativePath} — something is already there, and it was left alone.");
+                refused.Add($"{file.RelativePath} - something is already there, and it was left alone.");
                 continue;
             }
 
@@ -171,11 +171,11 @@ public static class ImportStore
             }
             catch (IOException ex)
             {
-                refused.Add($"{file.RelativePath} — {ex.Message}");
+                refused.Add($"{file.RelativePath} - {ex.Message}");
             }
             catch (UnauthorizedAccessException ex)
             {
-                refused.Add($"{file.RelativePath} — {ex.Message}");
+                refused.Add($"{file.RelativePath} - {ex.Message}");
             }
         }
 
@@ -194,7 +194,7 @@ public static class ImportStore
     /// <para>
     /// Links are not walked here, and that is a real difference from the body-import guard
     /// rather than an oversight. This writes into a folder the user chose in a dialog moments
-    /// ago, creating files that do not exist yet — there is no existing entry to follow, and
+    /// ago, creating files that do not exist yet - there is no existing entry to follow, and
     /// a directory the user themselves linked into that folder is theirs. The property that
     /// matters is the one checked: a name out of the collection cannot decide where the file
     /// lands.

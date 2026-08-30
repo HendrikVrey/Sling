@@ -21,7 +21,7 @@ public enum MediaKind
     /// <summary>XML, including the <c>+xml</c> structured suffix.</summary>
     Xml,
 
-    /// <summary>HTML, and XHTML — which is XML underneath but reads better as HTML.</summary>
+    /// <summary>HTML, and XHTML - which is XML underneath but reads better as HTML.</summary>
     Html,
 
     /// <summary>CSS.</summary>
@@ -62,7 +62,7 @@ public enum MediaKind
 /// </para>
 /// <para>
 /// The kind is advisory. <see cref="MediaKind.Binary"/> does not stop the body being shown
-/// — a server that mislabels JSON as <c>application/octet-stream</c> is common enough that
+/// - a server that mislabels JSON as <c>application/octet-stream</c> is common enough that
 /// refusing to show it would be the wrong response. It decides what Sling *starts* from;
 /// content sniffing gets the second word.
 /// </para>

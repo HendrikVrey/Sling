@@ -15,7 +15,7 @@ namespace Sling.App.Collections;
 /// <para>
 /// <b>Nothing here is trusted to be legible on faith.</b> Every seed goes through
 /// <see cref="Contrast.Legible"/> against the pane colour, exactly as
-/// <see cref="SyntaxPalette"/> does — a rail label at 10 px is body text, and the AA floor
+/// <see cref="SyntaxPalette"/> does - a rail label at 10 px is body text, and the AA floor
 /// applies to it whether or not anybody would think to check. The seeds are the same
 /// family the response pane already uses so the two surfaces look like one product.
 /// </para>
@@ -30,7 +30,7 @@ internal static class MethodPalette
     /// The readability floor, in WCAG contrast ratio.
     /// </summary>
     /// <remarks>
-    /// 4.5:1 — the AA requirement for body text. The 3:1 large-text allowance does not
+    /// 4.5:1 - the AA requirement for body text. The 3:1 large-text allowance does not
     /// apply: the verb is drawn small and bold, and bold is not large.
     /// </remarks>
     private const double MinimumContrast = 4.5;
@@ -39,7 +39,7 @@ internal static class MethodPalette
     /// The colour each verb starts from, before the legibility clamp.
     /// </summary>
     /// <remarks>
-    /// Green reads as safe, amber as writing, red as destructive — the convention every
+    /// Green reads as safe, amber as writing, red as destructive - the convention every
     /// HTTP tool already uses, and one users arrive with rather than have to learn. A verb
     /// not in the table gets the neutral colour rather than a colour of its own: the point
     /// is to make the destructive ones stand out, and a palette where everything is
@@ -85,8 +85,8 @@ internal static class MethodPalette
     /// </summary>
     /// <remarks>
     /// The lookup is ordinal and the parser already upper-cases the verb, so a document
-    /// written with <c>get</c> still finds the entry. An extension method — <c>PURGE</c>,
-    /// <c>LOCK</c>, whatever the API invented — lands on neutral, which is the honest
+    /// written with <c>get</c> still finds the entry. An extension method - <c>PURGE</c>,
+    /// <c>LOCK</c>, whatever the API invented - lands on neutral, which is the honest
     /// answer rather than a colour that means something it does not.
     /// </remarks>
     internal static Brush For(IReadOnlyDictionary<string, Brush> brushes, string? method)

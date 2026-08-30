@@ -109,7 +109,7 @@ internal static partial class TargetBuilder
     /// <remarks>
     /// Postman resolves these at send time and the <c>.http</c> format has no equivalent, so
     /// leaving them alone would send the literal text <c>:id</c> to the server. One left
-    /// without a value is left as written and noted — that is what Postman itself does with
+    /// without a value is left as written and noted - that is what Postman itself does with
     /// an unset path variable, and inventing a placeholder would hide the fact that the
     /// export never had one.
     /// </remarks>
@@ -161,7 +161,7 @@ internal static partial class TargetBuilder
     /// <remarks>
     /// <c>https</c> rather than <c>http</c>: defaulting a credential-carrying tool to
     /// cleartext would be indefensible, and saying so is what makes it correctable. A target
-    /// that <em>opens</em> with a variable is left alone — <c>{{base}}/orders</c> is the
+    /// that <em>opens</em> with a variable is left alone - <c>{{base}}/orders</c> is the
     /// format's central idiom, the scheme lives inside <c>base</c>, and prefixing it would
     /// produce <c>https://{{base}}/orders</c>, which is wrong in a way that only shows up at
     /// send time.

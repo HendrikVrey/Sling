@@ -9,7 +9,7 @@ namespace Sling.App.Editor;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Sling's two modal things — the settings panel and the name prompt — are overlays inside
+/// Sling's two modal things - the settings panel and the name prompt - are overlays inside
 /// the window rather than separate windows, so nothing gives them the entrance a real
 /// dialog gets for free. Appearing instantly, fully formed, on top of a window that has not
 /// visibly changed is the thing that makes an in-window overlay read as a rendering glitch
@@ -19,7 +19,7 @@ namespace Sling.App.Editor;
 /// <b>Only the entrance is animated.</b> Closing is immediate, and that is a decision:
 /// every close path here either hands an answer to a waiting task or is on the way out of
 /// the application, and an exit animation puts a hundred and forty milliseconds of
-/// half-transparent card between "the user pressed Escape" and "the work continues" —
+/// half-transparent card between "the user pressed Escape" and "the work continues",
 /// which is exactly the shape of the close-path bug this codebase has already shipped once.
 /// </para>
 /// </remarks>
@@ -60,7 +60,7 @@ internal static class Overlays
     /// <remarks>
     /// The opacity animation is removed before the value is set. A finished animation still
     /// holds the property at its last value, so assigning <c>Opacity</c> without clearing it
-    /// first is a write that silently does nothing — and the next <see cref="Reveal"/> would
+    /// first is a write that silently does nothing - and the next <see cref="Reveal"/> would
     /// then animate from a value the animation, not this method, decided.
     /// </remarks>
     internal static void Hide(UIElement scrim)

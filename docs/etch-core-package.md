@@ -1,6 +1,6 @@
 # Depending on `Etch.Core`
 
-Sling's response pane is not a viewport — it is an editor buffer that can format,
+Sling's response pane is not a viewport - it is an editor buffer that can format,
 fold, search and transform what came back. The engine that does that already exists
 in [Etch](https://github.com/HendrikVrey/Etch), and Sling consumes it as the NuGet
 package **`Etch.Core`**.
@@ -15,14 +15,14 @@ loud.
 
 **`Etch.Core` is not on nuget.org, and will not be.** Etch is source-available, not
 open source, and its licence §3(b) forbids making any part of it available to a third
-party — which is precisely what a public package does, since every consumer's build
+party - which is precisely what a public package does, since every consumer's build
 output embeds `Etch.Core.dll`. Etch's `docs/packaging.md` has the full argument.
 
 For Sling this has one practical consequence: **a fresh clone cannot restore from the
 internet alone.** There are two ways to give it the package, and `NuGet.config`
 declares both.
 
-### 1. `local-feed` — no credentials, and what a dev machine uses
+### 1. `local-feed` - no credentials, and what a dev machine uses
 
 A folder-shaped NuGet source in this repository. Fill it from a checkout of Etch:
 
@@ -34,10 +34,10 @@ The version must match the one pinned in `Directory.Packages.props`. A folder so
 matches on version, not on "whatever is newest", so a mismatch reads as "package not
 found" rather than as anything more helpful.
 
-Only the folder is tracked, never its contents — see `local-feed/README.md` for why
+Only the folder is tracked, never its contents - see `local-feed/README.md` for why
 the folder itself has to exist.
 
-### 2. `etch-github` — GitHub Packages, the canonical feed
+### 2. `etch-github` - GitHub Packages, the canonical feed
 
 ```
 https://nuget.pkg.github.com/HendrikVrey/index.json
@@ -51,7 +51,7 @@ dotnet nuget add source https://nuget.pkg.github.com/HendrikVrey/index.json --na
 ```
 
 **The token must be a classic personal access token with `read:packages`.** GitHub
-Packages does not accept fine-grained tokens — worth knowing before minting one and
+Packages does not accept fine-grained tokens - worth knowing before minting one and
 wondering why it 401s.
 
 ## How CI gets it
@@ -72,7 +72,7 @@ nuget.org.
 
 The id `Etch.Core` is **unclaimed on nuget.org**. Without the mapping, anyone could
 register it there, and the next restore on a machine whose cache did not already hold
-the real one would resolve theirs — a textbook dependency-confusion substitution, into
+the real one would resolve theirs - a textbook dependency-confusion substitution, into
 a tool that handles bearer tokens. The mapping means nuget.org is never asked about
 `Etch.*` at all.
 
@@ -82,13 +82,13 @@ a tool that handles bearer tokens. The mapping means nuget.org is never asked ab
 
 `Sling.Core` and `Sling.Import` are held to zero package references by
 `ArchitectureTests`, and that rule stays intact here. Etch.Core would arguably qualify
-on merit — it is pure, has no dependencies, does no I/O and is AOT-clean — but it does
+on merit - it is pure, has no dependencies, does no I/O and is AOT-clean - but it does
 not need the exception: highlighting, folding, the find bar and the transform palette
 are all editor concerns, and the editor lives in `Sling.App`. Sling.md §3 said so
 before any of it was written.
 
-If a future need does put a transform in `Sling.Core` — response redaction is the
-plausible one — that is a deliberate amendment to `ArchitectureTests` with a written
+If a future need does put a transform in `Sling.Core` - response redaction is the
+plausible one - that is a deliberate amendment to `ArchitectureTests` with a written
 reason, not a quiet edit.
 
 ## Upgrading

@@ -7,8 +7,8 @@
 
         Colours are DynamicResource lookups into WPF-UI's theme dictionary rather than
         literals, so a later light/dark switch costs nothing. AvalonEdit does not theme
-        itself — it is a plain WPF Control and will render black-on-white unless told
-        otherwise — so every colour it uses has to be set here explicitly.
+        itself - it is a plain WPF Control and will render black-on-white unless told
+        otherwise - so every colour it uses has to be set here explicitly.
     -->
 
     <!-- One spacing value, used everywhere a pane needs internal breathing room. -->
@@ -37,13 +37,13 @@
     </Style>
 
     <!--
-        A modal card, and it is deliberately NOT PaneBorderStyle — which is the bug this
+        A modal card, and it is deliberately NOT PaneBorderStyle - which is the bug this
         style exists to fix.
 
         CardBackgroundFillColorDefaultBrush is #0DFFFFFF: five per cent white, which is
         exactly right for a pane sitting on the window's own Mica backdrop and exactly
         wrong for a card floating over a scrim. The settings panel and the name prompt were
-        both 95% transparent, so what showed through them was the darkened window behind —
+        both 95% transparent, so what showed through them was the darkened window behind,
         they read as faded, half-rendered and broken. A dialog needs an opaque surface of
         its own, and WPF-UI ships the one WinUI uses for exactly this: ContentDialog's.
     -->
@@ -56,7 +56,7 @@
             <Setter.Value>
                 <!--
                     Shared by both overlays, and safe to share: a Freezable used read-only.
-                    The shadow is what separates the card from the scrim — without it an
+                    The shadow is what separates the card from the scrim - without it an
                     opaque panel on a dark wash reads as a region of the window rather than
                     as something on top of it.
                 -->
@@ -77,7 +77,7 @@
     <SolidColorBrush x:Key="OverlayScrimBrush" Color="#000000" Opacity="0.62" />
 
     <!--
-        The status pill beside the RESPONSE label. Only the geometry lives here — every
+        The status pill beside the RESPONSE label. Only the geometry lives here - every
         colour on it is computed against the pane at runtime by StatusPalette, because a
         colour written into a style is a colour nothing can hold to a contrast floor.
     -->
@@ -98,7 +98,7 @@
     <!--
         The settings overlay's two text roles. Styles rather than attributes repeated on
         each element, so the spacing between a label and the control under it is one
-        number in one place — that overlay is the only screen in Sling with a vertical
+        number in one place - that overlay is the only screen in Sling with a vertical
         rhythm to keep, and it has eight of them.
     -->
     <Style x:Key="SettingsLabelStyle" TargetType="TextBlock">

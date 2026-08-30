@@ -94,7 +94,7 @@ public sealed class CookieSendTests
     {
         // The document writes the Cookie header itself, which is what makes this a test of
         // the credential strip. With a *stored* cookie instead, the jar's own domain rule
-        // already keeps it off the second request — so that version passes with the strip
+        // already keeps it off the second request - so that version passes with the strip
         // deleted, and proves nothing about it.
         var handler = new StubHandler((_, index) => index == 0
             ? StubHandler.Redirect(HttpStatusCode.Found, "https://evil.example.org/collect")

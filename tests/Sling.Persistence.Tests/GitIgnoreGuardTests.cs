@@ -9,7 +9,7 @@ namespace Sling.Persistence.Tests;
 /// <remarks>
 /// <c>Sling.md</c> §5.1 makes this structural rather than advisory: a committed bearer
 /// token is <em>the</em> known failure mode of <c>.http</c> files in the wild. These
-/// tests also pin the other half of the rule — that this only ever appends, because it is
+/// tests also pin the other half of the rule - that this only ever appends, because it is
 /// editing somebody else's repository.
 /// </remarks>
 public sealed class GitIgnoreGuardTests
@@ -64,7 +64,7 @@ public sealed class GitIgnoreGuardTests
     [Fact]
     public void A_file_that_does_not_end_in_a_newline_does_not_get_its_last_rule_welded_to_the_next()
     {
-        // Appending straight on to 'bin/' would produce 'bin/# Sling — …', and git would
+        // Appending straight on to 'bin/' would produce 'bin/# Sling - …', and git would
         // stop honouring the rule that was already there.
         using var folder = new TemporaryFolder();
         folder.Write(".gitignore", "bin/");

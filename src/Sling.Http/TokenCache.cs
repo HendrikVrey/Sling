@@ -11,7 +11,7 @@ namespace Sling.Http;
 /// token is the single most valuable string Sling handles: it is a bearer credential, so
 /// whoever holds it is the client. There is no token file, no cache directory and no
 /// setting to add one; history stores tokens redacted, and this cache is emptied whenever
-/// the response store is — switching environment, or opening a different document.
+/// the response store is - switching environment, or opening a different document.
 /// </para>
 /// <para>
 /// The cache is what makes the feature usable rather than merely correct. Without it every
@@ -34,7 +34,7 @@ internal sealed class TokenCache
     /// <remarks>
     /// Separate from the cache, because <em>cacheable</em> and <em>known to redaction</em>
     /// are different questions and fusing them is a leak. A token with no stated lifetime
-    /// is deliberately not cached — and it is still a bearer credential that must be
+    /// is deliberately not cached - and it is still a bearer credential that must be
     /// recognised wherever it turns up in a history entry.
     /// </remarks>
     private readonly HashSet<string> _minted = new(StringComparer.Ordinal);
@@ -72,12 +72,12 @@ internal sealed class TokenCache
     /// <para>
     /// The two halves are deliberately separate. A token with no <c>expires_in</c> is not
     /// cached: RFC 6749 §5.1 only recommends the field, and inventing a lifetime for a
-    /// server that did not state one produces the worst possible failure — a run of 401s
+    /// server that did not state one produces the worst possible failure - a run of 401s
     /// starting partway through a session, from a cache the user cannot see.
     /// </para>
     /// <para>
     /// It is still recorded as minted. An earlier version returned before doing so, which
-    /// meant the one kind of token Sling fetches most often — the un-cacheable kind — was
+    /// meant the one kind of token Sling fetches most often - the un-cacheable kind - was
     /// invisible to redaction and reached the history file in clear.
     /// </para>
     /// </remarks>
@@ -94,7 +94,7 @@ internal sealed class TokenCache
         }
     }
 
-    /// <summary>Every token minted this session, for redaction. Values only — the keys hold secrets too.</summary>
+    /// <summary>Every token minted this session, for redaction. Values only - the keys hold secrets too.</summary>
     public IReadOnlyList<string> AccessTokens()
     {
         lock (_gate)

@@ -9,7 +9,7 @@ namespace Sling.Http;
 /// </summary>
 /// <remarks>
 /// In memory only, and not persisted. A response body is the most likely place in the
-/// whole application for a credential to be sitting, and history — which is persisted —
+/// whole application for a credential to be sitting, and history - which is persisted,
 /// stores redacted copies instead (<c>Sling.md</c> §5.4, M3).
 /// </remarks>
 /// <remarks>

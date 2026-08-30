@@ -86,7 +86,7 @@ public sealed class OAuth2Tests
             out _,
             out var error));
 
-        // The server's own words, which are the answer the user needs — "no access_token
+        // The server's own words, which are the answer the user needs - "no access_token
         // field" describes the same response and helps nobody.
         Assert.Contains("invalid_client", error, StringComparison.Ordinal);
         Assert.Contains("Client authentication failed", error, StringComparison.Ordinal);

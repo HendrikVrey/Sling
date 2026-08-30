@@ -8,7 +8,7 @@ namespace Sling.Import.Postman;
 /// <summary>The body a request should carry, and the type Postman would have sent with it.</summary>
 /// <param name="ImpliedContentType">
 /// Null when the mode says nothing about the type. Written out only when the request has no
-/// <c>Content-Type</c> header of its own — the document should say what goes on the wire,
+/// <c>Content-Type</c> header of its own - the document should say what goes on the wire,
 /// which is the entire reason a request is a document, but not by overriding what the
 /// collection stated.
 /// </param>
@@ -65,7 +65,7 @@ internal static class BodyConverter
     /// The <c>Content-Type</c> Postman derives from the raw body's language setting.
     /// </summary>
     /// <remarks>
-    /// This is not a guess about the content — it is what Postman puts on the wire for each
+    /// This is not a guess about the content - it is what Postman puts on the wire for each
     /// setting of that dropdown, and a request imported without it is a request the server
     /// sees differently. An unrecognised language says nothing rather than defaulting to
     /// text, because a wrong <c>Content-Type</c> is worse than none.
@@ -105,7 +105,7 @@ internal static class BodyConverter
     /// <remarks>
     /// <para>
     /// The <c>.http</c> format has no multipart syntax, so a multipart body <em>is</em> the
-    /// body written out with a <c>&lt; ./file</c> standing in for each file part — which is
+    /// body written out with a <c>&lt; ./file</c> standing in for each file part - which is
     /// exactly what M3 built the import line for. Nothing else here is possible: Postman's
     /// form grid is a description of a body, and the format only carries the body.
     /// </para>
@@ -118,7 +118,7 @@ internal static class BodyConverter
     /// </para>
     /// <para>
     /// A file part's path is reduced to its bare file name. The collection carries the
-    /// exporter's own absolute path — <c>/Users/someone/Desktop/avatar.png</c> — which does
+    /// exporter's own absolute path - <c>/Users/someone/Desktop/avatar.png</c> - which does
     /// not exist here, would not be inside the workspace, and would be refused by the
     /// containment rule if it were written out. Taking the last segment removes the
     /// traversal question entirely rather than answering it.
@@ -138,7 +138,7 @@ internal static class BodyConverter
             writer.Note(
                 "The form fields all contain every separator this could use, so there is no "
                     + "boundary that would keep the parts apart. The multipart body was left out "
-                    + "— half a multipart body is worse than none.");
+                    + " -  half a multipart body is worse than none.");
 
             return null;
         }
@@ -161,7 +161,7 @@ internal static class BodyConverter
                 {
                     writer.Note(
                         $"The form field '{HttpWriter.Describe(part.Key)}' attaches a file whose "
-                            + "name could not be used. The whole multipart body was left out — "
+                            + "name could not be used. The whole multipart body was left out - "
                             + "half a multipart body is worse than none.");
 
                     return null;
@@ -186,7 +186,7 @@ internal static class BodyConverter
                 {
                     writer.Note(
                         $"The form field '{HttpWriter.Describe(part.Key)}' attached several files. "
-                            + $"Only '{file}' was imported — each file needs a part of its own, and "
+                            + $"Only '{file}' was imported - each file needs a part of its own, and "
                             + "writing the rest would send a body the collection never described.");
                 }
 
@@ -211,7 +211,7 @@ internal static class BodyConverter
                     + (files == 1 ? string.Empty : "s")
                     + ". Put "
                     + (files == 1 ? "it" : "them")
-                    + " beside this .http file — a body import may only read files inside the "
+                    + " beside this .http file - a body import may only read files inside the "
                     + "workspace, and the collection's own paths point at the machine it was "
                     + "exported from.");
         }
@@ -230,7 +230,7 @@ internal static class BodyConverter
         }
 
         writer.Note(
-            $"The body is imported from '{file}'. Put that file beside this .http file — a body "
+            $"The body is imported from '{file}'. Put that file beside this .http file - a body "
                 + "import may only read files inside the workspace, and the collection's path "
                 + "points at the machine it was exported from.");
 
@@ -319,15 +319,15 @@ internal static class BodyConverter
     /// <para>
     /// <b>Bounded, because the collection chooses the content and the search was quadratic
     /// in it.</b> Lengthening by one character per collision, rescanning every part each
-    /// time, meant a part whose value was the stem followed by a million <c>x</c>s — under a
-    /// megabyte of input, well inside the export size cap — took over three minutes, with
+    /// time, meant a part whose value was the stem followed by a million <c>x</c>s - under a
+    /// megabyte of input, well inside the export size cap - took over three minutes, with
     /// the ceiling at days. So: try the plain stem, then a content-derived fingerprint, then
     /// a small fixed number of lengthenings, then give up and say so. A body that cannot be
     /// given a boundary is a body that cannot be sent, and refusing it beats hanging.
     /// </para>
     /// <para>
     /// Only the text parts can be checked. A file part's content is not in the document and
-    /// is not read here — this project does no I/O — so a file that happens to contain the
+    /// is not read here - this project does no I/O - so a file that happens to contain the
     /// boundary would still split the body. Stated rather than pretended away; the same
     /// limitation applies to any hand-written multipart body in this format.
     /// </para>
@@ -389,7 +389,7 @@ internal static class BodyConverter
     /// </summary>
     /// <remarks>
     /// A quote or a line break inside <c>name="…"</c> ends the parameter and lets the rest
-    /// be read as more of the part's headers — the same injection this importer refuses
+    /// be read as more of the part's headers - the same injection this importer refuses
     /// everywhere else, one format further in. Removed rather than backslash-escaped: RFC
     /// 7578 §4.2 points at a quoting rule that servers implement inconsistently, so a name
     /// that needs escaping is a name worth losing a character from.

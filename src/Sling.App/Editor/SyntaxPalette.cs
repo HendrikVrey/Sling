@@ -53,13 +53,13 @@ internal enum SyntaxRole
 /// dictionary and <c>App.OnStartup</c> applies it unconditionally; there is no theme
 /// switch and no light palette to keep in step. If Sling ever grows one, this class grows
 /// a second seed column and <see cref="ThemedHighlightingColorizer"/> grows the cache
-/// invalidation to go with it — and at that point the whole file is worth extracting into
+/// invalidation to go with it - and at that point the whole file is worth extracting into
 /// a package shared with Etch rather than being maintained twice. It is not worth
 /// extracting for one consumer with one theme.
 /// </para>
 /// <para>
 /// The seeds below are the VS Code Dark+ family, and the name-to-role table is the same
-/// mapping Etch uses — necessarily, since both read the same AvalonEdit grammars and the
+/// mapping Etch uses - necessarily, since both read the same AvalonEdit grammars and the
 /// names in it come from those grammar files. What is <em>not</em> shared is the
 /// machinery: Etch derives a light palette too and has to reconcile both, where this only
 /// ever answers one question.
@@ -76,7 +76,7 @@ internal static class SyntaxPalette
     /// The readability floor, in WCAG contrast ratio.
     /// </summary>
     /// <remarks>
-    /// 4.5:1 — the AA requirement for body text, applied to code because code *is* the
+    /// 4.5:1 - the AA requirement for body text, applied to code because code *is* the
     /// body text of this pane. The larger-text allowance of 3:1 does not apply to a 13 px
     /// monospace font.
     /// </remarks>
@@ -87,7 +87,7 @@ internal static class SyntaxPalette
     /// </summary>
     /// <remarks>
     /// WPF-UI's dark application background, alpha dropped. The panes are a translucent
-    /// card over Mica, which has no statable contrast of its own — this is the opaque
+    /// card over Mica, which has no statable contrast of its own - this is the opaque
     /// colour that surface is tinted towards and the closest honest stand-in.
     /// </remarks>
     internal static readonly Color FallbackPage = Color.FromRgb(0x20, 0x20, 0x20);
@@ -96,7 +96,7 @@ internal static class SyntaxPalette
     /// <remarks>
     /// <see cref="SyntaxRole.Tag"/> is deliberately not the same blue as
     /// <see cref="SyntaxRole.Keyword"/>. They are borrowed from editors where no document
-    /// shows markup and code at once — HTML does, and in Etch the two clamped to the same
+    /// shows markup and code at once - HTML does, and in Etch the two clamped to the same
     /// byte value, which a contrast test cannot see. <see cref="RolesAreDistinct"/> is the
     /// tripwire for that.
     /// </remarks>
@@ -119,7 +119,7 @@ internal static class SyntaxPalette
     /// Grammar colour names, as AvalonEdit's definition files declare them.
     /// </summary>
     /// <remarks>
-    /// A name not in here is not an error — <see cref="Rescue"/> keeps the grammar's own
+    /// A name not in here is not an error - <see cref="Rescue"/> keeps the grammar's own
     /// colour and only drags it up to the floor, which is the right answer for the long
     /// tail.
     /// </remarks>
@@ -203,8 +203,8 @@ internal static class SyntaxPalette
     /// Suffixes that make a name a keyword whatever else it says.
     /// </summary>
     /// <remarks>
-    /// Twenty-odd grammar colour names are some flavour of keyword —
-    /// <c>GotoKeywords</c>, <c>ExceptionKeywords</c>, <c>ControlStatements</c> — and
+    /// Twenty-odd grammar colour names are some flavour of keyword,
+    /// <c>GotoKeywords</c>, <c>ExceptionKeywords</c>, <c>ControlStatements</c> - and
     /// listing each would be an inventory that goes stale when a grammar is added. The
     /// suffixes are a rule about how these files are named, which is more durable.
     /// </remarks>
@@ -224,7 +224,7 @@ internal static class SyntaxPalette
     /// <remarks>
     /// Read rather than hardcoded so that the promise survives a theme dictionary update,
     /// but with a constant behind it because a missing resource must degrade to a
-    /// plausible page rather than to <c>Colors.Transparent</c> — against which everything
+    /// plausible page rather than to <c>Colors.Transparent</c> - against which everything
     /// clears every floor, and the whole guarantee silently evaporates.
     /// </remarks>
     internal static Color Page(ResourceDictionary? resources)

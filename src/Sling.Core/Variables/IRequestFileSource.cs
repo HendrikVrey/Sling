@@ -11,7 +11,7 @@ namespace Sling.Core.Variables;
 /// The implementation is also the enforcement point for <em>which</em> files a document
 /// may read, and that is a security boundary rather than a convenience. A <c>.http</c>
 /// file is something people share, paste from a colleague, or generate from an imported
-/// Postman collection (<c>Sling.md</c> §5.8) — so <c>&lt; C:\Users\me\.ssh\id_rsa</c>
+/// Postman collection (<c>Sling.md</c> §5.8) - so <c>&lt; C:\Users\me\.ssh\id_rsa</c>
 /// followed by a <c>POST</c> to an attacker's host is a request document, not an exotic
 /// attack. Containment lives behind this interface precisely so it cannot be forgotten at
 /// a call site.
@@ -31,7 +31,7 @@ public interface IRequestFileSource
     /// <param name="bytes">The file's contents, unaltered.</param>
     /// <param name="reason">
     /// Why it could not be read, phrased for the user. Never contains anything read from
-    /// the file — only the path, which the document already shows.
+    /// the file - only the path, which the document already shows.
     /// </param>
     bool TryRead(string path, [NotNullWhen(true)] out byte[]? bytes, [NotNullWhen(false)] out string? reason);
 }

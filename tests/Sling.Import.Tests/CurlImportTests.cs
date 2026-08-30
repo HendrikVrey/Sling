@@ -6,8 +6,8 @@ namespace Sling.Import.Tests;
 /// Converting a pasted curl command into a <c>.http</c> request.
 /// </summary>
 /// <remarks>
-/// A pasted command is untrusted input — it arrives from a chat message or a web page as
-/// often as from the user's own shell history — so roughly half of what is asserted here
+/// A pasted command is untrusted input - it arrives from a chat message or a web page as
+/// often as from the user's own shell history - so roughly half of what is asserted here
 /// is about what the converter refuses to do.
 /// </remarks>
 public sealed class CurlImportTests
@@ -215,7 +215,7 @@ public sealed class CurlImportTests
     [Fact]
     public void Double_quoted_escapes_are_honoured_but_not_over_applied()
     {
-        // \" is an escape; \n is not one, so the backslash survives — which is what keeps
+        // \" is an escape; \n is not one, so the backslash survives - which is what keeps
         // a Windows path in a payload intact.
         var result = CurlImport.Convert("""curl -d "{\"path\":\"C:\dir\"}" https://x.example.com""");
 
@@ -238,7 +238,7 @@ public sealed class CurlImportTests
 
     /// <summary>
     /// The output is a newline-delimited document. A header value carrying a line break
-    /// would become an <em>additional header line</em> — an injection into the artifact
+    /// would become an <em>additional header line</em> - an injection into the artifact
     /// the user is about to trust and send.
     /// </summary>
     [Fact]
@@ -270,7 +270,7 @@ public sealed class CurlImportTests
 
     /// <summary>
     /// A body keeps its line breaks, because a body is terminated by end-of-request
-    /// rather than by a delimiter — stripping them would rewrite a pretty-printed JSON
+    /// rather than by a delimiter - stripping them would rewrite a pretty-printed JSON
     /// payload into one long line, changing the bytes sent.
     /// </summary>
     [Fact]
@@ -297,7 +297,7 @@ public sealed class CurlImportTests
     /// <summary>
     /// The blocker this file exists to prevent regressing. Notes are written into the
     /// output as `#` comments, and several quote a value taken straight off the command
-    /// line — so a value carrying a newline turned one comment into a comment followed by
+    /// line - so a value carrying a newline turned one comment into a comment followed by
     /// live document text. The command below produced a document whose only request was
     /// the attacker's, with the legitimate GET absorbed into its body, and Ctrl+Enter
     /// would have sent a chained bearer token to another host.
@@ -336,7 +336,7 @@ public sealed class CurlImportTests
     }
 
     /// <summary>
-    /// Every line of a note is commented, not just the first — the second line of defence
+    /// Every line of a note is commented, not just the first - the second line of defence
     /// behind the strip, and the one that survives a note added later by someone who
     /// forgets.
     /// </summary>
@@ -378,7 +378,7 @@ public sealed class CurlImportTests
 
     /// <summary>
     /// Chrome and Firefox switch "Copy as cURL" to $'…' whenever a value contains a
-    /// control character, an apostrophe or a '!' — so this is the common path for any
+    /// control character, an apostrophe or a '!' - so this is the common path for any
     /// multi-line body, not a corner case. Without it the method came out GET, the body
     /// vanished entirely and the notes were nonsense.
     /// </summary>
@@ -426,7 +426,7 @@ public sealed class CurlImportTests
     /// <summary>
     /// curl reads from a file for -d, --data, --data-ascii and --data-binary when the
     /// value starts with '@'. Only --data-raw does not. Treating them alike turned
-    /// `-d @payload.json` — one of the commonest shapes in API documentation — into a POST
+    /// `-d @payload.json` - one of the commonest shapes in API documentation - into a POST
     /// whose body was the literal file name, silently.
     /// </summary>
     [Theory]

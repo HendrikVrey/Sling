@@ -4,7 +4,7 @@ using Sling.Core.Documents;
 namespace Sling.Core.Variables;
 
 /// <summary>
-/// A request with every variable substituted and every field validated — the only shape
+/// A request with every variable substituted and every field validated - the only shape
 /// <c>Sling.Http</c> will send.
 /// </summary>
 /// <remarks>
@@ -31,7 +31,7 @@ namespace Sling.Core.Variables;
 /// from an array to a memory, so in <c>hasBody ? bytes : null</c> the null literal
 /// converts through <c>byte[]</c> and wraps into an <em>empty</em> memory: the expression
 /// yields a non-null <c>ReadOnlyMemory&lt;byte&gt;?</c> of length zero, with no warning.
-/// "No body" then silently becomes "a body of zero bytes" — a different request, carrying
+/// "No body" then silently becomes "a body of zero bytes" - a different request, carrying
 /// <c>Content-Length: 0</c> and a content object on a <c>GET</c>. Caught by an existing
 /// redirect test; nothing in the type system was going to.
 /// </para>
@@ -39,7 +39,7 @@ namespace Sling.Core.Variables;
 /// <param name="Auth">
 /// The resolved OAuth2 grant this request needs a token from, or null. Not applied here:
 /// the token is not known until it has been fetched, so <c>Sling.Http</c> obtains it and
-/// adds the <c>Authorization</c> header — which is also what makes the token exchange
+/// adds the <c>Authorization</c> header - which is also what makes the token exchange
 /// visible as an exchange of its own.
 /// </param>
 /// <param name="FollowRedirects">
@@ -50,8 +50,8 @@ namespace Sling.Core.Variables;
 /// <para>
 /// <paramref name="FollowRedirects"/> lives on the request rather than on the sender's
 /// options, and that is the whole point of it. A token request carries the client secret
-/// — in the body under <c>client-auth body</c>, where no credential-header rule reaches it
-/// — and its URL was checked once, before it was sent, for being HTTPS. A single 307 to
+/// - in the body under <c>client-auth body</c>, where no credential-header rule reaches it
+/// - and its URL was checked once, before it was sent, for being HTTPS. A single 307 to
 /// another host would hand that secret over, defeat the HTTPS check in one hop, and let
 /// whoever answered mint the bearer token attached to the user's real request. Carrying
 /// the refusal on the request means it travels with it, instead of being something the

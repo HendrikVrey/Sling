@@ -5,8 +5,8 @@ using Sling.Core.Variables;
 namespace Sling.Http.Tests;
 
 /// <summary>
-/// <c>Sling.md</c> §5.2 — credential headers must not survive a hop to a different
-/// origin — and the method rewriting each redirect status implies.
+/// <c>Sling.md</c> §5.2 - credential headers must not survive a hop to a different
+/// origin - and the method rewriting each redirect status implies.
 /// </summary>
 /// <remarks>
 /// Tested explicitly because this is a real, shipped bug in more than one HTTP client,

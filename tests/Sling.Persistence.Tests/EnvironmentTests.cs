@@ -58,7 +58,7 @@ public sealed class EnvironmentTests
 
         var values = EnvironmentStore.Load(Workspace.Open(folder.Path)).Select("dev");
 
-        // The committed placeholder is a working default that the real value replaces —
+        // The committed placeholder is a working default that the real value replaces,
         // which only holds if the private file is applied last.
         Assert.True(values.TryGet("token", out var token));
         Assert.Equal("real-one", token);

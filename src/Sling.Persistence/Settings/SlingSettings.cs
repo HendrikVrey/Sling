@@ -8,7 +8,7 @@ namespace Sling.Persistence.Settings;
 /// <para>
 /// Every value here exists because someone hits its default and needs it moved: an API
 /// that takes four minutes to answer, a response larger than the cap, a redirect chain
-/// deeper than ten. Nothing here is a preference — the product has no themes, no font
+/// deeper than ten. Nothing here is a preference - the product has no themes, no font
 /// pickers and no layout options, because it has one layout and it is dark.
 /// </para>
 /// <para>
@@ -65,7 +65,7 @@ public sealed record SlingSettings
     /// </summary>
     /// <remarks>
     /// Applied on load and again on save, so a hand-edited file cannot put a value into
-    /// force that the panel would not let anyone type — and so the file gets rewritten in
+    /// force that the panel would not let anyone type - and so the file gets rewritten in
     /// the corrected form rather than silently disagreeing with the running application.
     /// </remarks>
     public SlingSettings Clamped() => new()

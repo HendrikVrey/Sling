@@ -9,8 +9,8 @@ namespace Sling.Core.Parsing;
 /// <remarks>
 /// <para>
 /// One home on purpose. These predicates are the enforcement point for
-/// <c>Sling.md</c> §5.7 — a value that arrives from a response body must not be able to
-/// inject a header or a request line — and a rule written in two places will eventually
+/// <c>Sling.md</c> §5.7 - a value that arrives from a response body must not be able to
+/// inject a header or a request line - and a rule written in two places will eventually
 /// disagree, with the tested copy not necessarily being the one that ships.
 /// </para>
 /// <para>
@@ -38,7 +38,7 @@ public static class HttpSyntax
 
     /// <summary>
     /// A header value may hold visible ASCII, space, horizontal tab, and (by long
-    /// tolerance) characters above 0x7F. It may never hold CR, LF or NUL — those end the
+    /// tolerance) characters above 0x7F. It may never hold CR, LF or NUL - those end the
     /// field, so a value carrying one would append headers of its own.
     /// </summary>
     public static bool IsLegalHeaderValueChar(char c) =>

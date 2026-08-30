@@ -84,8 +84,8 @@
             DockPanel for the reason the status bar and the rail are DockPanels: WPF never
             compresses an Auto region, so a toolbar built from Auto columns pushes its
             right-hand end off screen at narrow widths. Declaration order is priority order,
-            which is why Settings and History are declared first — they are the two that must
-            survive — and the send target, which is a label and can trim, is the fill child.
+            which is why Settings and History are declared first - they are the two that must
+            survive - and the send target, which is a label and can trim, is the fill child.
         -->
         <DockPanel Grid.Row="1"
                    Margin="12,2,12,10"
@@ -106,19 +106,9 @@
                        ToolTip="What has been sent, with credentials removed  (Ctrl+H)" />
 
             <!--
-                Send is the application, and it is the only Primary control on this bar. It
-                turns into Cancel for the duration of a request rather than sitting there
-                disabled — Escape already cancels, and a button that does nothing while the
-                thing it started is running is a button that has to be explained.
-
-                MinWidth because "Cancel" is wider than "Send": without it the whole left
-                group shuffles sideways every time a request starts, which is movement under
-                a cursor that is on its way to the button.
-            -->
-            <!--
                 Hiding the rail, which at 250 px is half the window on a narrow one. The
                 panes have a 160 px minimum each, so below roughly 620 px of client width
-                the response pane starts being clipped no matter how the space is divided —
+                the response pane starts being clipped no matter how the space is divided,
                 and until now the only way out was to widen the window. One button gives the
                 whole width back.
             -->
@@ -129,6 +119,16 @@
                        Style="{StaticResource ToolbarIconButtonStyle}"
                        ToolTip="Hide the collections rail  (Ctrl+B)" />
 
+            <!--
+                Send is the application, and it is the only Primary control on this bar. It
+                turns into Cancel for the duration of a request rather than sitting there
+                disabled. Escape already cancels, and a button that does nothing while the
+                thing it started is running is a button that has to be explained.
+
+                MinWidth because "Cancel" is wider than "Send": without it the whole left
+                group shuffles sideways every time a request starts, which is movement under
+                a cursor that is on its way to the button.
+            -->
             <ui:Button x:Name="SendButton"
                        MinWidth="92"
                        DockPanel.Dock="Left"
@@ -195,8 +195,8 @@
 
             <!--
                 Save has its own button despite being in the menu above. It is the one
-                command in that list with a state — there are unsaved changes or there are
-                not — and a disabled button is the cheapest possible answer to "did that
+                command in that list with a state - there are unsaved changes or there are
+                not - and a disabled button is the cheapest possible answer to "did that
                 save?".
             -->
             <ui:Button x:Name="SaveButton"
@@ -211,7 +211,7 @@
 
             <!--
                 What Send would send. The rail already highlights the row, but the rail is
-                only there when a folder is open — and the question "which of these is about
+                only there when a folder is open - and the question "which of these is about
                 to go out" is the one this application must never leave ambiguous.
             -->
             <Grid VerticalAlignment="Center">
@@ -239,7 +239,7 @@
 
         <!--
             DockPanel, not a fourth Grid column. WPF never compresses an Auto column, so a
-            file rail in one would push the response pane off screen at narrow widths —
+            file rail in one would push the response pane off screen at narrow widths,
             the bug Etch shipped in its status bar and had to rebuild. A DockPanel gives
             its fill child the remainder clamped at zero instead, so the rail takes its
             width and the panes shrink.
@@ -272,7 +272,7 @@
                 <!--
                     All three creations, side by side and the same width. A rail whose only
                     way to add something is a right-click is a rail people believe is
-                    read-only — and "New request file" used to be reachable *only* by
+                    read-only - and "New request file" used to be reachable *only* by
                     right-clicking, which is the least discoverable affordance there is.
                 -->
                 <UniformGrid x:Name="RailActions"
@@ -429,7 +429,7 @@
 
             <!--
                 Two panes: the request document on the left, the response on the right.
-                A GridSplitter rather than a fixed ratio — a response is usually wider
+                A GridSplitter rather than a fixed ratio - a response is usually wider
                 than the request that produced it, and the split people want depends on
                 the API, not on a designer's guess.
             -->
@@ -490,7 +490,7 @@
                         The exchange picker sits beside the label and appears only when a
                         chain actually ran. Sling sends requests on the user's behalf to
                         satisfy a {{name.response…}} reference, and a tool that makes network
-                        calls nobody asked for has to show them — each one is selectable here
+                        calls nobody asked for has to show them - each one is selectable here
                         and lands in the buffer like any other.
                     -->
                     <Grid DockPanel.Dock="Top" Margin="2,0,0,6">
@@ -596,7 +596,7 @@
         <!--
             DockPanel, not Grid. WPF never compresses an Auto column, so a status bar
             built from Auto columns pushes its right-hand content off screen at narrow
-            widths — the bug Etch shipped and had to fix. DockPanel declaration order is
+            widths - the bug Etch shipped and had to fix. DockPanel declaration order is
             a priority order, and the fill child's arranged width does not depend on its
             own content, which is what makes it stable rather than merely better.
         -->
@@ -686,7 +686,7 @@
                 <!--
                     DockPanel so the heading and the Close button are outside the scroll
                     region. They were inside it, which put Close below the fold on a 640 px
-                    card — a modal panel whose only visible way out was a chord. Found by
+                    card - a modal panel whose only visible way out was a chord. Found by
                     looking at it; nothing could have asserted it.
                 -->
                 <DockPanel>
@@ -743,7 +743,7 @@
                                              Content="Store and replay cookies"
                                              Unchecked="OnSettingToggled" />
                             <TextBlock Style="{StaticResource SettingsHintStyle}"
-                                       Text="One jar per environment, in memory only — nothing is written to disk." />
+                                       Text="One jar per environment, in memory only. Nothing is written to disk." />
 
                             <TextBlock Style="{StaticResource SettingsLabelStyle}" Text="History" />
                             <ui:ToggleSwitch x:Name="HistoryToggle"
@@ -773,7 +773,7 @@
                             <!--
                                 Stated rather than offered. Sling.md §5.3 allows a TLS bypass
                                 only per request and only with loud indication, so there is no
-                                global switch here to find — and saying why is better than
+                                global switch here to find - and saying why is better than
                                 leaving someone to hunt for one.
                             -->
                             <TextBlock Margin="0,20,0,0"

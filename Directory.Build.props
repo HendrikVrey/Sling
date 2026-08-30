@@ -12,7 +12,7 @@
       suggestion fired.
 
       The discipline that replaces the flag: the solution stays at zero warnings, and
-      any rule switched off is switched off *at its site* with a written reason —
+      any rule switched off is switched off *at its site* with a written reason,
       [SuppressMessage] on the member, or tests/.editorconfig for rules that only apply
       to test code. No blanket NoWarn anywhere, so a warning in a build is news.
     -->
@@ -28,7 +28,7 @@
     <VersionPrefix>0.1.0</VersionPrefix>
     <NeutralLanguage>en</NeutralLanguage>
     <!--
-      Source-available, not open source — the same licence Etch carries. Deliberately
+      Source-available, not open source - the same licence Etch carries. Deliberately
       NOT an SPDX <PackageLicenseExpression>, because this is not an SPDX-recognised
       licence and claiming one that is would misstate the terms.
     -->

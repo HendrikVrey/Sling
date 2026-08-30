@@ -12,12 +12,12 @@ namespace Sling.Persistence.Workspaces;
 /// A segment keeps Unicode letters and digits, <c>-</c>, <c>_</c> and spaces, and turns
 /// everything else into <c>-</c>. That makes <c>..</c>, <c>/</c>, <c>\</c>, <c>:</c>, NUL,
 /// a trailing dot and a trailing space impossible <em>by construction</em> rather than by a
-/// list of things to refuse — rejecting characters is a deny-list in disguise, and the one
+/// list of things to refuse - rejecting characters is a deny-list in disguise, and the one
 /// you forget is the one that matters.
 /// </para>
 /// <para>
 /// <b>It matters even though the user typed it.</b> The threat model is weaker than the
-/// importer's — nobody is attacking their own workspace — but "New collection" writes a
+/// importer's - nobody is attacking their own workspace - but "New collection" writes a
 /// directory at a path built from free text, and a person who pastes a name out of a
 /// browser tab is not thinking about what <c>../</c> does. The failure would be a folder
 /// created outside the workspace, which is not a security incident and is still a bug that
@@ -60,7 +60,7 @@ public static class WorkspaceNames
 
     /// <summary>
     /// The DOS device names, which Windows still resolves ahead of a file of the same
-    /// stem — <c>con.http</c> opens the console, whatever directory it sits in.
+    /// stem - <c>con.http</c> opens the console, whatever directory it sits in.
     /// </summary>
     /// <remarks>
     /// Checked against the stem rather than the whole file name, because that is how
@@ -80,7 +80,7 @@ public static class WorkspaceNames
     /// <param name="segment">The segment, when there is one.</param>
     /// <param name="reason">
     /// Why there is not, phrased for the status bar. The only failure is a name with
-    /// nothing in it a file name may keep — which is worth saying rather than silently
+    /// nothing in it a file name may keep - which is worth saying rather than silently
     /// substituting a default, because the user is looking at the box they typed it into.
     /// </param>
     public static bool TryToSegment(
@@ -94,13 +94,13 @@ public static class WorkspaceNames
 
         // At most one separator is ever owed, and it is written only when a keepable rune
         // follows it. That is what collapses runs and drops leading and trailing ones in a
-        // single pass: "Orders — refunds (v2)" becomes "Orders - refunds v2" rather than
+        // single pass: "Orders - refunds (v2)" becomes "Orders - refunds v2" rather than
         // "Orders----refunds--v2-". A dash outranks a space, so a run containing anything
         // illegal reads as a replacement rather than as a word break that was always there.
         char? owed = null;
 
         // Runes rather than chars. char.IsLetterOrDigit is false for both halves of every
-        // surrogate pair, so a name written in an astral script would come out as dashes —
+        // surrogate pair, so a name written in an astral script would come out as dashes,
         // the same defect that once deleted the ideograph out of Etch's word splitter.
         foreach (var rune in (typed ?? string.Empty).EnumerateRunes())
         {
@@ -121,14 +121,14 @@ public static class WorkspaceNames
                 continue;
             }
 
-            // A space stays a space rather than folding to a dash — it is legal on every
+            // A space stays a space rather than folding to a dash - it is legal on every
             // file system Sling runs on, and "Order management" reads better than
             // "Order-management".
             owed = rune.Value == ' ' && owed != '-' ? ' ' : '-';
         }
 
         // Not '_'. It is on the whitelist, and trimming it here made a typed '_shared'
-        // silently become 'shared' — a name coming back different for a reason nothing on
+        // silently become 'shared' - a name coming back different for a reason nothing on
         // screen explains. The device-name escape below prepends its own underscore after
         // this, so it is unaffected.
         var name = text.ToString().Trim('-', ' ');
@@ -172,7 +172,7 @@ public static class WorkspaceNames
         if (text.Length == 0)
         {
             stem = null;
-            reason = $"That is only an extension — Sling adds '{DocumentExtension}' itself. "
+            reason = $"That is only an extension - Sling adds '{DocumentExtension}' itself. "
                 + "Give the file a name.";
 
             return false;

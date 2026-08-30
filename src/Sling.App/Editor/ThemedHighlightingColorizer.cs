@@ -19,7 +19,7 @@ namespace Sling.App.Editor;
 /// <para>
 /// <b>Only the foreground is replaced.</b> Bold and italic are the grammar's judgement
 /// about emphasis rather than about colour. A grammar colour with no foreground at all is
-/// passed straight through — inventing one where the author deliberately left the text
+/// passed straight through - inventing one where the author deliberately left the text
 /// alone would be a change to the grammar, not to the palette.
 /// </para>
 /// </remarks>
@@ -38,7 +38,7 @@ internal sealed class ThemedHighlightingColorizer : HighlightingColorizer
     /// <para>
     /// Keyed by <em>reference</em>. <see cref="HighlightingColor.GetHashCode"/> hashes the
     /// brushes and font properties, which is slower and would merge two colours that
-    /// happen to agree today into one entry — harmless now, and exactly the aliasing that
+    /// happen to agree today into one entry - harmless now, and exactly the aliasing that
     /// becomes a puzzle later.
     /// </para>
     /// </remarks>
@@ -90,7 +90,7 @@ internal sealed class ThemedHighlightingColorizer : HighlightingColorizer
         if (color.Foreground is not { } foreground)
         {
             // Nothing to recolour. Weight and style still apply, so the grammar's emphasis
-            // survives — this is a colour that only ever meant "make this bold".
+            // survives - this is a colour that only ever meant "make this bold".
             return null;
         }
 
@@ -104,8 +104,8 @@ internal sealed class ThemedHighlightingColorizer : HighlightingColorizer
         }
         else
         {
-            // A null context is the supported case — HighlightingBrush.GetColor documents
-            // it as "context can be null!" — so this is not a gamble. A null *answer* is
+            // A null context is the supported case - HighlightingBrush.GetColor documents
+            // it as "context can be null!" - so this is not a gamble. A null *answer* is
             // still possible: only SimpleHighlightingBrush is guaranteed to resolve
             // without a text view, and a colour that will not say what it is cannot be
             // made legible. Left alone, which at worst leaves one run in the grammar's own

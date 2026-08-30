@@ -19,8 +19,8 @@ namespace Sling.App;
 /// <b>Every command here already worked from the keyboard, and that was the problem.</b> A
 /// tool whose entire surface is chords is one its author can use and nobody else can learn:
 /// there is nothing to point at, nothing to discover by looking, and no way to find out that
-/// "run every request in this file" exists at all. The toolbar does not replace the keymap —
-/// each control names its own chord — it makes the keymap findable.
+/// "run every request in this file" exists at all. The toolbar does not replace the keymap,
+/// each control names its own chord - it makes the keymap findable.
 /// </para>
 /// <para>
 /// The handlers are thin on purpose. Each one routes to the same method the chord routes to,
@@ -39,8 +39,8 @@ public partial class MainWindow
     /// <remarks>
     /// <para>
     /// Cached against <see cref="ITextSourceVersion"/> rather than re-parsed per caret move.
-    /// A caret move cannot change what the requests are, so the common case — arrowing
-    /// around a file — costs a dictionary-free reference comparison and a line lookup.
+    /// A caret move cannot change what the requests are, so the common case - arrowing
+    /// around a file - costs a dictionary-free reference comparison and a line lookup.
     /// </para>
     /// <para>
     /// A keystroke <em>does</em> invalidate it, and the cache is deliberately <b>not</b>
@@ -61,7 +61,7 @@ public partial class MainWindow
     {
         // A second subscription rather than a call from OnCaretMoved: that handler bails out
         // when no folder is open, and the send target has to be right in an untitled buffer
-        // too — which is the state the application starts in.
+        // too - which is the state the application starts in.
         RequestPane.TextArea.Caret.PositionChanged += OnCaretMovedForSendTarget;
 
         UpdateSendTarget(reparse: true);
@@ -75,7 +75,7 @@ public partial class MainWindow
     /// <remarks>
     /// The application's dictionary, not the window's: <see cref="ResourceDictionary"/>'s
     /// indexer searches the dictionary and what it merges, and does not walk up the element
-    /// tree — so asking the window for a theme key finds nothing and silently takes the
+    /// tree - so asking the window for a theme key finds nothing and silently takes the
     /// fallback.
     /// </remarks>
     private Color Page => _page ??= SyntaxPalette.Page(Application.Current?.Resources);
@@ -83,7 +83,7 @@ public partial class MainWindow
     private void OnSendClicked(object sender, RoutedEventArgs e)
     {
         // The button is Cancel for the duration of a request, so this is one control with two
-        // meanings — and which one it has is read from the same field the label is drawn
+        // meanings - and which one it has is read from the same field the label is drawn
         // from, rather than from a second flag that could disagree with it.
         if (IsSending)
         {
@@ -104,7 +104,7 @@ public partial class MainWindow
     /// application back in the state whose invisibility was the last thing Hendrik reported.
     /// </para>
     /// <para>
-    /// The rail's own creation buttons are not disturbed — <see cref="ShowWorkspaceRail"/>
+    /// The rail's own creation buttons are not disturbed - <see cref="ShowWorkspaceRail"/>
     /// owns those, and this only collapses the whole column, so whatever the rail was showing
     /// is what comes back.
     /// </para>
@@ -157,8 +157,8 @@ public partial class MainWindow
 
     /// <summary>Puts the buttons in step with what the window is doing.</summary>
     /// <remarks>
-    /// Called from <see cref="UpdateTitle"/> — which is already the one place the dirty
-    /// marker is recomputed — and around the in-flight token, which are between them every
+    /// Called from <see cref="UpdateTitle"/> - which is already the one place the dirty
+    /// marker is recomputed - and around the in-flight token, which are between them every
     /// state these controls read.
     /// </remarks>
     private void UpdateToolbar()
@@ -187,7 +187,7 @@ public partial class MainWindow
 
     /// <summary>Refreshes the label that says which request Send would send.</summary>
     /// <param name="reparse">
-    /// True where a parse is affordable — startup, a document load, the rail's idle tick.
+    /// True where a parse is affordable - startup, a document load, the rail's idle tick.
     /// False on the caret path, which runs at key-repeat rate: there the cached parse is used
     /// if it still matches the buffer, and the label is left alone if it does not.
     /// </param>
@@ -230,7 +230,7 @@ public partial class MainWindow
             && version.BelongsToSameDocumentAs(_sendTargetVersion)
             && version.CompareAge(_sendTargetVersion) == 0;
 
-    /// <param name="absent">What to say in place of a request. Never the empty string — a
+    /// <param name="absent">What to say in place of a request. Never the empty string - a
     /// label that disappears reads as a rendering fault rather than as an answer.</param>
     private void ShowSendTarget(RequestBlock? block, string absent)
     {
@@ -249,7 +249,7 @@ public partial class MainWindow
 
         // Describe and Clamp are the collections rail's, deliberately. The toolbar and the
         // tree name the same request at the same moment, a few centimetres apart, and two
-        // implementations of "what is this request called" is a pair that drifts — the rail
+        // implementations of "what is this request called" is a pair that drifts - the rail
         // saying 'login' while the bar says the URL is a difference nobody can explain.
         SendTargetLabel.Text = Describe(block);
 

@@ -13,7 +13,7 @@ namespace Sling.Persistence.Environments;
 /// <c>http-client.env.json</c> is meant to be committed and reviewed, and
 /// <c>http-client.private.env.json</c> is gitignored and holds the tokens. A value can be
 /// resolved from either, so a request file references <c>{{token}}</c> the same way
-/// whichever side it comes from — and no secret is ever resolvable from a file that gets
+/// whichever side it comes from - and no secret is ever resolvable from a file that gets
 /// committed, which is the property that matters.
 /// </para>
 /// <para>
@@ -54,7 +54,7 @@ public sealed class EnvironmentSet
 
     /// <summary>
     /// Anything wrong with either file, phrased for the user. Never a reason to refuse to
-    /// open a workspace — an environment file is edited by hand and is malformed from
+    /// open a workspace - an environment file is edited by hand and is malformed from
     /// time to time, and the useful response is to say so and carry on with what parsed.
     /// </summary>
     public IReadOnlyList<string> Problems { get; }
@@ -101,7 +101,7 @@ public sealed class EnvironmentSet
 /// <param name="Secret">
 /// True when it came from the private file. Nothing reads this yet; redaction in history
 /// and logs (<c>Sling.md</c> §5.4) is the M3 slice-2 feature that will, and the knowledge
-/// only exists at this layer — recording it here is what stops that feature having to
+/// only exists at this layer - recording it here is what stops that feature having to
 /// reopen the files to find out.
 /// </param>
 internal sealed record EnvironmentValue(string Text, bool Secret);
@@ -120,7 +120,7 @@ public sealed class EnvironmentValues : IVariableSource
         _values = values;
     }
 
-    /// <summary>An empty environment — every <c>{{name}}</c> falls through to the document.</summary>
+    /// <summary>An empty environment - every <c>{{name}}</c> falls through to the document.</summary>
     public static EnvironmentValues None { get; } = new(null, []);
 
     /// <summary>The selected environment's name, or null when none is selected.</summary>
@@ -158,7 +158,7 @@ public sealed class EnvironmentValues : IVariableSource
     /// </para>
     /// <para>
     /// Values, not names. What has to be recognised is the text <em>after</em> substitution
-    /// — which is what appears in a URL or a header — and by then the variable's name is
+    /// - which is what appears in a URL or a header - and by then the variable's name is
     /// gone.
     /// </para>
     /// </remarks>
@@ -173,7 +173,7 @@ public sealed class EnvironmentValues : IVariableSource
     /// Exists so a caller can tell whether re-reading the files actually changed anything.
     /// The environment files are edited outside Sling and re-read whenever its window
     /// comes forward, so a name can keep pointing at a <em>different</em> deployment
-    /// without the selection ever changing — which has to invalidate anything fetched
+    /// without the selection ever changing - which has to invalidate anything fetched
     /// under the old one just as switching environments does.
     /// <para>
     /// An exact comparison rather than a hash: a hash that collides fails by silently

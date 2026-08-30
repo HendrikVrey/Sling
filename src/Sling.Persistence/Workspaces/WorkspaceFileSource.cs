@@ -13,7 +13,7 @@ namespace Sling.Persistence.Workspaces;
 /// Containment is the whole job. A <c>.http</c> file is something people share, paste
 /// from a colleague or generate from an imported Postman collection, so
 /// <c>&lt; C:\Users\me\.ssh\id_rsa</c> followed by a <c>POST</c> to somewhere else is a
-/// perfectly ordinary request document — and Sling would send it without hesitating.
+/// perfectly ordinary request document - and Sling would send it without hesitating.
 /// Imports therefore resolve inside the workspace and nowhere else.
 /// </para>
 /// <para>
@@ -25,7 +25,7 @@ namespace Sling.Persistence.Workspaces;
 /// </para>
 /// <para>
 /// This is a bright line rather than a prompt. A dialog asking "allow this file?" is
-/// answered yes by everyone, which is why it is not offered — the way to send a file
+/// answered yes by everyone, which is why it is not offered - the way to send a file
 /// outside the workspace is to move it in, which is a decision made in a file manager
 /// with time to think.
 /// </para>
@@ -47,7 +47,7 @@ public sealed class WorkspaceFileSource : IRequestFileSource
     /// <param name="documentDirectory">The folder the <c>.http</c> file lives in.</param>
     /// <param name="workspaceRoot">
     /// The opened workspace, when the document is inside one. Imports may reach anywhere
-    /// beneath it — a shared <c>fixtures/</c> folder beside the requests is the ordinary
+    /// beneath it - a shared <c>fixtures/</c> folder beside the requests is the ordinary
     /// arrangement. With no workspace, the document's own folder is the boundary.
     /// </param>
     public WorkspaceFileSource(string documentDirectory, string? workspaceRoot)
@@ -102,7 +102,7 @@ public sealed class WorkspaceFileSource : IRequestFileSource
         catch (PathTooLongException)
         {
             // GetFullPath throws this as well as ArgumentException, and it escaped the
-            // interface — whose contract is that failures come back as text. It surfaced
+            // interface - whose contract is that failures come back as text. It surfaced
             // as the window's generic "Sling could not complete the request."
             reason = "that path is too long";
             return false;
@@ -115,11 +115,11 @@ public sealed class WorkspaceFileSource : IRequestFileSource
         }
 
         // The workspace's own secrets file sits at the root by definition, so containment
-        // alone lets a document read it — a shorter path to the credential than the
+        // alone lets a document read it - a shorter path to the credential than the
         // private key this class was written to refuse.
         if (IsEnvironmentFile(resolved))
         {
-            reason = "it is an environment file. Reference its values as {{name}} instead — a "
+            reason = "it is an environment file. Reference its values as {{name}} instead - a "
                 + "request file that could read the secrets file could also post it somewhere";
             return false;
         }
@@ -195,7 +195,7 @@ public sealed class WorkspaceFileSource : IRequestFileSource
     /// <para>
     /// <strong>The leaf is not enough, and checking only the leaf was a real hole.</strong>
     /// <see cref="FileSystemInfo.ResolveLinkTarget"/> inspects the entry it is called on,
-    /// and <see cref="Path.GetFullPath(string)"/> is purely lexical — neither follows a
+    /// and <see cref="Path.GetFullPath(string)"/> is purely lexical - neither follows a
     /// reparse point on an <em>intermediate</em> component. So a directory symlink or
     /// junction anywhere above the file was invisible to both, and
     /// <c>&lt; ./fixtures/Users/me/.ssh/id_rsa</c> through a committed

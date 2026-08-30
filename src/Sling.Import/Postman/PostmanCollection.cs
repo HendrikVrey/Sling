@@ -13,7 +13,7 @@ internal sealed record PostmanPair(string Key, string? Value, bool Secret = fals
 /// <summary>An OAuth2, bearer, basic or API-key auth block, flattened to its parameters.</summary>
 /// <remarks>
 /// Flattened because the schema puts the parameters under a property named after the type
-/// itself — <c>{ "type": "bearer", "bearer": [ … ] }</c> — and every consumer then has to
+/// itself - <c>{ "type": "bearer", "bearer": [ … ] }</c> - and every consumer then has to
 /// repeat that indirection. Both shapes real exports use are read here: the documented
 /// array of pairs, and the object form the app has also emitted.
 /// </remarks>
@@ -29,7 +29,7 @@ internal sealed record PostmanScript(string Kind, string Source);
 /// <param name="Raw">
 /// The URL as the user typed it, which is the field Postman's own UI shows. Preferred when
 /// it is there, because the structured fields below are a parse of it and a hand-edited
-/// export can disagree with itself — and when it does, the string the author was looking at
+/// export can disagree with itself - and when it does, the string the author was looking at
 /// is the one they meant.
 /// </param>
 internal sealed record PostmanUrl(
@@ -74,7 +74,7 @@ internal sealed record PostmanBody(
 /// <summary>A request, as the collection describes it.</summary>
 /// <param name="Auth">
 /// The auth block, which for a <em>request</em> lives here rather than on the item that
-/// holds it — the schema puts it on the request object and only a folder carries one at
+/// holds it - the schema puts it on the request object and only a folder carries one at
 /// item level. Reading it from the item alone made a request's explicit
 /// <c>{ "type": "noauth" }</c> do nothing, so a collection-wide bearer token was attached
 /// to the one request that had asked not to have it.
@@ -92,8 +92,8 @@ internal sealed record PostmanRequest(
 /// request when <see cref="Request"/> is.
 /// </summary>
 /// <remarks>
-/// One type for both because that is how the schema models it — an item with an
-/// <c>item</c> array is a folder and an item with a <c>request</c> is a request — and
+/// One type for both because that is how the schema models it - an item with an
+/// <c>item</c> array is a folder and an item with a <c>request</c> is a request - and
 /// splitting them here would mean deciding what a node carrying both is, which real
 /// exports occasionally do after a drag in the app.
 /// </remarks>
@@ -125,7 +125,7 @@ internal sealed record PostmanCollection(
     public static PostmanCollection Read(JsonElement root)
     {
         // Undefined when 'info' is missing, and every reader below already answers "not
-        // there" for a value of that kind — so a collection with no info block reads as one
+        // there" for a value of that kind - so a collection with no info block reads as one
         // with no name rather than needing a guard at each use.
         var info = root.Property("info") ?? default;
 
@@ -241,7 +241,7 @@ internal sealed record PostmanCollection(
     /// <remarks>
     /// A path segment holding a variable arrives as <c>{ "value": ":id" }</c> in some
     /// exports and as <c>":id"</c> in others. Reading only the string form drops the
-    /// segment, which silently shortens the path — a request to the wrong resource rather
+    /// segment, which silently shortens the path - a request to the wrong resource rather
     /// than a request that fails.
     /// </remarks>
     private static IReadOnlyList<string> ReadStrings(JsonElement parent, string name) =>
@@ -302,7 +302,7 @@ internal sealed record PostmanCollection(
     }
 
     /// <summary>
-    /// The files a form part points at — one, or several when the user attached several to
+    /// The files a form part points at - one, or several when the user attached several to
     /// the same field.
     /// </summary>
     private static List<string> Sources(JsonElement part)
@@ -335,7 +335,7 @@ internal sealed record PostmanCollection(
     /// <remarks>
     /// Collection variables and headers carry <c>disabled: true</c>; an environment
     /// export's values carry <c>enabled: false</c> instead. Two names for one idea, both in
-    /// current exports — and reading only one of them imports variables the owner had
+    /// current exports - and reading only one of them imports variables the owner had
     /// switched off, which for an environment is how a stale token gets resurrected.
     /// </remarks>
     private static bool IsSwitchedOff(JsonElement element) =>

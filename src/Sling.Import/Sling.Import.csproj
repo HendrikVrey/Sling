@@ -4,7 +4,7 @@
     Sling.Import converts foreign formats into .http text: Postman Collection v2.1
     JSON, and curl command lines.
 
-    Pure — text in, text out. No I/O and no network, which is exactly what makes an
+    Pure - text in, text out. No I/O and no network, which is exactly what makes an
     importer testable against a corpus of real exported collections. Reading the file
     from disk and writing the result is Sling.Persistence's job, not this project's.
 

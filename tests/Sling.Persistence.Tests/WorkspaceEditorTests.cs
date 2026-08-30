@@ -10,7 +10,7 @@ namespace Sling.Persistence.Tests;
 /// </summary>
 /// <remarks>
 /// Against a real folder, for the reason on <see cref="TemporaryFolder"/>: everything
-/// interesting here — never overwriting, containment, what a link does — is behaviour of
+/// interesting here - never overwriting, containment, what a link does - is behaviour of
 /// the file system rather than of this code.
 /// </remarks>
 public sealed class WorkspaceEditorTests
@@ -138,7 +138,7 @@ public sealed class WorkspaceEditorTests
         var relative = await WorkspaceEditor
             .CreateCollectionAsync(workspace, null, typed, TestContext.Current.CancellationToken);
 
-        // Not "it threw" — the name is slugged, so what has to be true is that whatever it
+        // Not "it threw" - the name is slugged, so what has to be true is that whatever it
         // became is still under the root.
         var created = Path.GetFullPath(Path.Combine(folder.Path, relative));
 
@@ -189,7 +189,7 @@ public sealed class WorkspaceEditorTests
     public void An_appended_request_parses_as_exactly_one_more_request()
     {
         // The block is generated text read back by the parser, so the assertion has to be
-        // the parse rather than the presence of the '###' line — asserting the text is what
+        // the parse rather than the presence of the '###' line - asserting the text is what
         // the M4 review called certifying the comment instead of the property.
         const string Existing = "### first\nGET https://example.test/one\n";
 
@@ -217,7 +217,7 @@ public sealed class WorkspaceEditorTests
     {
         // The whole point of the buffer going in rather than a flag: '###' is only a
         // separator at the start of a line, and IsSeparator does not trim. A document of
-        // "   " used to produce "   ### orders", which parses as a COMMENT — one request in
+        // "   " used to produce "   ### orders", which parses as a COMMENT - one request in
         // the file instead of two, and the name silently gone.
         var before = RequestDocumentParser.Parse(existing).Requests.Count;
 
@@ -233,7 +233,7 @@ public sealed class WorkspaceEditorTests
     [Fact]
     public void An_appended_request_uses_the_document_s_own_line_endings()
     {
-        // A file from a checkout with CRLF endings must not gain one LF line in the middle —
+        // A file from a checkout with CRLF endings must not gain one LF line in the middle,
         // invisible in the editor, and a whole-file diff for whoever reviews it next.
         var block = WorkspaceEditor.RequestBlockText("### first\r\nGET https://a.test\r\n", "second", "\r\n");
 
@@ -244,7 +244,7 @@ public sealed class WorkspaceEditorTests
     public void An_appended_request_cannot_smuggle_a_directive_into_the_document()
     {
         // A title is free text in the user's head and a line the parser reads in fact.
-        // '# @name' is a directive, so a name of "@name login" must not become one — and it
+        // '# @name' is a directive, so a name of "@name login" must not become one - and it
         // cannot, because '@' is not on the whitelist.
         var block = WorkspaceEditor.RequestBlockText(string.Empty, "@name login", "\n");
 
@@ -271,7 +271,7 @@ public sealed class WorkspaceEditorTests
     }
 
     /// <summary>
-    /// The write boundary, through a junction — the read side's counterpart.
+    /// The write boundary, through a junction - the read side's counterpart.
     /// </summary>
     /// <remarks>
     /// <c>WorkspacePaths</c> now has two callers and its own remark says they guard the same
@@ -289,7 +289,7 @@ public sealed class WorkspaceEditorTests
         if (!TryLinkDirectory(Path.Combine(inside.Path, "fixtures"), outside.Path))
         {
             // Creating a link needs a privilege this account may not have. Skipped rather
-            // than passed silently — see the assertion below.
+            // than passed silently - see the assertion below.
             Assert.SkipWhen(true, "this account cannot create a directory link");
             return;
         }
@@ -309,7 +309,7 @@ public sealed class WorkspaceEditorTests
     /// The join the rail actually depends on: create, walk, build, find.
     /// </summary>
     /// <remarks>
-    /// Both halves are tested on their own. This is the seam — a collection that is created
+    /// Both halves are tested on their own. This is the seam - a collection that is created
     /// and then not listed is a collection the user cannot see, and nothing else would catch
     /// a disagreement about separators or casing between the two.
     /// </remarks>

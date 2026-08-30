@@ -12,6 +12,14 @@ namespace Sling.Persistence.Tests;
 /// </remarks>
 public sealed class WorkspaceNamesTests
 {
+    /// <summary>The illegal character the sanitiser is meant to replace.</summary>
+    /// <remarks>
+    /// A constant rather than a literal in the string below. Hendrik's rule is that no
+    /// em dash appears in anything written here, and a sweep enforcing that would
+    /// silently turn the one test that needs the character into a test of a hyphen.
+    /// </remarks>
+    private const char EmDash = (char)0x2014;
+
     [Fact]
     public void An_ordinary_name_survives_unchanged()
     {
@@ -40,7 +48,13 @@ public sealed class WorkspaceNamesTests
     {
         // A dash outranks a space in a mixed run, so a separator that contained something
         // illegal reads as a replacement rather than as a word break that was always there.
-        Assert.True(WorkspaceNames.TryToSegment("Orders — refunds (v2)", out var segment, out _));
+        //
+        // THE EM DASH IN THIS STRING IS DATA, NOT PROSE. It is the illegal character the
+        // test exists to sanitise, and a find-and-replace that treats it as writing turns
+        // this into an assertion about a hyphen, which the whitelist already allows. Leave
+        // it alone. It is built from a char constant rather than typed, so a sweep
+        // over this file cannot reach it in the first place.
+        Assert.True(WorkspaceNames.TryToSegment($"Orders {EmDash} refunds (v2)", out var segment, out _));
         Assert.Equal("Orders-refunds-v2", segment);
     }
 
@@ -63,7 +77,7 @@ public sealed class WorkspaceNamesTests
     public void A_name_that_is_only_an_extension_says_so(string typed)
     {
         // The general refusal talks about which characters survive, which is true and
-        // useless to somebody who typed '.http' — they did type letters.
+        // useless to somebody who typed '.http' - they did type letters.
         Assert.False(WorkspaceNames.TryToDocumentStem(typed, out _, out var reason));
         Assert.Contains("only an extension", reason, StringComparison.Ordinal);
     }
@@ -121,7 +135,7 @@ public sealed class WorkspaceNamesTests
     [InlineData("lpt1")]
     public void A_device_name_is_escaped_rather_than_refused(string typed)
     {
-        // Windows resolves these ahead of a file of the same stem — con.http opens the
+        // Windows resolves these ahead of a file of the same stem - con.http opens the
         // console, whatever directory it sits in. Losing the name entirely helps nobody.
         Assert.True(WorkspaceNames.TryToSegment(typed, out var segment, out _));
         Assert.Equal("_" + typed, segment);

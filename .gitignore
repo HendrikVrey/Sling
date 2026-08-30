@@ -22,7 +22,7 @@ Thumbs.db
 desktop.ini
 .DS_Store
 
-## Sling — secrets and local state
+## Sling - secrets and local state
 #
 # The whole point of the .http format is that the request file is committed and
 # reviewed. That only stays safe if the secrets file never is. These entries are
@@ -30,7 +30,7 @@ desktop.ini
 # mode of .http files in the wild (Sling.md §5.1).
 #
 # These are the same entries Sling writes into a user's own repository when it
-# opens a folder holding a secrets file — see EnvironmentStore.IgnoreEntries. Do
+# opens a folder holding a secrets file - see EnvironmentStore.IgnoreEntries. Do
 # not remove them here on the grounds that this repo has no secrets yet.
 http-client.private.env.json
 http-client.private.env.json*

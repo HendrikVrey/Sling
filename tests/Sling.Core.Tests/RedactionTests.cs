@@ -118,8 +118,8 @@ public sealed class RedactionTests
     [Fact]
     public void A_secret_that_percent_encodes_is_still_removed_from_a_url()
     {
-        // A URL holds the escaped form, so a secret containing anything Uri encodes — an
-        // accent, a space — does not literally appear in it and slips past a plain search.
+        // A URL holds the escaped form, so a secret containing anything Uri encodes - an
+        // accent, a space - does not literally appear in it and slips past a plain search.
         // ASCII secrets are unaffected, which is why this was invisible.
         const string Accented = "sécret-value-abcdefgh";
 
@@ -160,7 +160,7 @@ public sealed class RedactionTests
     public void A_fragment_is_dropped()
     {
         // It is never sent to a server, so keeping it in a record of what was sent would be
-        // a small lie — and implicit-flow tokens live in fragments.
+        // a small lie - and implicit-flow tokens live in fragments.
         var result = Redactor.WithoutKnownSecrets.Url(new Uri("https://api.example.com/v1#access_token=abc"));
 
         Assert.Equal("https://api.example.com/v1", result);

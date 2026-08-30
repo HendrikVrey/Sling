@@ -18,7 +18,7 @@ internal enum ChainPart
 /// </summary>
 /// <remarks>
 /// This is the mechanism that makes "log in, extract the token, use it in every
-/// subsequent request" work without a scripting runtime — which is why <c>Sling.md</c>
+/// subsequent request" work without a scripting runtime - which is why <c>Sling.md</c>
 /// §2 puts it in M1 rather than deferring it. Extraction is data-only by construction:
 /// there is no expression to evaluate, so there is nothing to sandbox.
 /// </remarks>
@@ -27,7 +27,7 @@ internal sealed record ChainReference(string RequestName, ChainPart Part, string
     private const string ResponseSegment = ".response.";
 
     /// <summary>
-    /// Recognises the chain grammar. Returns false — rather than reporting an error —
+    /// Recognises the chain grammar. Returns false - rather than reporting an error,
     /// for anything else, because "not a chain reference" is the normal case: most
     /// <c>{{names}}</c> are plain variables.
     /// </summary>
@@ -54,7 +54,7 @@ internal sealed record ChainReference(string RequestName, ChainPart Part, string
         {
             var path = rest["body.".Length..];
 
-            // A trailing dot is not a way to spell "the whole body" — '…body' already is.
+            // A trailing dot is not a way to spell "the whole body" - '…body' already is.
             // Left alone it walked zero steps and returned the root, so
             // 'Authorization: Bearer {{login.response.body.}}' quietly sent the entire
             // login response, every secret in it, as a header value.

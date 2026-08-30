@@ -32,8 +32,8 @@ internal readonly record struct BodyAnalysis(SyntaxLanguage Language, DetectionR
 /// </para>
 /// <para>
 /// <b>But only when the declaration is useful.</b> Mislabelling is common enough to plan
-/// for — JSON served as <c>text/plain</c>, or as <c>application/octet-stream</c> by a
-/// gateway that did not look — so a header that resolves to plain text or to nothing at
+/// for - JSON served as <c>text/plain</c>, or as <c>application/octet-stream</c> by a
+/// gateway that did not look - so a header that resolves to plain text or to nothing at
 /// all hands the decision to the detector rather than ending it.
 /// </para>
 /// <para>
@@ -64,7 +64,7 @@ internal static class BodyLanguage
         var detection = FormatDetection.Detect(body);
 
         var language = FromMedia(MediaType.Parse(contentType).Kind)
-            // The detector answers a format, not a language — a body can be a JWT or
+            // The detector answers a format, not a language - a body can be a JWT or
             // base64 or a timestamp, none of which has a grammar. FromFormat is the
             // mapping that already knows which of them do.
             ?? LanguageSelector.FromFormat(detection.Format);

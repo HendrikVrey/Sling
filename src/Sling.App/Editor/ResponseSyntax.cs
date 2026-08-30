@@ -15,14 +15,14 @@ namespace Sling.App.Editor;
 /// <remarks>
 /// <para>
 /// This is where a response stops being a viewport and becomes a buffer. The pane holds
-/// the body and nothing else — the request line, the status and the headers live beside
-/// it — which is what lets a whole-document grammar and a whole-document fold scan be
+/// the body and nothing else - the request line, the status and the headers live beside
+/// it - which is what lets a whole-document grammar and a whole-document fold scan be
 /// correct rather than approximately correct.
 /// </para>
 /// <para>
 /// <b>Simpler than Etch's equivalent, and for one structural reason: the editor's
 /// <see cref="TextDocument"/> is never replaced.</b> Etch swaps documents on every tab
-/// switch, which is what forces it to tear the fold manager down first —
+/// switch, which is what forces it to tear the fold manager down first,
 /// <c>FoldingManager</c> binds to the document at <c>Install</c>, and uninstalling after a
 /// swap dereferences a height tree whose root the swap has already nulled. Sling has one
 /// pane and assigns text into the same document, so that hazard does not exist here. It is
@@ -43,7 +43,7 @@ internal sealed class ResponseSyntax : IDisposable
     /// <remarks>
     /// By name, never by extension. <c>GetDefinitionByExtension(".md")</c> answers
     /// <c>MarkDownWithFontSize</c>, because <c>.md</c> is registered twice and the later
-    /// registration wins — and that variant scales heading text, which in a fixed-width
+    /// registration wins - and that variant scales heading text, which in a fixed-width
     /// pane looks like a rendering fault.
     /// </remarks>
     private static readonly Dictionary<SyntaxLanguage, string> GrammarNames = new()
@@ -62,7 +62,7 @@ internal sealed class ResponseSyntax : IDisposable
     /// <remarks>
     /// A closed list, matching the lexical model <c>BraceFolding</c> documents: quoted
     /// strings with backslash escapes, <c>//</c> to end of line, <c>/* */</c> across
-    /// lines. CSS is deliberately absent although it uses braces — it has no <c>//</c>
+    /// lines. CSS is deliberately absent although it uses braces - it has no <c>//</c>
     /// comment, so the <c>//</c> in <c>url(http://…)</c> would hide the rest of that line
     /// including a closing brace, producing a fold over the wrong region. It still gets
     /// highlighting; it gets no fold margin, which is the honest answer.
@@ -92,7 +92,7 @@ internal sealed class ResponseSyntax : IDisposable
     /// Raised on the UI thread when a background fold scan throws.
     /// </summary>
     /// <remarks>
-    /// A fold scan failing is not fatal — the margin simply stops updating — but it must
+    /// A fold scan failing is not fatal - the margin simply stops updating - but it must
     /// not be invisible. The alternative is a feature that quietly stops working and an
     /// exception that reappears minutes later at garbage collection, attached to nothing.
     /// </remarks>
@@ -129,7 +129,7 @@ internal sealed class ResponseSyntax : IDisposable
         SetFolding(wantsFolding);
 
         // Unconditional when folding is wanted, because this is called once per response
-        // and the text is new every time — unlike Etch, where the same method runs on a
+        // and the text is new every time - unlike Etch, where the same method runs on a
         // debounce while somebody types and a scan per keystroke would be the cost the
         // check exists to avoid.
         if (wantsFolding)
@@ -146,7 +146,7 @@ internal sealed class ResponseSyntax : IDisposable
     /// The scan runs on the thread pool over an immutable snapshot. It matters here: a
     /// response body is capped at sixteen mebibytes, and materialising one is a
     /// thirty-two-megabyte allocation on the large object heap. Doing that on the
-    /// dispatcher would be a visible freeze immediately after a send — the worst possible
+    /// dispatcher would be a visible freeze immediately after a send - the worst possible
     /// moment, because it looks like the request is still running.
     /// </para>
     /// <para>

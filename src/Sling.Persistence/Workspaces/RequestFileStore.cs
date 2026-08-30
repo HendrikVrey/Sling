@@ -8,7 +8,7 @@ namespace Sling.Persistence.Workspaces;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Saving is explicit — <c>Ctrl+S</c>, with a dirty marker — and that is a deliberate
+/// Saving is explicit - <c>Ctrl+S</c>, with a dirty marker - and that is a deliberate
 /// split from Etch, which auto-saves continuously and has no save command at all. The
 /// difference is what the file is: an Etch buffer is scratch that belongs to Etch, while
 /// a <c>.http</c> file is a git artifact that belongs to a repository. Rewriting one
@@ -30,7 +30,7 @@ public static class RequestFileStore
     /// </summary>
     /// <remarks>
     /// The open dialog offers "All files", so what this guards against is somebody pointing
-    /// it at a database dump — otherwise read whole, on the dispatcher, into an editor
+    /// it at a database dump - otherwise read whole, on the dispatcher, into an editor
     /// buffer. A request file is text a person wrote; a generous ceiling still excludes
     /// everything that is not one.
     /// </remarks>
@@ -38,7 +38,7 @@ public static class RequestFileStore
 
     /// <summary>
     /// The encoding a document is written in. Constructed rather than
-    /// <see cref="Encoding.UTF8"/>, whose singleton emits a byte order mark — and a
+    /// <see cref="Encoding.UTF8"/>, whose singleton emits a byte order mark - and a
     /// <c>.http</c> file that starts with one is a file whose first request line does not
     /// parse in half the tools that read the format.
     /// </summary>
@@ -62,7 +62,7 @@ public static class RequestFileStore
         }
 
         // The BOM check StreamReader performs comes from the encoding instance it is
-        // given, not from detectEncodingFromByteOrderMarks alone — and passing the
+        // given, not from detectEncodingFromByteOrderMarks alone - and passing the
         // Encoding.UTF8 singleton makes "had a BOM" indistinguishable from "did not".
         using var reader = new StreamReader(path, FileEncoding, detectEncodingFromByteOrderMarks: true);
 

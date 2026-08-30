@@ -7,7 +7,7 @@ namespace Sling.Core.Variables;
 /// <remarks>
 /// <para>
 /// A record with defaults rather than a constructor with three arguments, so a caller
-/// supplies only the parts that exist in its situation — a unit test resolving a
+/// supplies only the parts that exist in its situation - a unit test resolving a
 /// self-contained document supplies none of them, and gets the honest answer that every
 /// chain reference is unsent and every import unavailable.
 /// </para>

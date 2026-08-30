@@ -4,7 +4,7 @@ Sling is built on the components below. Each is used unmodified, under its own
 licence, and each of those licences requires that its copyright notice and
 permission notice travel with any copy of the software.
 
-This file is that notice. **It ships inside the release archive** — it is not
+This file is that notice. **It ships inside the release archive** - it is not
 only a repository courtesy, it is a condition of using these components at all.
 
 Sling's own licence (`LICENSE`) does not apply to any of them, and nothing in it
@@ -98,13 +98,13 @@ The transform engine behind the response pane: format detection, the transform
 catalogue, palette ranking, and the text utilities under them. `Etch.Core.dll`
 is redistributed inside every Sling release.
 
-Not third-party in the usual sense — it is the same author's code, from the
-[Etch](https://github.com/HendrikVrey/Etch) project — but it is a **separately
+Not third-party in the usual sense - it is the same author's code, from the
+[Etch](https://github.com/HendrikVrey/Etch) project - but it is a **separately
 licensed component**, so a reader of this file is entitled to know it is in the
 binary and on what terms.
 
 - Project: <https://github.com/HendrikVrey/Etch>
-- Licence: **Etch Source-Available Licence v1.0** — not an open-source licence,
+- Licence: **Etch Source-Available Licence v1.0** - not an open-source licence,
   and not the MIT terms every other redistributed component here carries. The
   full text ships inside the package and is at
   <https://github.com/HendrikVrey/Etch/blob/master/LICENSE>.

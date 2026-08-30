@@ -12,13 +12,13 @@ namespace Sling.Persistence.Workspaces;
 /// pointed into it and moves the document that may be open and unsaved; deleting one
 /// destroys a git artifact with no recycle bin behind it on a <c>net10.0</c> target. Both
 /// are ordinary operations in a file manager, where the user has undo, history and time to
-/// think — and neither is what a rail is for. Sling's answer to "rename this collection" is
+/// think - and neither is what a rail is for. Sling's answer to "rename this collection" is
 /// that it is a directory and there is already a tool for that.
 /// </para>
 /// <para>
 /// <b>Nothing is ever overwritten.</b> A document is created with
 /// <see cref="FileMode.CreateNew"/> rather than after a <see cref="File.Exists"/> check, so
-/// a file that appears between the two is refused by the file system rather than replaced —
+/// a file that appears between the two is refused by the file system rather than replaced,
 /// the check and the write are one operation. Replacing a request file somebody wrote by
 /// hand is not recoverable from inside Sling.
 /// </para>
@@ -28,7 +28,7 @@ public static class WorkspaceEditor
     /// <summary>The document a new collection is seeded with.</summary>
     /// <remarks>
     /// A collection is a directory, and <see cref="Workspace.RequestFiles"/> only reports
-    /// files — so an empty directory is invisible to the rail that just created it. Seeding
+    /// files - so an empty directory is invisible to the rail that just created it. Seeding
     /// one document is what makes a new collection something you can see and immediately
     /// type into, and it is also what gives the "new request" command somewhere to append.
     /// </remarks>
@@ -39,7 +39,7 @@ public static class WorkspaceEditor
     /// </summary>
     /// <remarks>
     /// Constructed rather than <see cref="Encoding.UTF8"/>, whose singleton emits a byte
-    /// order mark — and a <c>.http</c> file that starts with one is a file whose first
+    /// order mark - and a <c>.http</c> file that starts with one is a file whose first
     /// request line does not parse in half the tools that read the format. The same reason
     /// <see cref="RequestFileStore"/> and <see cref="ImportStore"/> do it.
     /// </remarks>
@@ -153,7 +153,7 @@ public static class WorkspaceEditor
     /// project. <b>It is the same hazard the Postman importer's descriptions were:</b>
     /// generated text is fed straight back through the <c>.http</c> parser, so what matters
     /// is not only what a value may contain but what the parser reads at the <em>start of a
-    /// line</em> — <c># @name login</c> is a directive, not documentation. The segment rule's
+    /// line</em> - <c># @name login</c> is a directive, not documentation. The segment rule's
     /// whitelist has no <c>@</c>, <c>#</c> or newline in it, so the injection is impossible
     /// by construction rather than by escaping.
     /// </para>
@@ -169,7 +169,7 @@ public static class WorkspaceEditor
     /// </param>
     /// <param name="newLine">
     /// The document's own terminator. A file loaded from a checkout with CRLF endings would
-    /// otherwise gain one LF line in the middle of it — invisible in the editor, and a
+    /// otherwise gain one LF line in the middle of it - invisible in the editor, and a
     /// whole-file diff for whoever reviews it next.
     /// </param>
     /// <exception cref="ArgumentException">The name reduces to nothing usable.</exception>
@@ -194,7 +194,7 @@ public static class WorkspaceEditor
     /// <remarks>
     /// <para>
     /// <b>Two separate questions, and asking only one of them was a bug.</b> The first is
-    /// whether the <c>###</c> would start a line at all — <c>IsSeparator</c> tests
+    /// whether the <c>###</c> would start a line at all - <c>IsSeparator</c> tests
     /// <c>StartsWith("###")</c> with no trim, so appending to a document ending in a space
     /// produces <c>"   ### orders"</c>, which parses as a <em>comment</em> and silently
     /// discards the name the user just typed. The second is whether a blank line is wanted,
@@ -229,7 +229,7 @@ public static class WorkspaceEditor
     /// Resolves a rail path to a directory inside the workspace, or refuses it.
     /// </summary>
     /// <remarks>
-    /// The path comes from the tree, which Sling built from its own walk — so this is a
+    /// The path comes from the tree, which Sling built from its own walk - so this is a
     /// second line rather than the only one, in the same spirit as <see cref="ImportStore"/>
     /// re-checking a containment that <c>FileNames</c> had already made impossible. The two
     /// would have to be wrong in the same way on the same day.

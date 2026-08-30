@@ -79,7 +79,7 @@ public sealed class RequestSenderTests
     public async Task A_content_header_on_a_bodyless_request_is_still_sent()
     {
         // The null-conditional on message.Content swallowed these, so a GET carrying
-        // Content-Type sent none — silently, in a method whose comment says the document
+        // Content-Type sent none - silently, in a method whose comment says the document
         // decides what goes on the wire.
         var handler = new StubHandler((_, _) => StubHandler.Ok("{}"));
 

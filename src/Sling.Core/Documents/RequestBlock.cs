@@ -6,8 +6,8 @@ namespace Sling.Core.Documents;
 /// </summary>
 /// <remarks>
 /// Parsing and substitution are kept apart deliberately, and it is a security property
-/// rather than tidiness (<c>Sling.md</c> §5.7). Because the structure — method, target,
-/// each header name and value — is fixed before any value is substituted, a value that
+/// rather than tidiness (<c>Sling.md</c> §5.7). Because the structure - method, target,
+/// each header name and value - is fixed before any value is substituted, a value that
 /// arrives from a response body cannot add a header or rewrite the request line. It can
 /// only ever land inside the one field that referenced it.
 /// </remarks>
@@ -27,11 +27,11 @@ namespace Sling.Core.Documents;
 /// <param name="Body">
 /// The body in source order, or null when the request has none. A list rather than a
 /// string because a <c>&lt; ./file</c> line inside it stands for bytes that are not in
-/// the document at all — see <see cref="BodySegment"/>.
+/// the document at all - see <see cref="BodySegment"/>.
 /// </param>
 /// <param name="Auth">
 /// The OAuth2 client-credentials grant a <c># @auth oauth2</c> block declared, or null.
-/// Its values are still <c>{{braced}}</c>, like every other field here — which is what
+/// Its values are still <c>{{braced}}</c>, like every other field here - which is what
 /// keeps a client secret out of any diagnostic that quotes the grant.
 /// </param>
 public sealed record RequestBlock(

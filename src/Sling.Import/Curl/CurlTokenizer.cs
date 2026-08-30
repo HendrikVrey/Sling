@@ -9,7 +9,7 @@ namespace Sling.Import.Curl;
 /// <para>
 /// A curl command arrives from a browser's "Copy as cURL", from documentation, or from a
 /// colleague's message, and each of those quotes differently. This has to cope with all
-/// of them without being a shell — it never expands a variable, never resolves a glob and
+/// of them without being a shell - it never expands a variable, never resolves a glob and
 /// never executes anything. <b>It is a quoting parser, and the security property is that
 /// there is nothing else in it to abuse.</b>
 /// </para>
@@ -17,7 +17,7 @@ namespace Sling.Import.Curl;
 /// Three continuation conventions are honoured, because the three places these get copied
 /// from use three different ones: a trailing backslash (bash), a trailing caret (Windows
 /// <c>cmd</c>, which is what Chrome emits for "Copy as cURL (cmd)"), and a trailing
-/// backtick (PowerShell). Each is only a continuation at the very end of a line — a caret
+/// backtick (PowerShell). Each is only a continuation at the very end of a line - a caret
 /// or a backtick in the middle of a URL is an ordinary character, and treating it
 /// otherwise would corrupt perfectly good input.
 /// </para>
@@ -106,7 +106,7 @@ internal static class CurlTokenizer
             //
             // Not an exotic corner. Chrome and Firefox DevTools switch "Copy as cURL" to
             // this form whenever a value contains a control character, an apostrophe or a
-            // '!' — which is every multi-line JSON body and every value with an apostrophe
+            // '!' - which is every multi-line JSON body and every value with an apostrophe
             // in it. Without this the '$' was an ordinary character and the following
             // quotes were read as a plain literal string, so an escaped apostrophe ended
             // the string early: the method came out wrong, the body vanished, and the
@@ -134,7 +134,7 @@ internal static class CurlTokenizer
                     i = SkipNewLine(commandLine, i + 1);
                     continue;
 
-                // An unquoted backslash escapes the next character — but only when that
+                // An unquoted backslash escapes the next character - but only when that
                 // character is one anybody would bother escaping.
                 //
                 // The two conventions collide here. In bash an unquoted backslash always
@@ -144,7 +144,7 @@ internal static class CurlTokenizer
                 // and the command stopped being recognised as curl at all.
                 //
                 // The rule that serves both: escaping a letter or a digit is meaningless
-                // in bash — `\t` unquoted is just `t`, never a tab — so nobody writes it
+                // in bash - `\t` unquoted is just `t`, never a tab - so nobody writes it
                 // on purpose, while every real use escapes punctuation or a space. Before
                 // an alphanumeric the backslash stays literal; before anything else it
                 // escapes.
@@ -186,7 +186,7 @@ internal static class CurlTokenizer
     /// <returns>The index just past the closing quote, or the end of the input.</returns>
     /// <remarks>
     /// The escapes bash defines for this form. <c>\x</c> takes one or two hex digits and
-    /// <c>\u</c> takes up to four — both are variable-length in bash, and reading a fixed
+    /// <c>\u</c> takes up to four - both are variable-length in bash, and reading a fixed
     /// count would swallow the character after a short one. An unrecognised escape keeps
     /// the character and drops the backslash, which is what bash does.
     /// </remarks>
@@ -281,7 +281,7 @@ internal static class CurlTokenizer
 
     /// <summary>
     /// Whether the character at <paramref name="index"/> begins a line break, ignoring
-    /// nothing — a caret followed by a space then a newline is <em>not</em> a continuation
+    /// nothing - a caret followed by a space then a newline is <em>not</em> a continuation
     /// in <c>cmd</c>, and pretending otherwise would join two arguments into one.
     /// </summary>
     private static bool IsAtLineEnd(string text, int index) =>

@@ -11,7 +11,7 @@ namespace Sling.Core.Auth;
 /// <remarks>
 /// <para>
 /// <strong>The validation is the reason this type exists.</strong> An access token is a
-/// string taken out of a response body — untrusted input, exactly like a chained
+/// string taken out of a response body - untrusted input, exactly like a chained
 /// <c>{{login.response.body.$.token}}</c> value, and <c>Sling.md</c> §5.7 applies to it
 /// unchanged. A token containing CR or LF appended to <c>Authorization: Bearer </c> would
 /// add headers of its own to every request the grant covers. Constructing one is only
@@ -42,7 +42,7 @@ public sealed class OAuth2Token
         ExpiresUtc = expiresUtc;
     }
 
-    /// <summary>The token itself. A credential — never log, display or persist it.</summary>
+    /// <summary>The token itself. A credential - never log, display or persist it.</summary>
     public string AccessToken { get; }
 
     /// <summary>
@@ -56,7 +56,7 @@ public sealed class OAuth2Token
     /// When the token stops being valid, or null when the server did not say.
     /// </summary>
     /// <remarks>
-    /// Null is not "never expires" — it is "unknown", and it is handled as such: a token
+    /// Null is not "never expires" - it is "unknown", and it is handled as such: a token
     /// with no stated lifetime is used once and not cached. RFC 6749 §5.1 only recommends
     /// <c>expires_in</c>, and guessing an hour for a server that meant five minutes
     /// produces a run of confusing 401s in the middle of a session.
@@ -243,8 +243,8 @@ public sealed class OAuth2Token
 
         return element.ValueKind switch
         {
-            // TryGetInt64 throws when the element is not a Number — the Try only suppresses
-            // a malformed number — so the kind has to be checked first.
+            // TryGetInt64 throws when the element is not a Number - the Try only suppresses
+            // a malformed number - so the kind has to be checked first.
             JsonValueKind.Number => element.TryGetInt64(out seconds) && seconds > 0,
             JsonValueKind.String => long.TryParse(
                 element.GetString(),

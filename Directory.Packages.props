@@ -25,7 +25,7 @@
   <ItemGroup Label="Etch">
     <!--
       The transform engine, consumed as a package from a private feed rather than as
-      a submodule or a copied folder. Not on nuget.org and never will be — see
+      a submodule or a copied folder. Not on nuget.org and never will be - see
       NuGet.config and docs/etch-core-package.md for why, and local-feed/README.md
       for how to restore it without credentials.
 

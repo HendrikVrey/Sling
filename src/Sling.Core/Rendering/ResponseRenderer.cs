@@ -28,8 +28,8 @@ public static class ResponseRenderer
     /// <remarks>
     /// <para>
     /// Split out from the body in M2, and the split is the point of that milestone. Until
-    /// then the pane held one rendered transcript — request line, headers and body in a
-    /// single string — which cannot be an editor buffer in any useful sense: highlighting
+    /// then the pane held one rendered transcript - request line, headers and body in a
+    /// single string - which cannot be an editor buffer in any useful sense: highlighting
     /// it as JSON would colour the headers, folding would fold across them, and a
     /// transform would be handed a document that is mostly not the thing being
     /// transformed. Separating them is what lets the body be a real buffer.
@@ -61,8 +61,8 @@ public static class ResponseRenderer
     /// The response headers, one per line, in the order the server sent them.
     /// </summary>
     /// <remarks>
-    /// Not sorted. Order carries information — which <c>Set-Cookie</c> came first, whether
-    /// a proxy appended its own <c>Via</c> — and a tool for debugging HTTP has no business
+    /// Not sorted. Order carries information - which <c>Set-Cookie</c> came first, whether
+    /// a proxy appended its own <c>Via</c> - and a tool for debugging HTTP has no business
     /// tidying away what the wire said.
     /// </remarks>
     public static string RenderHeaders(ResponseSnapshot response)
@@ -130,7 +130,7 @@ public static class ResponseRenderer
     /// <param name="response">What came back.</param>
     /// <remarks>
     /// The request's <c>@name</c> when it has one, because that is the word the document
-    /// itself uses and the word every chain reference is written against — seeing
+    /// itself uses and the word every chain reference is written against - seeing
     /// <c>login</c> in the picker and <c>{{login.response…}}</c> in the request is the
     /// whole point of naming one. Without a name there is nothing better than the position
     /// and the target.
@@ -165,7 +165,7 @@ public static class ResponseRenderer
     /// A truncation notice is deliberately <b>not</b> appended. That was right when the
     /// pane held a transcript and is wrong now: the buffer is the body, and a line of
     /// Sling's own prose inside it would be transformed, folded and searched along with
-    /// the response — a JSON body plus a trailing English sentence does not parse, so the
+    /// the response - a JSON body plus a trailing English sentence does not parse, so the
     /// first thing the user would meet is a format error Sling caused. The notice belongs
     /// beside the buffer, and <see cref="Summarize"/> already carries it.
     /// </para>

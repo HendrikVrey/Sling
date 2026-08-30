@@ -118,7 +118,7 @@ public sealed class OAuth2RunnerTests
 
         Assert.False(result.Succeeded);
 
-        // One exchange — the token attempt. The request the grant was for must not go out
+        // One exchange - the token attempt. The request the grant was for must not go out
         // unauthenticated: it would fail at the API with a message about permissions and no
         // mention of the token.
         Assert.Single(result.Exchanges);
@@ -168,7 +168,7 @@ public sealed class OAuth2RunnerTests
     [Theory]
     [InlineData("""{"access_token":"abc123","expires_in":3600}""")]
     // The un-cacheable one matters more, not less. It is the token Sling fetches most
-    // often — once per request — and an earlier version returned from the cache before
+    // often - once per request - and an earlier version returned from the cache before
     // recording it, so the only kind of token that was never cached was also the only kind
     // redaction had never heard of, and it reached the history file in clear.
     [InlineData("""{"access_token":"abc123"}""")]

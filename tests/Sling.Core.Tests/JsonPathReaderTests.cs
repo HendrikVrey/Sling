@@ -89,7 +89,7 @@ public sealed class JsonPathReaderTests
         // JsonDocument.Parse transcodes to UTF-8 before parsing, so a malformed surrogate
         // surfaces as an ArgumentException rather than a JsonException. Catching only the
         // latter would let it escape and take the whole send down, so the invariant worth
-        // pinning is that nothing propagates — not which branch it took.
+        // pinning is that nothing propagates - not which branch it took.
         var body = "{\"a\":\"" + char.ConvertFromUtf32(0x1F600)[0] + "\"}";
 
         Assert.Null(Record.Exception(() => JsonPathReader.TryRead(body, "$.a", out _, out _)));

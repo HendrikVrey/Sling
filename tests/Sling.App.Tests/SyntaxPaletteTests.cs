@@ -8,7 +8,7 @@ namespace Sling.App.Tests;
 /// screenshot.
 /// </summary>
 /// <remarks>
-/// AvalonEdit's grammars carry colours chosen for a white page — comments are green,
+/// AvalonEdit's grammars carry colours chosen for a white page - comments are green,
 /// strings are blue, several are plain black. Sling's panes are dark. Without the
 /// legibility clamp a JSON response would render several of its runs in colours between
 /// muddy and invisible, and nothing about that looks like a bug worth reporting; it looks
@@ -34,7 +34,7 @@ public sealed class SyntaxPaletteTests
     /// <summary>
     /// A [Fact] holding its table in the body, not a [Theory] over SyntaxRole.
     /// InternalsVisibleTo grants access but not accessibility, so a public test method
-    /// cannot take an internal enum as a parameter — that is CS0051, and it is a mistake
+    /// cannot take an internal enum as a parameter - that is CS0051, and it is a mistake
     /// worth only making once.
     /// </summary>
     [Fact]
@@ -60,7 +60,7 @@ public sealed class SyntaxPaletteTests
     /// <summary>
     /// A contrast test cannot see this failure, and Etch shipped it: Tag and Keyword came
     /// out byte-identical in dark mode, because both were borrowed from editors where no
-    /// document shows markup and code at once — which HTML does. The legibility floor can
+    /// document shows markup and code at once - which HTML does. The legibility floor can
     /// itself cause the collision by dragging two nearby hues onto one value.
     /// </summary>
     /// <remarks>
@@ -118,7 +118,7 @@ public sealed class SyntaxPaletteTests
     /// The bisection must return a value that <em>passes</em>, not whichever midpoint the
     /// loop happened to end on, and it must decide on the byte-rounded colour rather than
     /// rounding after the fact. Both mistakes produce colours that miss the floor by a
-    /// thousandth — invisible to the eye and fatal to the promise.
+    /// thousandth - invisible to the eye and fatal to the promise.
     /// </summary>
     [Fact]
     public void The_clamp_holds_at_every_starting_hue()
@@ -180,7 +180,7 @@ public sealed class SyntaxPaletteTests
 
     /// <summary>
     /// A missing resource must fall back to a plausible page, never to
-    /// <c>Colors.Transparent</c> — against which every colour clears every floor and the
+    /// <c>Colors.Transparent</c> - against which every colour clears every floor and the
     /// whole guarantee silently evaporates.
     /// </summary>
     [Fact]

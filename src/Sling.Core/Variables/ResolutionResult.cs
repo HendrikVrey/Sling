@@ -9,7 +9,7 @@ namespace Sling.Core.Variables;
 /// <remarks>
 /// <see cref="MissingResponses"/> is not an error. It is the resolver telling the caller
 /// which named requests have not been sent yet, which is exactly the information needed
-/// to run a chain — and keeping it separate from <see cref="Errors"/> is what lets the
+/// to run a chain - and keeping it separate from <see cref="Errors"/> is what lets the
 /// chain logic stay a loop over a list rather than a search through error text.
 /// </remarks>
 public sealed record ResolutionResult(

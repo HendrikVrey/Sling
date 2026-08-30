@@ -15,7 +15,7 @@ public sealed class RequestDocumentParserTests
     /// </summary>
     /// <remarks>
     /// The parser preserves the document's own line terminators, and these cases are
-    /// written as raw string literals — so their endings are whatever git checked the
+    /// written as raw string literals - so their endings are whatever git checked the
     /// test file out with, which differs between this machine and CI. Normalising here
     /// keeps that out of every assertion that is not about line endings; the ones that
     /// <em>are</em> build their input from explicit escapes and do not call this.
@@ -149,7 +149,7 @@ public sealed class RequestDocumentParserTests
         // Silently accepted, this is the worst defect the format can produce: BlockNamed
         // returns the first, the response store is keyed by name so the last one to run
         // wins, and a chain resolves against a different request than its dependency
-        // graph points at — with nothing shown to say so.
+        // graph points at - with nothing shown to say so.
         var document = RequestDocumentParser.Parse(
             """
             # @name login
@@ -196,7 +196,7 @@ public sealed class RequestDocumentParserTests
     {
         // FirstLine is what the UI filters diagnostics by. Anchored at StartLine instead,
         // every '# @name' diagnostic fell outside its own request's window and was
-        // discarded — so a nameless '@name' sent an unnamed request and every chain
+        // discarded - so a nameless '@name' sent an unnamed request and every chain
         // against it failed for an unrelated reason.
         var document = RequestDocumentParser.Parse(
             """
@@ -336,7 +336,7 @@ public sealed class RequestDocumentParserTests
     public void A_body_that_merely_starts_with_an_angle_bracket_is_not_an_import(string first)
     {
         // The whitespace after the marker is the whole disambiguation. Without it an XML
-        // or HTML body — two things people send constantly — would be read as an import of
+        // or HTML body - two things people send constantly - would be read as an import of
         // a file that does not exist, and the request would refuse to send.
         var document = RequestDocumentParser.Parse(
             "POST https://api.example.com/things\nContent-Type: application/xml\n\n" + first + "\nmore");
@@ -376,7 +376,7 @@ public sealed class RequestDocumentParserTests
     public void A_body_keeps_the_line_endings_it_was_written_with()
     {
         // RFC 2046 requires CRLF between multipart parts. The parser used to normalise
-        // every body to LF, which most servers tolerate and strict ones reject — with
+        // every body to LF, which most servers tolerate and strict ones reject - with
         // nothing in the document to point at.
         var crlf = RequestDocumentParser.Parse(
             "POST https://api.example.com/x\r\n\r\nline one\r\nline two");
@@ -402,7 +402,7 @@ public sealed class RequestDocumentParserTests
     [Fact]
     public void A_multipart_body_written_with_bare_newlines_is_warned_about()
     {
-        // RFC 2046 separates parts with CRLF, and the body is sent exactly as written — so
+        // RFC 2046 separates parts with CRLF, and the body is sent exactly as written - so
         // a repo carrying '*.http text eol=lf' produces a body strict servers reject, which
         // is the failure preserving line endings set out to remove, arriving from the other
         // direction. A warning rather than a rewrite: normalising every terminator would

@@ -29,8 +29,8 @@ public sealed class BodyLanguageTests
         Assert.Equal(expected, BodyLanguage.Analyse(contentType, "x").Language);
 
     /// <summary>
-    /// The case that makes this worth writing. Mislabelling is routine — a gateway that
-    /// did not look, or a service that never set the header — and a body that is plainly
+    /// The case that makes this worth writing. Mislabelling is routine - a gateway that
+    /// did not look, or a service that never set the header - and a body that is plainly
     /// JSON should be highlighted as JSON regardless of what it was called.
     /// </summary>
     [Theory]
@@ -46,7 +46,7 @@ public sealed class BodyLanguageTests
 
     /// <summary>
     /// The other direction, and the reason detection runs even when the header is
-    /// believed: a JWT has no grammar, so it contributes nothing to highlighting — but
+    /// believed: a JWT has no grammar, so it contributes nothing to highlighting - but
     /// recognising it is exactly what puts "Decode JWT" at the top of the menu.
     /// </summary>
     [Fact]
@@ -65,8 +65,8 @@ public sealed class BodyLanguageTests
     }
 
     /// <summary>
-    /// The confidence must be the detector's own. Fabricating one — an earlier draft of
-    /// this code assumed High — would let a low-confidence guess drive the menu as
+    /// The confidence must be the detector's own. Fabricating one - an earlier draft of
+    /// this code assumed High - would let a low-confidence guess drive the menu as
     /// forcefully as a certainty.
     /// </summary>
     [Fact]

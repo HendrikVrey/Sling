@@ -16,7 +16,7 @@ namespace Sling.App;
 [SuppressMessage(
     "Reliability",
     "CA1001:Types that own disposable fields should be disposable",
-    Justification = "A WPF Window cannot implement IDisposable — the framework owns its "
+    Justification = "A WPF Window cannot implement IDisposable - the framework owns its "
         + "lifetime and never calls Dispose. OnClosed is the disposal point WPF actually "
         + "provides, and _runner is released there.")]
 public partial class MainWindow : FluentWindow
@@ -31,7 +31,7 @@ public partial class MainWindow : FluentWindow
     /// Deliberately a chain against a public API that needs no credentials: pressing
     /// <c>Ctrl+Enter</c> on the second request sends the first one too, which is the one
     /// behaviour in Sling that has to be seen rather than described. The
-    /// <c>User-Agent</c> is not decoration — GitHub rejects a request without one.
+    /// <c>User-Agent</c> is not decoration - GitHub rejects a request without one.
     /// </remarks>
     private const string SampleRequest = """
         @base = https://api.github.com
@@ -42,7 +42,7 @@ public partial class MainWindow : FluentWindow
         Accept: application/vnd.github+json
         User-Agent: Sling
 
-        ### a value from that response flows into this one — send this and both run
+        ### a value from that response flows into this one - send this and both run
         GET {{base}}/users/{{repo.response.body.$.owner.login}}
         Accept: application/vnd.github+json
         User-Agent: Sling
@@ -63,7 +63,7 @@ public partial class MainWindow : FluentWindow
 
         // The hint first, so anything the initialisers below have to say survives. It used
         // to be assigned at the end, which meant a settings file that would not parse
-        // reported the problem and then had it overwritten one line later — a silent
+        // reported the problem and then had it overwritten one line later - a silent
         // revert to the defaults, which is exactly what the message exists to prevent.
         StatusLeft.Text = ReadyHint;
         StatusRight.Text = string.Empty;
@@ -137,7 +137,7 @@ public partial class MainWindow : FluentWindow
         if (e.Key == Key.Escape)
         {
             // The overlay first. It is the thing most recently put on screen, and while it
-            // is up it is what Escape visibly refers to — cancelling a send from behind it
+            // is up it is what Escape visibly refers to - cancelling a send from behind it
             // would look like the key did nothing.
             if (SettingsAreOpen)
             {
@@ -227,13 +227,13 @@ public partial class MainWindow : FluentWindow
         _requestRefresh.Tick -= OnRequestRefreshTick;
 
         // The caret belongs to the editor's TextArea, not to this window, so the handler is
-        // not collected with it. Two things listen to it — the rail's highlight and the
-        // command bar's send target — and both have to come off.
+        // not collected with it. Two things listen to it - the rail's highlight and the
+        // command bar's send target - and both have to come off.
         RequestPane.TextArea.Caret.PositionChanged -= OnCaretMoved;
         RemoveChromeHandlers();
 
         // Anything still awaiting the prompt gets an answer rather than a task that never
-        // completes — the continuation is a command that would otherwise sit on the heap
+        // completes - the continuation is a command that would otherwise sit on the heap
         // holding the closed window.
         CloseNamePrompt(null);
 
@@ -262,12 +262,12 @@ public partial class MainWindow : FluentWindow
         }
 
         // Only this request's own problems concern it. A malformed request further down
-        // the file is not a reason to refuse to send the one under the caret — a document
+        // the file is not a reason to refuse to send the one under the caret - a document
         // is half-written most of the time it is looked at.
         //
         // The window runs from FirstLine, not StartLine: '# @name' and the comments above
         // the request line belong to it, and filtering from StartLine discarded every
-        // diagnostic they raised — including "'@name' needs a name", after which the
+        // diagnostic they raised - including "'@name' needs a name", after which the
         // request would send unnamed and every chain against it fail for an unrelated
         // reason.
         var mine = document.Diagnostics
@@ -295,7 +295,7 @@ public partial class MainWindow : FluentWindow
     /// <remarks>
     /// <para>
     /// A request whose own lines hold an error is left out rather than attempted, and the
-    /// diagnostic that excluded it is reported — the same filter <c>Ctrl+Enter</c> applies
+    /// diagnostic that excluded it is reported - the same filter <c>Ctrl+Enter</c> applies
     /// to the one request under the caret, applied to each of them in turn. Deciding a
     /// request cannot be sent is the document's business, which is why the runner takes the
     /// list rather than the document.
@@ -359,8 +359,8 @@ public partial class MainWindow : FluentWindow
 
     /// <param name="run">
     /// What to run, given the resolution context and the run's token. A delegate rather
-    /// than two overloads of this method, because everything around the call — the
-    /// in-flight token, the status text, the five catch clauses and the history write — is
+    /// than two overloads of this method, because everything around the call - the
+    /// in-flight token, the status text, the five catch clauses and the history write - is
     /// identical for one request and for all of them, and a second copy of it is a second
     /// place for the last-resort catch to go missing.
     /// </param>
@@ -373,13 +373,13 @@ public partial class MainWindow : FluentWindow
         _inFlight = cancellation;
 
         // The Send button is Cancel for as long as this token lives, so it is refreshed
-        // wherever the token changes rather than at the call sites — a send started from the
+        // wherever the token changes rather than at the call sites - a send started from the
         // keyboard has to change the button too.
         UpdateToolbar();
 
         // The pill describes the response in the pane, and there is about to not be one.
         // Leaving the last send's status up while the next is in flight reads as an answer
-        // to the question just asked — found by watching a slow request run under a 500 the
+        // to the question just asked - found by watching a slow request run under a 500 the
         // previous one had produced.
         HideStatusPill();
 
@@ -391,7 +391,7 @@ public partial class MainWindow : FluentWindow
             // Snapshotted here rather than read from fields on the pool thread, and inside
             // the try: this path is fire-and-forget, so anything thrown outside it vanishes
             // and leaves the status bar reading "Sending …" for ever. It is also the right
-            // answer semantically — switching environment mid-flight must not change what
+            // answer semantically - switching environment mid-flight must not change what
             // the request in flight resolved to.
             var context = CreateResolutionContext();
 
@@ -448,8 +448,8 @@ public partial class MainWindow : FluentWindow
     /// section of a transcript.
     /// </para>
     /// <para>
-    /// Diagnostics are shown even on a successful send — that is what
-    /// <c>docs/http-dialect.md</c> promises about an unsupported directive — but they no
+    /// Diagnostics are shown even on a successful send - that is what
+    /// <c>docs/http-dialect.md</c> promises about an unsupported directive - but they no
     /// longer displace the body. Putting them in the status bar rather than in the buffer
     /// is the consequence of the buffer now being the response and nothing else: a
     /// warning appended to a JSON body would make the body stop being JSON.
@@ -487,7 +487,7 @@ public partial class MainWindow : FluentWindow
         else if (result.Notes.Count > 0)
         {
             // Only when nothing louder needs the line. A refused cookie matters, and it
-            // matters less than a diagnostic about the request itself — this is the one
+            // matters less than a diagnostic about the request itself - this is the one
             // place in the window where the two compete for the same row.
             StatusLeft.Text = SummariseNotes(result.Notes);
         }

@@ -4,7 +4,7 @@ namespace Sling.Import.Postman;
 /// One JSON document handed to the importer, and the name it came from.
 /// </summary>
 /// <param name="Name">
-/// The file name, used only in notes. It is never used to build an output path — output
+/// The file name, used only in notes. It is never used to build an output path - output
 /// paths come from the collection's own folder and request names, through
 /// <see cref="FileNames"/>.
 /// </param>
@@ -17,7 +17,7 @@ public sealed record PostmanSource(string Name, string Json);
 /// <remarks>
 /// <para>
 /// <see cref="RelativePath"/> is always relative, always uses <c>/</c> as its separator,
-/// and can only be built by <see cref="FileNames"/> — the constructor is internal and
+/// and can only be built by <see cref="FileNames"/> - the constructor is internal and
 /// every caller goes through the slug rules there. That is deliberate: the path is
 /// assembled from folder and request <em>names inside somebody else's JSON file</em>, so
 /// it is the one value in this project that turns untrusted input into a location on

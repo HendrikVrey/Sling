@@ -13,7 +13,7 @@ namespace Sling.Http;
 /// </summary>
 /// <param name="CookieNotes">
 /// Cookies the server tried to set and the jar refused, one sentence each. Kept apart
-/// from a run's errors deliberately — a refused cookie does not stop a request, and a
+/// from a run's errors deliberately - a refused cookie does not stop a request, and a
 /// note appended to the list whose emptiness means "this can be sent" is not a note.
 /// </param>
 public sealed record SendOutcome(ResponseSnapshot Response, IReadOnlyList<string> CookieNotes);
@@ -91,7 +91,7 @@ public sealed class RequestSender : IDisposable
     /// TLS is deliberately untouched: no <c>SslOptions</c> are assigned, so certificate
     /// validation stays on with the platform's own trust store. <c>Sling.md</c> §5.3
     /// allows a bypass only per request and only with loud indication, which means there
-    /// is nothing here to switch off globally — the safest way to hold that line is for
+    /// is nothing here to switch off globally - the safest way to hold that line is for
     /// the code that could weaken it not to exist.
     /// </remarks>
     internal static SocketsHttpHandler CreateHandler() => new()
@@ -101,7 +101,7 @@ public sealed class RequestSender : IDisposable
         // Sling owns its cookie jar; the handler's is switched off and stays off. An
         // implicit process-wide jar is exactly the mechanism that would carry a staging
         // cookie to production, and it would also apply the framework's path rules, which
-        // are a prefix match rather than RFC 6265's — see Sling.Core.Cookies.Cookie.
+        // are a prefix match rather than RFC 6265's - see Sling.Core.Cookies.Cookie.
         UseCookies = false,
 
         AutomaticDecompression = DecompressionMethods.All,
@@ -112,7 +112,7 @@ public sealed class RequestSender : IDisposable
     /// <param name="cookies">
     /// The jar for the selected environment, or null when cookies are switched off. Passed
     /// per send rather than held as state, because the jar changes with the environment and
-    /// a sender holding a stale one would send a staging session to production — the exact
+    /// a sender holding a stale one would send a staging session to production - the exact
     /// failure <c>Sling.md</c> §5.6 exists to prevent.
     /// </param>
     public async Task<SendOutcome> SendAsync(
@@ -141,7 +141,7 @@ public sealed class RequestSender : IDisposable
         {
             // A fresh list per hop, never appended to the one carried between hops. Folding
             // the jar's cookies into the request's own headers would make them
-            // indistinguishable from a Cookie header the document wrote — so the next hop
+            // indistinguishable from a Cookie header the document wrote - so the next hop
             // would see one and skip the jar, sending the previous origin's cookies to the
             // new one.
             var hopHeaders = WithJarCookies(headers, cookies, url);
@@ -222,7 +222,7 @@ public sealed class RequestSender : IDisposable
     public void Dispose() => _client.Dispose();
 
     /// <summary>
-    /// Two URLs share an origin when scheme, host and port all match — the same rule the
+    /// Two URLs share an origin when scheme, host and port all match - the same rule the
     /// web platform uses. Host comparison is case-insensitive because DNS is; scheme is
     /// ordinal because <see cref="Uri"/> has already lower-cased it.
     /// </summary>
@@ -330,7 +330,7 @@ public sealed class RequestSender : IDisposable
             }
 
             // A content header with no body to describe. Previously the null-conditional
-            // swallowed it and the header simply never left the process — so a GET
+            // swallowed it and the header simply never left the process - so a GET
             // carrying Content-Type sent no Content-Type, silently, in a method whose
             // comment claims the document decides. An empty body is what the document
             // actually described.

@@ -8,7 +8,7 @@ namespace Sling.Http.Tests;
 /// "No test is available", which is indistinguishable from a broken discoverer.
 /// </summary>
 /// <remarks>
-/// Deliberately asserts only that the assembly loads — nothing about its contents — so
+/// Deliberately asserts only that the assembly loads - nothing about its contents - so
 /// it stays true as M1 fills the project in rather than becoming a test that has to be
 /// deleted the moment real code arrives.
 /// </remarks>

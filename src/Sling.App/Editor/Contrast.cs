@@ -8,7 +8,7 @@ namespace Sling.App.Editor;
 /// </summary>
 /// <remarks>
 /// <para>
-/// AvalonEdit's built-in grammars carry colours chosen for a white page — comments are
+/// AvalonEdit's built-in grammars carry colours chosen for a white page - comments are
 /// <c>Green</c>, strings are <c>Blue</c>, several are plain <c>Black</c>. Sling's panes
 /// are dark. Rendering a grammar unchanged would put black text on a near-black card,
 /// which is not a styling complaint but an unreadable response body.
@@ -28,8 +28,8 @@ internal static class Contrast
     /// <summary>The WCAG contrast ratio between two opaque colours, from 1 to 21.</summary>
     /// <remarks>
     /// Alpha is ignored, and callers are expected to have resolved it already. A
-    /// translucent colour over a Mica surface has no contrast that can be stated at all —
-    /// it composites against the user's wallpaper — so the honest input here is an opaque
+    /// translucent colour over a Mica surface has no contrast that can be stated at all,
+    /// it composites against the user's wallpaper - so the honest input here is an opaque
     /// stand-in for the surface, not the surface's own ARGB.
     /// </remarks>
     internal static double Ratio(Color a, Color b)
@@ -58,7 +58,7 @@ internal static class Contrast
     /// requirement.
     /// </para>
     /// <para>
-    /// The search runs on the <em>quantised</em> colour — the ratio is measured on the
+    /// The search runs on the <em>quantised</em> colour - the ratio is measured on the
     /// byte-rounded candidate, not on a real-valued luminance that is rounded afterwards.
     /// Rounding after the decision lands on whichever side of the boundary the eighth bit
     /// falls, which produces colours that miss the floor by a thousandth and a test suite
@@ -115,7 +115,7 @@ internal static class Contrast
     /// <summary>Mixes <paramref name="from"/> towards <paramref name="to"/>, quantised to bytes.</summary>
     /// <remarks>
     /// Internal rather than private because <see cref="StatusPalette"/> needs the same
-    /// operation to compute the opaque colour a tinted pill actually renders as — and a
+    /// operation to compute the opaque colour a tinted pill actually renders as - and a
     /// second copy of a blend is a second rounding rule, which is precisely how two
     /// surfaces that are meant to match stop matching.
     /// </remarks>

@@ -21,8 +21,8 @@ public partial class MainWindow
     /// The size rules the response body is subject to.
     /// </summary>
     /// <remarks>
-    /// <c>Etch.Core</c>'s shipped defaults — no highlighting above ten mebibytes, no
-    /// folding above two — and they arrive for free with the package. This is the first
+    /// <c>Etch.Core</c>'s shipped defaults - no highlighting above ten mebibytes, no
+    /// folding above two - and they arrive for free with the package. This is the first
     /// concrete answer to <c>Sling.md</c> §8's "what happens to a response larger than
     /// memory": the transport already caps the body at sixteen mebibytes, and above these
     /// thresholds the editor stops doing per-character work on what is left. Neither is
@@ -67,13 +67,13 @@ public partial class MainWindow
 
         // Every change to the buffer re-reads it, whatever caused the change. Handling
         // only the transform path left Ctrl+Z showing a base64 body still highlighted as
-        // JSON, with the menu still offering JSON transforms — the undo had put the buffer
+        // JSON, with the menu still offering JSON transforms - the undo had put the buffer
         // back and nothing had told the pane. One subscription covers transforms, undo and
         // redo alike; SetBody suppresses it because it has the Content-Type and can do
         // better than a sniff.
         ResponsePane.TextChanged += OnResponseTextChanged;
 
-        // AvalonEdit's own find panel, on both panes. Ctrl+F, no replace — which is
+        // AvalonEdit's own find panel, on both panes. Ctrl+F, no replace - which is
         // exactly the right feature set for a pane you cannot type into, and a better
         // answer than building a find bar to match. The request pane gets it too: finding
         // a header in a long document is the same need.
@@ -91,7 +91,7 @@ public partial class MainWindow
     /// <b>A security decision before it is a visual one, and it is on by default.</b>
     /// AvalonEdit finds anything URL-shaped in a buffer and makes it clickable. In the
     /// response pane, every URL in the buffer came from a server the user does not control
-    /// — a body full of attacker-chosen links, one ctrl-click from a browser, in a tool
+    /// - a body full of attacker-chosen links, one ctrl-click from a browser, in a tool
     /// whose whole promise is that a response body never reaches something that can act on
     /// it (<c>Sling.md</c> §5.5). The request pane is turned off for consistency: an
     /// accidental navigation while editing a URL is nobody's intent either.
@@ -100,7 +100,7 @@ public partial class MainWindow
     /// It is also unreadable, which is how it was noticed. Link text is drawn in a fixed
     /// blue by a built-in element generator that never passes through
     /// <see cref="ThemedHighlightingColorizer"/>, so the legibility floor the palette
-    /// guarantees does not apply to it — on a dark pane a JSON body of URLs rendered as
+    /// guarantees does not apply to it - on a dark pane a JSON body of URLs rendered as
     /// dark blue underlined runs. A colour that bypasses the palette is a colour nothing
     /// can promise anything about.
     /// </para>
@@ -244,7 +244,7 @@ public partial class MainWindow
     /// <para>
     /// The undo stack is cleared afterwards, deliberately. Assigning <c>Text</c> is an
     /// undoable edit, so without this a <c>Ctrl+Z</c> in a freshly-arrived response would
-    /// restore the *previous* response — a body from a different request appearing under a
+    /// restore the *previous* response - a body from a different request appearing under a
     /// request line that still names this one. Undo exists here to unwind transforms, and
     /// the arrival of a new response is where its history should start.
     /// </para>
@@ -278,7 +278,7 @@ public partial class MainWindow
     }
 
     /// <summary>
-    /// Any change to the buffer that <see cref="SetBody"/> did not make — a transform, an
+    /// Any change to the buffer that <see cref="SetBody"/> did not make - a transform, an
     /// undo, a redo.
     /// </summary>
     private void OnResponseTextChanged(object? sender, EventArgs e)
@@ -296,13 +296,13 @@ public partial class MainWindow
     /// </summary>
     /// <remarks>
     /// This is what makes transforms chain. A transform applies in place, so the buffer is
-    /// now something else — base64 that became JSON — and the language and the next
+    /// now something else - base64 that became JSON - and the language and the next
     /// suggestion both have to be recomputed from what is actually there. Nothing in
     /// <see cref="Editor.BodyTransforms"/> knows about chaining; it falls out of applying
     /// to the buffer and then asking again.
     /// <para>
     /// The <c>Content-Type</c> is deliberately <b>not</b> consulted here. It described what
-    /// the server sent, and after a transform that is no longer what the buffer holds —
+    /// the server sent, and after a transform that is no longer what the buffer holds,
     /// believing it would keep a decoded JSON payload highlighted as the
     /// <c>text/plain</c> it arrived as.
     /// </para>

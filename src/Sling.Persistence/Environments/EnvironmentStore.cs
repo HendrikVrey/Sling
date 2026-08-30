@@ -13,7 +13,7 @@ public static class EnvironmentStore
     /// <remarks>
     /// Both spellings: the exact file name, and the pattern that also covers the
     /// per-user variants people end up with (<c>http-client.private.env.json.bak</c> and
-    /// friends). Erring wide is free here — an over-broad ignore entry hides a file
+    /// friends). Erring wide is free here - an over-broad ignore entry hides a file
     /// someone would have had to justify committing anyway.
     /// </remarks>
     public static IReadOnlyList<string> IgnoreEntries { get; } =
@@ -34,7 +34,7 @@ public static class EnvironmentStore
     /// </summary>
     /// <returns>
     /// The ignore entries that had to be added, so the caller can tell the user its
-    /// repository was just modified. Empty when there was nothing to do — including when
+    /// repository was just modified. Empty when there was nothing to do - including when
     /// there is no secrets file, because a repository with no secrets in it should not
     /// have entries written into its <c>.gitignore</c> on Sling's say-so.
     /// </returns>

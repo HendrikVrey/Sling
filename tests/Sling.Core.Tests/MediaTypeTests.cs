@@ -44,7 +44,7 @@ public sealed class MediaTypeTests
     /// </summary>
     /// <remarks>
     /// The assertion names the kind each row would wrongly claim. An earlier version
-    /// asserted <c>NotEqual(Json)</c> for both, which is vacuous for the <c>+xml</c> row —
+    /// asserted <c>NotEqual(Json)</c> for both, which is vacuous for the <c>+xml</c> row,
     /// without the guard it classifies as <c>Xml</c>, which is still not <c>Json</c>, so
     /// the row passed either way and covered nothing.
     /// </remarks>

@@ -8,7 +8,7 @@ namespace Sling.Core.Redaction;
 /// <remarks>
 /// <para>
 /// <c>Sling.md</c> §5.4: redaction lives in <c>Sling.Core</c> so it cannot be forgotten at
-/// a call site. The shape that actually delivers that is not this class being here — it is
+/// a call site. The shape that actually delivers that is not this class being here - it is
 /// that <see cref="History.HistoryEntry"/> has no constructor, only a factory that
 /// <em>requires</em> one of these. There is no way to write a history entry that has not
 /// been through it.
@@ -19,14 +19,14 @@ namespace Sling.Core.Redaction;
 /// <para>
 /// The first is <em>provenance</em>: every value the private environment file supplied,
 /// plus every access token minted this session, is a known secret and is removed wherever
-/// it appears — in a header, in a URL, in a query string, in the middle of a longer
+/// it appears - in a header, in a URL, in a query string, in the middle of a longer
 /// string. This is the whitelist-shaped half. It is exact, it needs no guessing about
 /// which header names are credentials, and it catches an API key pasted into a query
 /// parameter that no name-based rule would recognise.
 /// </para>
 /// <para>
 /// The second is <em>header name</em>: <c>Authorization</c> and its neighbours are
-/// replaced whole, whatever their value. This is a deny-list and is admitted as one — it
+/// replaced whole, whatever their value. This is a deny-list and is admitted as one - it
 /// is here to catch the credential that was typed straight into the document rather than
 /// referenced from the secrets file. A credential typed into a header nobody has heard of
 /// is not caught by either line, and that is stated in <c>docs/history.md</c> rather than
@@ -48,8 +48,8 @@ public sealed class Redactor
     /// The shortest value that provenance-based redaction will act on.
     /// </summary>
     /// <remarks>
-    /// A secrets file legitimately holds short values — a port number, a tenant id of
-    /// <c>1</c>, a feature flag of <c>true</c> — and redacting every occurrence of a
+    /// A secrets file legitimately holds short values - a port number, a tenant id of
+    /// <c>1</c>, a feature flag of <c>true</c> - and redacting every occurrence of a
     /// two-character string turns a history entry into a row of markers with no
     /// information left in it. Anything genuinely secret is longer than this; anything
     /// shorter is not usefully secret and the header-name line still covers it where it
@@ -103,7 +103,7 @@ public sealed class Redactor
     /// </summary>
     /// <param name="secretValues">
     /// Values from the private environment file, and any access token acquired this
-    /// session. Anything too short to be a credential is ignored — see
+    /// session. Anything too short to be a credential is ignored - see
     /// <see cref="MinimumSecretLength"/>.
     /// </param>
     public Redactor(IEnumerable<string>? secretValues) =>
@@ -117,7 +117,7 @@ public sealed class Redactor
                 .OrderByDescending(v => v.Length)];
 
     /// <summary>
-    /// A redactor that knows no secret values — the header-name and parameter-name lines
+    /// A redactor that knows no secret values - the header-name and parameter-name lines
     /// still apply.
     /// </summary>
     /// <remarks>
@@ -165,7 +165,7 @@ public sealed class Redactor
     /// </para>
     /// <para>
     /// The fragment is dropped entirely. It is never sent to a server, so keeping it in a
-    /// record of what was sent would be a small lie — and implicit-flow tokens live in
+    /// record of what was sent would be a small lie - and implicit-flow tokens live in
     /// fragments, so it is the one part of a URL most likely to hold a credential.
     /// </para>
     /// </remarks>
@@ -176,7 +176,7 @@ public sealed class Redactor
             return string.Empty;
         }
 
-        // GetLeftPart(Path) is scheme, authority and path with no query and no fragment —
+        // GetLeftPart(Path) is scheme, authority and path with no query and no fragment,
         // exactly the part that is not a place credentials hide. Userinfo cannot appear:
         // RequestResolver refuses a URL carrying any.
         var head = Component(url.GetLeftPart(UriPartial.Path));
@@ -231,8 +231,8 @@ public sealed class Redactor
     /// why this was invisible.
     /// </para>
     /// <para>
-    /// So: redact literally first — that keeps the ordinary case readable, with the secret
-    /// cut out of the middle of a longer value — and then check the unescaped remainder.
+    /// So: redact literally first - that keeps the ordinary case readable, with the secret
+    /// cut out of the middle of a longer value - and then check the unescaped remainder.
     /// If a secret is still in there, the whole component goes, because there is no way to
     /// splice a replacement back into the escaped form and be sure of the boundaries.
     /// Losing one path segment or one parameter value is the right price.

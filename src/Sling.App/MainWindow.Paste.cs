@@ -8,7 +8,7 @@ namespace Sling.App;
 /// </summary>
 /// <remarks>
 /// The escape hatch for everything not yet migrated (<c>Sling.md</c> §4b). Postman copies
-/// as curl, browsers copy as curl, and API documentation is written in curl — so this is
+/// as curl, browsers copy as curl, and API documentation is written in curl - so this is
 /// the shortest path from anywhere into Sling.
 /// </remarks>
 public partial class MainWindow
@@ -20,7 +20,7 @@ public partial class MainWindow
         DataObject.RemovePastingHandler(RequestPane, OnRequestPanePasting);
 
     /// <summary>
-    /// Intercepts a paste and converts it when — and only when — it is a curl command.
+    /// Intercepts a paste and converts it when - and only when - it is a curl command.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -33,7 +33,7 @@ public partial class MainWindow
     /// <para>
     /// The conversion replaces the clipboard content <em>for this paste only</em>, by
     /// swapping the data object WPF is about to apply. The system clipboard is not
-    /// modified — pasting the same command into another application afterwards still
+    /// modified - pasting the same command into another application afterwards still
     /// yields the curl command, which is what anyone would expect.
     /// </para>
     /// </remarks>
@@ -58,7 +58,7 @@ public partial class MainWindow
 
         StatusLeft.Text = result.Notes.Count == 0
             ? "Converted a curl command."
-            : $"Converted a curl command — {Plural(result.Notes.Count)} noted in the document.";
+            : $"Converted a curl command - {Plural(result.Notes.Count)} noted in the document.";
     }
 
     private static string Plural(int count) =>

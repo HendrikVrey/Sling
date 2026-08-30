@@ -6,7 +6,7 @@ using Sling.Core.History;
 namespace Sling.Core.Rendering;
 
 /// <summary>
-/// Renders the things Sling keeps <em>about</em> requests — history and cookies — as
+/// Renders the things Sling keeps <em>about</em> requests - history and cookies - as
 /// plain text.
 /// </summary>
 /// <remarks>
@@ -84,7 +84,7 @@ public static class HistoryRenderer
     /// <strong>Values are not shown.</strong> A session cookie is a credential in exactly
     /// the way a bearer token is, and a jar listing is the sort of thing that ends up in a
     /// screenshot on an issue tracker. What debugging actually needs is which cookies
-    /// exist, what they are scoped to and when they expire — the value answers no question
+    /// exist, what they are scoped to and when they expire - the value answers no question
     /// a person is asking.
     /// </remarks>
     public static string RenderCookies(IReadOnlyList<Cookie> cookies, string? environmentName)
@@ -98,7 +98,7 @@ public static class HistoryRenderer
         if (cookies.Count == 0)
         {
             return $"No cookies held for {scope}.\n\nSling keeps a separate jar per environment, in "
-                + "memory only — nothing is written to disk, and switching environment or closing "
+                + "memory only. Nothing is written to disk, and switching environment or closing "
                 + "the window discards them.";
         }
 

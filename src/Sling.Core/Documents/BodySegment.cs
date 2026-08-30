@@ -8,8 +8,8 @@ namespace Sling.Core.Documents;
 /// A body is a sequence rather than a string because of <c>&lt; ./file</c>. The reference
 /// dialect has no separate multipart syntax: a multipart body is written out in full,
 /// with a <c>&lt; ./file</c> line standing in for each part's content. So supporting the
-/// import line correctly — including in the middle of a body, and including bytes that
-/// are not text — <em>is</em> supporting multipart.
+/// import line correctly - including in the middle of a body, and including bytes that
+/// are not text - <em>is</em> supporting multipart.
 /// </para>
 /// <para>
 /// The segments carry no file contents. <c>Sling.Core</c> never touches the disk;
@@ -27,7 +27,7 @@ public sealed record BodyText(string Value) : BodySegment;
 /// </summary>
 /// <param name="Path">
 /// The path as written, which may itself contain <c>{{references}}</c>. Always resolved
-/// relative to the document — an absolute path is refused, because a request file is
+/// relative to the document - an absolute path is refused, because a request file is
 /// something people share.
 /// </param>
 /// <param name="Interpolate">
@@ -46,7 +46,7 @@ public sealed record BodyText(string Value) : BodySegment;
 /// </param>
 /// <remarks>
 /// <paramref name="AsWritten"/> exists because <paramref name="Path"/> is substituted, and
-/// a substituted path routinely contains a secret — <c>&lt; ./{{token}}.json</c> resolves
+/// a substituted path routinely contains a secret - <c>&lt; ./{{token}}.json</c> resolves
 /// before anything can fail on it. Reporting the resolved form would put a credential on
 /// screen, which <see cref="ParseDiagnostic"/> promises never happens. The same split as
 /// <c>RequestResolver.TryBuildUrl</c>'s <c>asWritten</c> parameter, for the same reason.

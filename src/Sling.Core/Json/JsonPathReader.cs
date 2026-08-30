@@ -12,7 +12,7 @@ namespace Sling.Core.Json;
 /// <remarks>
 /// <para>
 /// A subset, deliberately. Filters, wildcards, slices and recursive descent all return
-/// <em>sets</em>, and a request field needs exactly one value — supporting them would
+/// <em>sets</em>, and a request field needs exactly one value - supporting them would
 /// mean inventing a rule for which element of the set gets substituted. Anything outside
 /// the subset is rejected with a message saying so, which is a better outcome than
 /// silently picking the first match.
@@ -143,7 +143,7 @@ internal static class JsonPathReader
 
             if (name.Contains('*', StringComparison.Ordinal))
             {
-                error = "wildcards are not supported — a request field needs exactly one value";
+                error = "wildcards are not supported - a request field needs exactly one value";
                 return false;
             }
 
@@ -183,7 +183,7 @@ internal static class JsonPathReader
             return false;
         }
 
-        error = $"'{remainder}' is not a supported path step — write '.member', \"['member']\" or '[0]'";
+        error = $"'{remainder}' is not a supported path step - write '.member', \"['member']\" or '[0]'";
         return false;
     }
 

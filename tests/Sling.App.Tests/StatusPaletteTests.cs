@@ -109,7 +109,7 @@ public sealed class StatusPaletteTests
     public void A_class_is_one_colour(int first, int second)
     {
         // Every 4xx is the same amber. Grading within a class would be a second vocabulary
-        // to learn for no gain — the number itself is right there.
+        // to learn for no gain - the number itself is right there.
         Assert.Equal(
             ((SolidColorBrush)StatusPalette.For(first, Page).Foreground).Color,
             ((SolidColorBrush)StatusPalette.For(second, Page).Foreground).Color);

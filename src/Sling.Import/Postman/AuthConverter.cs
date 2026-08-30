@@ -21,7 +21,7 @@ internal sealed record AuthPlan(
 /// <para>
 /// <b>No credential found here is ever written into the document.</b> Every literal value
 /// goes through <see cref="ImportContext.Reference"/> and lands in the gitignored secrets
-/// file, leaving a <c>{{name}}</c> behind — see <c>Sling.md</c> §5.1. A collection carrying
+/// file, leaving a <c>{{name}}</c> behind - see <c>Sling.md</c> §5.1. A collection carrying
 /// a live token is the normal case rather than the exceptional one, and an importer that
 /// wrote it into a file destined for a commit would be the single most damaging thing in
 /// this product.
@@ -29,7 +29,7 @@ internal sealed record AuthPlan(
 /// <para>
 /// Auth is inherited in Postman: a request with no block of its own uses its folder's, and
 /// a folder with none uses the collection's. The nearest block wins, and
-/// <c>{ "type": "noauth" }</c> is a real answer that stops the search — which is why an
+/// <c>{ "type": "noauth" }</c> is a real answer that stops the search - which is why an
 /// absent block and an explicit "no auth" have to stay distinguishable all the way from the
 /// JSON reader.
 /// </para>
@@ -69,7 +69,7 @@ internal static class AuthConverter
     /// </summary>
     /// <remarks>
     /// A Basic header is base64 of <c>user:password</c>, so it can only be built when both
-    /// halves are known — and Postman collections very often hold <c>{{username}}</c> and
+    /// halves are known - and Postman collections very often hold <c>{{username}}</c> and
     /// <c>{{password}}</c>, whose values live in an environment this importer may not have
     /// been given. There is no <c>.http</c> construct that encodes at send time, so the
     /// honest output is a reference that <em>fails loudly</em> plus a note saying exactly
@@ -92,7 +92,7 @@ internal static class AuthConverter
         {
             writer.Note(
                 "Postman used basic auth with variables for the credentials, and a Basic header "
-                    + "is base64 of 'user:password' — which cannot be assembled from variables. "
+                    + "is base64 of 'user:password' - which cannot be assembled from variables. "
                     + "Put the encoded value in http-client.private.env.json as 'basic_auth'. "
                     + "Until you do, this request will refuse to send rather than authenticate "
                     + "as nobody.");
@@ -120,7 +120,7 @@ internal static class AuthConverter
         var pair = new PostmanPair(name, value);
 
         // Postman's field is 'in', and 'query' means the key rides in the query string. That
-        // is a credential in a URL, which ends up in server logs — worth saying once, since
+        // is a credential in a URL, which ends up in server logs - worth saying once, since
         // the collection's author may not have chosen it deliberately.
         if (string.Equals(auth.Get("in"), "query", StringComparison.OrdinalIgnoreCase))
         {
@@ -141,7 +141,7 @@ internal static class AuthConverter
     /// <remarks>
     /// Client credentials becomes a real <c># @auth oauth2</c> block, which is the whole
     /// reason that syntax exists (<c>Sling.md</c> §4e). Every other grant needs a browser, a
-    /// redirect listener and a consent screen — a different product, and one the README
+    /// redirect listener and a consent screen - a different product, and one the README
     /// already says Sling is not (§1 non-goals). A collection holding a static
     /// <c>accessToken</c> is carried across as a bearer header, because that part of it does
     /// work; what is lost is the ability to refresh it, and the note says so.
@@ -163,7 +163,7 @@ internal static class AuthConverter
 
             writer.Note(
                 $"Postman used the OAuth2 '{HttpWriter.Describe(grant)}' grant, which Sling does "
-                    + "not run — it needs a browser and a redirect listener. The access token "
+                    + "not run - it needs a browser and a redirect listener. The access token "
                     + "the collection had is used below, and will stop working when it expires.");
 
             return new AuthPlan(
@@ -174,7 +174,7 @@ internal static class AuthConverter
 
         writer.Note(
             $"Postman used the OAuth2 '{HttpWriter.Describe(grant)}' grant. Sling supports the "
-                + "client-credentials grant only — see docs/http-dialect.md for '# @auth oauth2'. "
+                + "client-credentials grant only - see docs/http-dialect.md for '# @auth oauth2'. "
                 + "Send a token you already have as an Authorization header instead.");
 
         return AuthPlan.None;
@@ -197,7 +197,7 @@ internal static class AuthConverter
             writer.Note(
                 "The OAuth2 block below is missing a client "
                     + (clientId is null ? "id" : "secret")
-                    + " — the collection did not carry one. Fill it in before sending, or the "
+                    + " - the collection did not carry one. Fill it in before sending, or the "
                     + "request will refuse rather than authenticate as nobody.");
         }
 
@@ -243,7 +243,7 @@ internal static class AuthConverter
     {
         writer.Note(
             $"Postman used '{HttpWriter.Describe(auth.Type)}' auth here, which Sling has no "
-                + "equivalent for. The request below is unauthenticated — add whatever header "
+                + "equivalent for. The request below is unauthenticated - add whatever header "
                 + "the API expects.");
 
         return AuthPlan.None;

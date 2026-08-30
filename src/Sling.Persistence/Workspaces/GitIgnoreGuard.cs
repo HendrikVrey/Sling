@@ -14,7 +14,7 @@ namespace Sling.Persistence.Workspaces;
 /// file, the ignore entry has to exist, whether Sling created the file or found it.
 /// </para>
 /// <para>
-/// Strictly additive. The file is appended to and never rewritten, reordered or pruned —
+/// Strictly additive. The file is appended to and never rewritten, reordered or pruned,
 /// this is somebody's repository, and the one thing worse than a missing entry here is
 /// silently removing a rule that was keeping something else out.
 /// </para>
@@ -23,7 +23,7 @@ public static class GitIgnoreGuard
 {
     private const string FileName = ".gitignore";
 
-    private const string Heading = "# Sling — the environment file that holds secrets. Never commit this.";
+    private const string Heading = "# Sling - the environment file that holds secrets. Never commit this.";
 
     /// <summary>
     /// Ensures <paramref name="root"/>'s <c>.gitignore</c> covers <paramref name="patterns"/>.
@@ -32,7 +32,7 @@ public static class GitIgnoreGuard
     /// <remarks>
     /// A plain line-by-line comparison, not gitignore semantics. Deciding whether some
     /// existing rule already matches a path means implementing gitignore's precedence,
-    /// negation and directory rules — and being wrong about that in the permissive
+    /// negation and directory rules - and being wrong about that in the permissive
     /// direction is precisely the failure this exists to prevent. A duplicate entry in a
     /// gitignore file costs nothing.
     /// </remarks>

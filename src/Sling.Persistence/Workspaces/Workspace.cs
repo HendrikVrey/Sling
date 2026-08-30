@@ -6,7 +6,7 @@ namespace Sling.Persistence.Workspaces;
 /// <remarks>
 /// <para>
 /// Sling has no workspace format, no index and no metadata file. A workspace is whatever
-/// folder the user pointed at — very often a checkout of the API's own repository, with
+/// folder the user pointed at - very often a checkout of the API's own repository, with
 /// the request files sitting beside the code they exercise. That is the whole of
 /// <c>Sling.md</c> §1's "a collection becomes a folder of <c>.http</c> files": hierarchy
 /// is directories, sharing is <c>git push</c>, and review is a normal diff.
@@ -48,7 +48,7 @@ public sealed class Workspace
     /// </summary>
     /// <remarks>
     /// Someone will open their home directory by accident, and the file list is a flat
-    /// list in a side rail — past a few hundred entries it has stopped being usable well
+    /// list in a side rail - past a few hundred entries it has stopped being usable well
     /// before it stops being cheap. Stopping is reported, never silent.
     /// </remarks>
     private const int MaxListedFiles = 2000;
@@ -108,7 +108,7 @@ public sealed class Workspace
         // Directories already walked, so a junction pointing back at an ancestor is visited
         // once rather than to the depth of Windows' reparse-point limit. Without it a
         // self-referencing link listed the same file sixty-four times, at
-        // requests\loop\requests\loop\… — not a hang, but sixty-four wrong answers.
+        // requests\loop\requests\loop\… - not a hang, but sixty-four wrong answers.
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { Root };
 
         while (pending.Count > 0)

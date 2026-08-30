@@ -13,7 +13,7 @@ namespace Sling.Import.Postman;
 /// precaution.</b> M2's review found two blockers in the curl importer that were the same
 /// mistake twice: three call sites stripped control characters out of a value and two did
 /// not, so a crafted command injected a whole extra request carrying a chained bearer
-/// token. The fix that made it unrepeatable was not vigilance at the call sites — it was
+/// token. The fix that made it unrepeatable was not vigilance at the call sites - it was
 /// putting the rule where the value enters the type. This class is that shape applied
 /// before the mistake rather than after it: a converter cannot write a raw line, because
 /// there is no method that takes one.
@@ -41,7 +41,7 @@ internal sealed class HttpWriter
     /// <remarks>
     /// Reproduced at all because a pre-request script is very often the token-fetching
     /// logic, which is the part of a collection its owner most needs to see in order to
-    /// rebuild it — and "a script was dropped" without the script is a note that cannot be
+    /// rebuild it - and "a script was dropped" without the script is a note that cannot be
     /// acted on. Capped because some of them are hundreds of lines, and a request whose
     /// comment header is longer than the request is not a readable import.
     /// </remarks>
@@ -56,15 +56,15 @@ internal sealed class HttpWriter
     private int _boilerplate;
 
     /// <summary>
-    /// True once anything worth keeping has been written — a request, a description, or a
-    /// note — but not merely the header naming where the import came from.
+    /// True once anything worth keeping has been written - a request, a description, or a
+    /// note - but not merely the header naming where the import came from.
     /// </summary>
     /// <remarks>
     /// <para>
     /// <b>Not the same question as "does this hold a request", and the difference was a
     /// silent loss.</b> The normal shape of a real collection is that every request lives
     /// inside a folder, so the root document holds only the collection's description and its
-    /// collection-level scripts — the token-fetching one included — and a file emitted only
+    /// collection-level scripts - the token-fetching one included - and a file emitted only
     /// when it held a request discarded all of that, along with the note count that would
     /// have said so. That broke the promise this importer is built on, in the case that
     /// happens most.
@@ -86,7 +86,7 @@ internal sealed class HttpWriter
     /// </summary>
     /// <remarks>
     /// A title and not a <c># @name</c>. <c>@name</c> is the handle chain references use,
-    /// it must be unique across the file, and nothing generated here chains — Postman
+    /// it must be unique across the file, and nothing generated here chains - Postman
     /// expresses that dependency in a script, which this importer deliberately does not
     /// translate. Emitting one per request would put a wall of names in the document and
     /// make two requests Postman is happy to let share a name an error in the result.
@@ -111,7 +111,7 @@ internal sealed class HttpWriter
     }
 
     /// <summary>
-    /// Writes documentation from the collection — a folder or request description.
+    /// Writes documentation from the collection - a folder or request description.
     /// </summary>
     public void Comment(string? text)
     {
@@ -146,12 +146,12 @@ internal sealed class HttpWriter
     /// <para>
     /// <b>This is the Postman-shaped version of the curl note injection, and it is worse.</b>
     /// A description is markdown a collection's author wrote, and a line of it beginning
-    /// <c>@</c> comes back through <see cref="Comment"/> as <c># @something</c> — which the
+    /// <c>@</c> comes back through <see cref="Comment"/> as <c># @something</c> - which the
     /// parser reads as a directive, not as text. <c>@name</c> is the one that matters:
     /// a crafted description could name the request it sits above, and a second request's
     /// <c>Authorization: Bearer {{that-name.response.body.$.token}}</c> would then send a
     /// token fetched from the real API to whatever host the second request points at. The
-    /// leading whitespace does not help — the pattern the parser matches allows any amount
+    /// leading whitespace does not help - the pattern the parser matches allows any amount
     /// of it between the <c>#</c> and the <c>@</c>.
     /// </para>
     /// <para>
@@ -184,7 +184,7 @@ internal sealed class HttpWriter
     /// Applied to notes only, never to a description. A note is this project's own prose and
     /// re-flowing it costs nothing; a description is the collection author's, and rewrapping
     /// somebody's markdown silently reformats their documentation. A word longer than the
-    /// column simply overruns — breaking a URL in half to fit would be worse than a long
+    /// column simply overruns - breaking a URL in half to fit would be worse than a long
     /// line.
     /// </remarks>
     private static string Wrap(string text)
@@ -213,7 +213,7 @@ internal sealed class HttpWriter
     }
 
     /// <summary>
-    /// Writes a <c># @directive</c> line — deliberately, unlike <see cref="Comment"/>, which
+    /// Writes a <c># @directive</c> line - deliberately, unlike <see cref="Comment"/>, which
     /// quotes one out of the way.
     /// </summary>
     /// <remarks>
@@ -237,7 +237,7 @@ internal sealed class HttpWriter
     /// <remarks>
     /// <b>Nothing here is ever executed</b> (<c>Sling.md</c> §5.8). It is copied into the
     /// document as text so its author can see what they have to rebuild, and every line of
-    /// it goes through <see cref="Comment"/> — a script is the most obviously hostile thing
+    /// it goes through <see cref="Comment"/> - a script is the most obviously hostile thing
     /// in a collection, and a line of it escaping the comment would be a request the
     /// document did not appear to contain.
     /// </remarks>
@@ -315,7 +315,7 @@ internal sealed class HttpWriter
     /// <returns>False when the name was not a legal header name, so the caller can note it.</returns>
     public bool Header(string name, string? value)
     {
-        // Checked as written, NOT after stripping — that ordering was the bug. Stripping
+        // Checked as written, NOT after stripping - that ordering was the bug. Stripping
         // first turned "Y\nZ" into the token "YZ", which passed the check and wrote a header
         // the collection never described. IsToken already rejects every control character,
         // so checking first is both stricter and simpler.
@@ -348,7 +348,7 @@ internal sealed class HttpWriter
     /// Writes the body, after the blank line that separates it from the headers.
     /// </summary>
     /// <param name="text">
-    /// The body exactly as it should be sent. Line breaks survive — a body is terminated by
+    /// The body exactly as it should be sent. Line breaks survive - a body is terminated by
     /// end-of-request rather than by a delimiter it could contain, so a newline in one is
     /// content. A caller that needs CRLF framing writes the carriage returns itself and
     /// they survive too: the parser keeps each line's own terminator, which is what makes a
@@ -373,15 +373,15 @@ internal sealed class HttpWriter
     /// Whether <paramref name="body"/> holds a line that would split the document.
     /// </summary>
     /// <remarks>
-    /// <c>###</c> at the start of a line separates requests in this format — in the
-    /// reference dialect too, so it is a limitation of <c>.http</c> rather than of Sling —
+    /// <c>###</c> at the start of a line separates requests in this format - in the
+    /// reference dialect too, so it is a limitation of <c>.http</c> rather than of Sling,
     /// and nothing can escape it. A body carrying one is named rather than quietly
     /// corrupted into two requests, the second of them nonsense.
     /// <para>
     /// Split on <c>\r</c> as well as <c>\n</c>, because the parser treats a lone carriage
     /// return as a line terminator too. Splitting on <c>\n</c> alone left
     /// <c>"payload\r### injected"</c> looking like one line that merely contains a hash
-    /// run — and it is the exact body a crafted collection would use.
+    /// run - and it is the exact body a crafted collection would use.
     /// </para>
     /// </remarks>
     public static bool WouldSplitTheDocument(string body) =>

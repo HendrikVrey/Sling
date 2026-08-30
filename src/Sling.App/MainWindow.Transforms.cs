@@ -8,7 +8,7 @@ using Sling.App.Editor;
 namespace Sling.App;
 
 /// <summary>
-/// The transform menu over the response body — the milestone's payoff, and the thing no
+/// The transform menu over the response body - the milestone's payoff, and the thing no
 /// other HTTP client does.
 /// </summary>
 public partial class MainWindow
@@ -24,7 +24,7 @@ public partial class MainWindow
     /// and <c>CaretNavigationCommandHandler</c> register onto an input handler attached to
     /// the <c>TextArea</c>, and every one of their <c>CanExecute</c> methods opens with
     /// <c>target as TextArea</c> and does nothing otherwise. A menu whose command target
-    /// is the editor renders Copy and Select All permanently greyed out — a failure that
+    /// is the editor renders Copy and Select All permanently greyed out - a failure that
     /// looks like a WPF defect and gets debugged as one.
     /// </remarks>
     private void InstallResponseContextMenu()
@@ -40,8 +40,8 @@ public partial class MainWindow
     /// the buffer currently is.
     /// </summary>
     /// <remarks>
-    /// Rebuilt rather than refreshed. The rows change identity as well as state — a JSON
-    /// body offers four JSON transforms, a JWT offers "Decode JWT" — so keeping a fixed
+    /// Rebuilt rather than refreshed. The rows change identity as well as state - a JSON
+    /// body offers four JSON transforms, a JWT offers "Decode JWT" - so keeping a fixed
     /// set of items and toggling their enabled state would mean maintaining a menu of
     /// every transform Sling has, mostly disabled.
     /// </remarks>
@@ -151,7 +151,7 @@ public partial class MainWindow
     /// <para>
     /// The document is only touched back on the UI thread, after the await, because
     /// AvalonEdit's <c>TextDocument</c> has thread affinity. The buffer is re-read at that
-    /// point rather than captured beforehand — see <see cref="Editor.BodyTransforms"/>.
+    /// point rather than captured beforehand - see <see cref="Editor.BodyTransforms"/>.
     /// </para>
     /// <para>
     /// The re-read afterwards is what makes transforms chain: base64 → JSON → sort keys is
@@ -196,7 +196,7 @@ public partial class MainWindow
             else if (outcome.ErrorOffset is { } offset)
             {
                 // The transform said where it gave up. Putting the caret there is the whole
-                // value of that number — a message naming a line still leaves the user to
+                // value of that number - a message naming a line still leaves the user to
                 // go and find it, and on a minified body the whole payload is line one.
                 ResponsePane.Select(offset, 0);
                 ResponsePane.TextArea.Caret.BringCaretToView();
@@ -214,7 +214,7 @@ public partial class MainWindow
         {
             // Last resort, and deliberately broad. A transform is contractually supposed to
             // report bad input as a failed result rather than by throwing, so anything that
-            // arrives here is a contract violation or something nobody has met yet — and
+            // arrives here is a contract violation or something nobody has met yet - and
             // this runs from a click handler, so an escape would take the process down and
             // lose the buffer with it. A wrong-looking message beats a dead window.
             StatusLeft.Text = $"{transform.Name} failed: {ex.GetType().Name}: {ex.Message}";
