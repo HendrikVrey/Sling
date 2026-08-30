@@ -44,6 +44,23 @@ public static partial class RequestDocumentParser
 
     public static RequestDocument Parse(string? text) => new Walker(SplitLines(text ?? string.Empty)).Run();
 
+    /// <summary>
+    /// The directive name on a metadata line - <c>name</c> for <c># @name login</c> - or
+    /// null when the line is not one.
+    /// </summary>
+    /// <remarks>
+    /// Exposed so that editing a document does not need a second copy of the grammar. The
+    /// auth panel has to find the <c># @auth</c> block's lines in order to replace them, and
+    /// the parse does not carry them: the directives under <c># @auth</c> become fields on a
+    /// grant, and only the opening line's number survives. A private regex in the editor
+    /// would be the two-homes failure <see cref="HttpSyntax"/> exists to avoid.
+    /// </remarks>
+    /// <param name="line">One line, without its terminator.</param>
+    public static string? MetadataDirective(string line) =>
+        MetadataPattern.Match(line ?? string.Empty) is { Success: true } match
+            ? match.Groups[1].Value
+            : null;
+
     [GeneratedRegex(@"^\s*@([A-Za-z_][A-Za-z0-9_.\-]*)\s*=\s*(.*)$")]
     private static partial Regex VariableDefinitionPattern { get; }
 

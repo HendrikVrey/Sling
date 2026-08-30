@@ -128,8 +128,8 @@ public partial class MainWindow
     /// </para>
     /// <para>
     /// No unsaved-work question, deliberately. This runs on the way to the first frame,
-    /// against a buffer holding either the sample or nothing at all, so there is nothing
-    /// of the user's to discard and a prompt would be a question about their own click.
+    /// against an empty buffer, so there is nothing of the user's to discard and a prompt
+    /// would be a question about their own click.
     /// </para>
     /// </remarks>
     private async Task OpenStartupDocumentAsync(string path)
@@ -243,6 +243,11 @@ public partial class MainWindow
         // one this returns early on, and those are exactly the ones that add the '###' the
         // rail is meant to notice.
         QueueRequestRefresh();
+
+        // Above the short-circuit for the same reason, and one sharper: emptying a document
+        // that was already dirty has to bring the empty state back, and that is a keystroke
+        // the early return would swallow.
+        UpdateEmptyState();
 
         if (_loadingDocument || _dirty)
         {
@@ -358,6 +363,50 @@ public partial class MainWindow
         {
             await LoadDocumentAsync(only).ConfigureAwait(true);
         }
+    }
+
+    /// <summary>
+    /// Makes sure there is a workspace, asking for a folder when there is not.
+    /// </summary>
+    /// <returns>
+    /// The workspace, or null when the user backed out or the folder could not be opened.
+    /// Returned rather than left for the caller to read off the field, so the compiler
+    /// carries the "there is one now" through the rest of the method.
+    /// </returns>
+    /// <remarks>
+    /// A creation command that answers "open a folder first" is a dead end wearing the
+    /// clothes of a message: the user has said what they want, and the tool knows the one
+    /// thing missing and can ask for it. The same shape as the missing-variable diagnostic
+    /// offering to define the variable rather than naming the three files it could go in.
+    /// </remarks>
+    private Workspace? EnsureWorkspace(string title)
+    {
+        if (_workspace is not null)
+        {
+            return _workspace;
+        }
+
+        var dialog = new OpenFolderDialog { Title = title };
+
+        if (dialog.ShowDialog(this) != true)
+        {
+            return null;
+        }
+
+        try
+        {
+            SetWorkspace(Workspace.Open(dialog.FolderName));
+        }
+        catch (DirectoryNotFoundException ex)
+        {
+            StatusLeft.Text = ex.Message;
+            return null;
+        }
+
+        // Deliberately without the single-document convenience OpenFolderAsync applies. The
+        // user asked to create something, and opening some other file underneath them on
+        // the way there would replace the buffer they are about to write into.
+        return _workspace;
     }
 
     /// <summary>Opens a folder, and drops everything that belonged to the last one.</summary>

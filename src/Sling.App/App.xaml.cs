@@ -13,9 +13,9 @@ public partial class App : Application
     /// <remarks>
     /// The installer registers a <c>Sling.http</c> ProgID whose open command is
     /// <c>Sling.exe "%1"</c>, so double-clicking a <c>.http</c> file in Explorer arrives
-    /// here. Without this the association would launch Sling and show the sample
-    /// document, which is worse than having no association at all: the file the user
-    /// asked for would silently not be the file they got.
+    /// here. Without this the association would launch Sling and show an empty document,
+    /// which is worse than having no association at all: the file the user asked for
+    /// would silently not be the file they got.
     /// </remarks>
     internal static string? StartupFile { get; private set; }
 
@@ -47,12 +47,11 @@ public partial class App : Application
     /// rather than the first one outright.
     /// </para>
     /// <para>
-    /// Existence is checked here rather than in the window because the answer decides
-    /// whether the sample document is seeded at all. A path that cannot be resolved is
-    /// dropped silently: Sling was launched, the user gets a working window, and an
-    /// error dialog before the first frame would be a worse answer than the sample.
-    /// The window reports anything that goes wrong <em>reading</em> the file, which is
-    /// the failure worth naming.
+    /// Existence is checked here rather than in the window because a path that cannot be
+    /// resolved is dropped silently: Sling was launched, the user gets a working window,
+    /// and an error dialog before the first frame would be a worse answer than an empty
+    /// one. The window reports anything that goes wrong <em>reading</em> the file, which
+    /// is the failure worth naming.
     /// </para>
     /// <para>
     /// Internal rather than private so it can be tested. Constructing an

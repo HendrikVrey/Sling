@@ -44,6 +44,15 @@ public sealed class EnvironmentSet
             .ToArray();
 
         Problems = [.. committed.Problems, .. secret.Problems];
+
+        Entries =
+        [
+            .. Declared(committed, secret: false)
+                .Concat(Declared(secret, secret: true))
+                .OrderBy(e => e.Environment.Equals(SharedName, StringComparison.Ordinal) ? 0 : 1)
+                .ThenBy(e => e.Environment, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(e => e.Name, StringComparer.OrdinalIgnoreCase),
+        ];
     }
 
     /// <summary>An empty set, for a window with no workspace open.</summary>
@@ -51,6 +60,28 @@ public sealed class EnvironmentSet
 
     /// <summary>Selectable environment names, sorted, without <see cref="SharedName"/>.</summary>
     public IReadOnlyList<string> Names { get; }
+
+    /// <summary>
+    /// Every variable as it is written in the two files, rather than as it resolves.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <see cref="Select"/> answers "what is in force", which is what sending a request
+    /// needs and what an editor cannot use: it has already flattened four layers into one,
+    /// so a value's environment and its file are both gone by the time it comes back. This
+    /// keeps them, because an editor's whole job is to put a value back where it came from.
+    /// </para>
+    /// <para>
+    /// A name written in both files for the same environment appears twice, deliberately.
+    /// That is a real state of the files - the secret shadows the committed one - and an
+    /// editor that showed only the winner would offer to change a line that is not the one
+    /// having an effect.
+    /// </para>
+    /// <para>
+    /// <see cref="SharedName"/> sorts first, because it underlies the rest.
+    /// </para>
+    /// </remarks>
+    public IReadOnlyList<EnvironmentEntry> Entries { get; }
 
     /// <summary>
     /// Anything wrong with either file, phrased for the user. Never a reason to refuse to
@@ -84,6 +115,11 @@ public sealed class EnvironmentSet
         return new EnvironmentValues(name, values);
     }
 
+    private static IEnumerable<EnvironmentEntry> Declared(EnvironmentFile file, bool secret) =>
+        file.EnvironmentNames.SelectMany(
+            environment => file.Values(environment),
+            (environment, value) => new EnvironmentEntry(environment, value.Key, value.Value, secret));
+
     private static void Overlay(
         Dictionary<string, EnvironmentValue> into,
         EnvironmentFile file,
@@ -96,6 +132,18 @@ public sealed class EnvironmentSet
         }
     }
 }
+
+/// <summary>One variable as the files declare it.</summary>
+/// <param name="Environment">
+/// The environment it is written under, which may be <see cref="EnvironmentSet.SharedName"/>.
+/// </param>
+/// <param name="Name">The variable's name.</param>
+/// <param name="Value">
+/// Its value as written, variables inside it still <c>{{braced}}</c>. A credential when
+/// <paramref name="Secret"/> is true, and to be treated as one wherever it is shown.
+/// </param>
+/// <param name="Secret">True when it is written in the gitignored file.</param>
+public sealed record EnvironmentEntry(string Environment, string Name, string Value, bool Secret);
 
 /// <summary>One resolved variable and where it came from.</summary>
 /// <param name="Secret">

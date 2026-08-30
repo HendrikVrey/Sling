@@ -22,19 +22,26 @@ namespace Sling.App;
 public partial class MainWindow : FluentWindow
 {
     /// <summary>
-    /// Seeded into the request pane on first run so the window is never empty and the
-    /// <c>.http</c> dialect is visible immediately - unless Sling was launched with a
-    /// file, in which case that file is the document and this would only flicker past.
-    /// Replaced by a real document store in M3; it is a literal here rather than a file
-    /// on disk because there is no persistence layer to load it from yet.
+    /// The example the empty state offers, put in the buffer only when it is asked for.
     /// </summary>
     /// <remarks>
-    /// Deliberately a chain against a public API that needs no credentials: pressing
-    /// <c>Ctrl+Enter</c> on the second request sends the first one too, which is the one
-    /// behaviour in Sling that has to be seen rather than described. The
-    /// <c>User-Agent</c> is not decoration - GitHub rejects a request without one.
+    /// <para>
+    /// This used to be seeded on every launch, which meant Sling opened holding two
+    /// requests against an API nobody had mentioned, in a window somebody had opened to
+    /// write their own. Its own doc comment said a document store was to replace it in M3
+    /// and none ever did.
+    /// </para>
+    /// <para>
+    /// <b>Deleting it outright would have been the wrong correction, and the rail already
+    /// taught why:</b> an absent panel explains less than an empty one, and this text was
+    /// doing real work. It is deliberately a chain against a public API that needs no
+    /// credentials, so pressing <c>Ctrl+Enter</c> on the second request sends the first one
+    /// too - the one behaviour in Sling that has to be seen rather than described. So the
+    /// teaching moved rather than going away. The <c>User-Agent</c> is not decoration -
+    /// GitHub rejects a request without one.
+    /// </para>
     /// </remarks>
-    private const string SampleRequest = """
+    private const string ExampleDocument = """
         @base = https://api.github.com
 
         ### a request is a document, not a form
@@ -60,14 +67,6 @@ public partial class MainWindow : FluentWindow
     {
         InitializeComponent();
 
-        // Not when a file was named on the command line: that file is about to replace
-        // this, and the sample would show for the frame in between - a document nobody
-        // asked for, in a window opened by double-clicking a different one.
-        if (App.StartupFile is null)
-        {
-            RequestPane.Text = SampleRequest;
-        }
-
         // The hint first, so anything the initialisers below have to say survives. It used
         // to be assigned at the end, which meant a settings file that would not parse
         // reported the problem and then had it overwritten one line later - a silent
@@ -83,13 +82,16 @@ public partial class MainWindow : FluentWindow
         // does not exist yet would build a jar the user had switched off.
         InitializeSettings();
 
-        // After the sample is seeded, so seeding it is not counted as an edit: nobody
-        // should be asked whether to save text they did not write.
         InitializeWorkspace();
 
         // Last: the command bar reads the document and the dirty flag, both of which the
         // workspace has just settled.
         InitializeChrome();
+
+        // Last of all, because it reads the buffer every other initialiser above may have
+        // filled: the startup file is loaded on the first Loaded, so on a plain launch this
+        // is what puts the empty state up.
+        UpdateEmptyState();
 
         ShowMessage("Nothing sent yet.");
     }
@@ -169,8 +171,9 @@ public partial class MainWindow : FluentWindow
         base.OnPreviewKeyDown(e);
     }
 
-    /// <summary>True while any of the three in-window modals is on screen.</summary>
-    private bool AnyModalIsOpen => NamePromptIsOpen || ConfirmIsOpen || SettingsAreOpen;
+    /// <summary>True while any of the in-window modals is on screen.</summary>
+    private bool AnyModalIsOpen =>
+        NamePromptIsOpen || ConfirmIsOpen || SettingsAreOpen || EnvironmentsAreOpen || AuthIsOpen;
 
     /// <summary>
     /// Answers the keys that dismiss whichever modal is up. Returns true when the key was
@@ -226,6 +229,30 @@ public partial class MainWindow : FluentWindow
             }
         }
 
+        // Both of these are cards, and both therefore join this method rather than growing a
+        // guard of their own. A fourth overlay that skipped it would be one you could send a
+        // request through - which is what the settings panel was until these three were
+        // collapsed into one place.
+        if (EnvironmentsAreOpen)
+        {
+            if (escape || (e.Key == Key.E && e.KeyboardDevice.Modifiers == ModifierKeys.Control))
+            {
+                CloseEnvironments();
+                return true;
+            }
+        }
+
+        if (AuthIsOpen)
+        {
+            if (escape
+                || (e.Key == Key.A
+                    && e.KeyboardDevice.Modifiers == (ModifierKeys.Control | ModifierKeys.Alt)))
+            {
+                CloseAuth();
+                return true;
+            }
+        }
+
         return false;
     }
 
@@ -240,6 +267,14 @@ public partial class MainWindow : FluentWindow
     /// </remarks>
     private bool TryHandleViewKey(KeyEventArgs e)
     {
+        // Ctrl+Alt, not Ctrl: Ctrl+A is select-all inside an editor, and taking it would be
+        // taking a key the user is holding the caret in the middle of using.
+        if (e.Key == Key.A && e.KeyboardDevice.Modifiers == (ModifierKeys.Control | ModifierKeys.Alt))
+        {
+            ShowAuth();
+            return true;
+        }
+
         if (e.KeyboardDevice.Modifiers != ModifierKeys.Control)
         {
             return false;
@@ -264,6 +299,10 @@ public partial class MainWindow : FluentWindow
 
             case Key.B:
                 ToggleRail();
+                return true;
+
+            case Key.E:
+                ShowEnvironments();
                 return true;
 
             default:
