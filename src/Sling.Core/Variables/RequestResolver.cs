@@ -133,6 +133,12 @@ public static class RequestResolver
             ClientSecret = expander.Expand(grant.ClientSecret, grant.Line, FieldKind.Body, credential: true),
             Scope = grant.Scope is null ? null : expander.Expand(grant.Scope, grant.Line, FieldKind.Body),
             Audience = grant.Audience is null ? null : expander.Expand(grant.Audience, grant.Line, FieldKind.Body),
+            AuthorizeUrl = grant.AuthorizeUrl is null
+                ? null
+                : expander.Expand(grant.AuthorizeUrl, grant.Line, FieldKind.Target),
+            RedirectUri = grant.RedirectUri is null
+                ? null
+                : expander.Expand(grant.RedirectUri, grant.Line, FieldKind.Target),
         };
     }
 
@@ -186,6 +192,15 @@ public static class RequestResolver
             return false;
         }
 
+        Uri? authorizeUrl = null;
+        Uri? redirectUri = null;
+
+        if (resolved.Flow == OAuth2Flow.AuthorizationCode
+            && !TryBuildBrowserStep(asWritten, resolved, errors, out authorizeUrl, out redirectUri))
+        {
+            return false;
+        }
+
         grant = new ResolvedOAuth2Grant(
             tokenUrl,
             resolved.ClientId,
@@ -193,7 +208,97 @@ public static class RequestResolver
             NullIfEmpty(resolved.Scope),
             NullIfEmpty(resolved.Audience),
             resolved.Placement,
-            asWritten.Line);
+            asWritten.Line)
+        {
+            Flow = resolved.Flow,
+            AuthorizeUrl = authorizeUrl,
+            RedirectUri = redirectUri,
+        };
+
+        return true;
+    }
+
+    /// <summary>
+    /// Validates the two URLs the authorization-code flow adds.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The authorization endpoint is held to the same rule as the token endpoint, and for a
+    /// sharper reason: it carries the request that produces a code, and a code intercepted in
+    /// flight is an account. HTTPS, or a loopback address for a mock server.
+    /// </para>
+    /// <para>
+    /// <b>The redirect must be loopback, and that is the whole security model of the flow on
+    /// a desktop.</b> RFC 8252 §7.3 says a native application receives its code on a loopback
+    /// interface, which no other machine can reach; anything else is an address the code
+    /// would be delivered to over a network. Plain <c>http</c> is right there and only there,
+    /// which is the same exception a browser makes for a secure context.
+    /// </para>
+    /// </remarks>
+    private static bool TryBuildBrowserStep(
+        OAuth2Grant asWritten,
+        OAuth2Grant resolved,
+        List<ParseDiagnostic> errors,
+        out Uri? authorizeUrl,
+        out Uri? redirectUri)
+    {
+        authorizeUrl = null;
+        redirectUri = null;
+
+        if (!Uri.TryCreate(resolved.AuthorizeUrl, UriKind.Absolute, out var authorize))
+        {
+            errors.Add(ParseDiagnostic.Error(
+                $"'@authorize-url {asWritten.AuthorizeUrl}' is not an absolute URL.",
+                asWritten.Line));
+
+            return false;
+        }
+
+        if (!SecureContext.Is(authorize))
+        {
+            errors.Add(ParseDiagnostic.Error(
+                $"'@authorize-url' must use https - '{authorize.Scheme}' would carry the request "
+                    + "that produces an authorization code in clear. Plain http is allowed only "
+                    + "for localhost.",
+                asWritten.Line));
+
+            return false;
+        }
+
+        if (!Uri.TryCreate(resolved.RedirectUri, UriKind.Absolute, out var redirect))
+        {
+            errors.Add(ParseDiagnostic.Error(
+                $"'@redirect-uri {asWritten.RedirectUri}' is not an absolute URL.",
+                asWritten.Line));
+
+            return false;
+        }
+
+        if (!redirect.IsLoopback
+            || !redirect.Scheme.Equals(Uri.UriSchemeHttp, StringComparison.Ordinal))
+        {
+            errors.Add(ParseDiagnostic.Error(
+                "'@redirect-uri' must be an http address on this machine, like "
+                    + "'http://127.0.0.1:7890/callback'. Sling listens on it for the moment the "
+                    + "browser comes back, and a redirect anywhere else would deliver the "
+                    + "authorization code over a network.",
+                asWritten.Line));
+
+            return false;
+        }
+
+        if (redirect.IsDefaultPort)
+        {
+            errors.Add(ParseDiagnostic.Error(
+                "'@redirect-uri' needs an explicit port, like 'http://127.0.0.1:7890/callback'. "
+                    + "It has to match what is registered with your identity provider exactly.",
+                asWritten.Line));
+
+            return false;
+        }
+
+        authorizeUrl = authorize;
+        redirectUri = redirect;
 
         return true;
     }

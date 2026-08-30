@@ -175,8 +175,13 @@ GET {{base}}/orders
 ```
 
 Sling fetches the token, attaches it, caches it until it expires, and shows the token
-exchange in the response pane like any other call it makes on your behalf. Tokens are
-never written to disk. The authorization-code flow is not supported and is not planned.
+exchange in the response pane like any other call it makes on your behalf.
+
+`# @auth oauth2-code` does the authorization-code flow instead: your own browser, a loopback
+redirect Sling listens on, PKCE with `S256` and a checked `state`. `@client-secret` is
+optional there, because a desktop client has none to keep and PKCE is what replaces it. The
+one part Sling cannot do for you is registering the loopback address with your identity
+provider.
 
 `Ctrl+Shift+Enter` sends every request in the file in one run - shared chain responses, so
 a dependency already satisfied is not sent twice, and a failure does not stop the rest.
@@ -288,12 +293,13 @@ files you can review in a pull request* - not *a drop-in replacement*.
 ### Planned for v1
 
 Postman collection import · paste-a-curl-command · environments (dev/staging/prod) ·
-cookie jar · OAuth2 client-credentials · request chaining · file and multipart bodies
+cookie jar · OAuth2 client-credentials · OAuth2 authorization code with PKCE · request
+chaining · file and multipart bodies
 
 ### Deliberately not in v1
 
-OAuth2 authorization-code flow · test assertions · mock servers · team sync · gRPC ·
-WebSocket · proxy capture
+Test assertions · mock servers · team sync · gRPC · WebSocket · proxy capture · a
+response-handler scripting runtime · JWT signature verification
 
 ## Security
 

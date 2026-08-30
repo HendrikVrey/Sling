@@ -15,7 +15,23 @@ public sealed record GrantFields(
     string ClientSecret,
     string? Scope,
     string? Audience,
-    ClientAuthPlacement Placement);
+    ClientAuthPlacement Placement)
+{
+    /// <summary>Which flow to write. Defaults to the one that existed first.</summary>
+    public OAuth2Flow Flow { get; init; }
+
+    /// <summary>The authorization endpoint, for the code flow.</summary>
+    public string? AuthorizeUrl { get; init; }
+
+    /// <summary>The loopback address the browser comes back to, for the code flow.</summary>
+    public string? RedirectUri { get; init; }
+
+    /// <summary>
+    /// Overridden because the generated one prints every property and one of them is a client
+    /// secret. The same rule <see cref="ResolvedOAuth2Grant"/> keeps.
+    /// </summary>
+    public override string ToString() => $"grant for {ClientId} at {TokenUrl}";
+}
 
 /// <summary>What a request's auth is being changed to.</summary>
 /// <param name="Scheme">The kind of credential to write. <see cref="AuthScheme.None"/> removes it.</param>
@@ -79,7 +95,7 @@ public static class AuthDocumentEditor
         var existing = RequestAuth.Describe(block);
         var directives = BlockLines(lines, block);
 
-        if (setting.Scheme == AuthScheme.ClientCredentials)
+        if (setting.Scheme is AuthScheme.ClientCredentials or AuthScheme.AuthorizationCode)
         {
             if (setting.Grant is not { } grant)
             {
@@ -189,13 +205,31 @@ public static class AuthDocumentEditor
     /// </remarks>
     private static string GrantText(GrantFields grant, string newLine)
     {
-        var lines = new List<string>
+        var code = grant.Flow == OAuth2Flow.AuthorizationCode;
+
+        var lines = new List<string> { code ? "# @auth oauth2-code" : "# @auth oauth2" };
+
+        if (code && Blank(grant.AuthorizeUrl) is { } authorize)
         {
-            "# @auth oauth2",
-            "# @token-url " + grant.TokenUrl,
-            "# @client-id " + grant.ClientId,
-            "# @client-secret " + grant.ClientSecret,
-        };
+            lines.Add("# @authorize-url " + authorize);
+        }
+
+        lines.Add("# @token-url " + grant.TokenUrl);
+
+        if (code && Blank(grant.RedirectUri) is { } redirect)
+        {
+            lines.Add("# @redirect-uri " + redirect);
+        }
+
+        lines.Add("# @client-id " + grant.ClientId);
+
+        // Left out entirely when there is none. A public client is authenticated by PKCE, and
+        // an empty '@client-secret' is a directive the parser reads as a secret of no
+        // characters rather than as an absent one.
+        if (Blank(grant.ClientSecret) is { } secret)
+        {
+            lines.Add("# @client-secret " + secret);
+        }
 
         if (Blank(grant.Scope) is { } scope)
         {

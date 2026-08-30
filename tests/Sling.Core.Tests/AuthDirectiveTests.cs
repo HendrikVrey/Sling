@@ -72,17 +72,39 @@ public sealed class AuthDirectiveTests
     }
 
     [Fact]
-    public void An_unsupported_flow_says_what_is_supported_and_why()
+    public void The_authorization_code_flow_is_recognised_by_either_spelling()
+    {
+        // It used to be refused with a sentence about needing a browser, which was true and
+        // was not a reason: Sling has the sender, the cache, the exchange and the https
+        // enforcement, and what was missing was a loopback listener and PKCE.
+        foreach (var spelling in new[] { "oauth2-code", "oauth2 authorization_code" })
+        {
+            var document = RequestDocumentParser.Parse($"""
+                # @auth {spelling}
+                # @authorize-url https://auth.example.com/authorize
+                # @token-url https://auth.example.com/token
+                # @client-id my-client
+                # @redirect-uri http://127.0.0.1:7890/callback
+                GET https://api.example.com/orders
+                """);
+
+            Assert.Empty(Errors(document));
+            Assert.Equal(OAuth2Flow.AuthorizationCode, document.Requests.Single().Auth?.Flow);
+        }
+    }
+
+    [Fact]
+    public void A_scheme_sling_does_not_perform_says_what_it_does()
     {
         var document = RequestDocumentParser.Parse("""
-            # @auth oauth2 authorization_code
+            # @auth device_code
             GET https://api.example.com/orders
             """);
 
         var error = Assert.Single(Errors(document));
 
-        Assert.Contains("client-credentials", error.Message, StringComparison.Ordinal);
-        Assert.Contains("needs a browser", error.Message, StringComparison.Ordinal);
+        Assert.Contains("oauth2", error.Message, StringComparison.Ordinal);
+        Assert.Contains("oauth2-code", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]

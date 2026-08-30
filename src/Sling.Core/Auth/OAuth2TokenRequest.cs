@@ -37,6 +37,61 @@ public static class OAuth2TokenRequest
         Append(form, "scope", grant.Scope);
         Append(form, "audience", grant.Audience);
 
+        return Post(grant, form, clientRequired: true);
+    }
+
+    /// <summary>
+    /// Builds the <c>authorization_code</c> POST that redeems a code for a token.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The <c>redirect_uri</c> goes in even though nothing is redirected here. RFC 6749
+    /// §4.1.3 requires it when the authorization request carried one, and the server compares
+    /// it: it is what stops a code issued for one client's redirect being redeemed against
+    /// another's.
+    /// </para>
+    /// <para>
+    /// The verifier is what a public client has instead of a secret, so a grant with no
+    /// <c>@client-secret</c> still authenticates - by proving it is the same process that
+    /// asked for the code.
+    /// </para>
+    /// </remarks>
+    /// <param name="code">The authorization code, as the callback delivered it.</param>
+    /// <param name="verifier">The PKCE verifier the challenge was derived from.</param>
+    public static ResolvedRequest BuildCodeExchange(
+        ResolvedOAuth2Grant grant,
+        string code,
+        string verifier)
+    {
+        ArgumentNullException.ThrowIfNull(grant);
+        ArgumentException.ThrowIfNullOrEmpty(code);
+        ArgumentException.ThrowIfNullOrEmpty(verifier);
+
+        var form = new StringBuilder("grant_type=authorization_code");
+
+        Append(form, "code", code);
+        Append(form, "code_verifier", verifier);
+        Append(form, "redirect_uri", grant.RedirectUri?.AbsoluteUri);
+
+        // A public client has no secret to put in a Basic header, so its client_id has to
+        // travel in the body - RFC 6749 §4.1.3 requires it there for exactly that case.
+        if (grant.ClientSecret.Length == 0)
+        {
+            Append(form, "client_id", grant.ClientId);
+        }
+
+        return Post(grant, form, clientRequired: grant.ClientSecret.Length > 0);
+    }
+
+    /// <summary>
+    /// The POST both flows send, differing only in the form they carry.
+    /// </summary>
+    /// <param name="clientRequired">
+    /// Whether the client's own credentials are attached. False for a public client, which
+    /// has none and is authenticated by the PKCE verifier instead.
+    /// </param>
+    private static ResolvedRequest Post(ResolvedOAuth2Grant grant, StringBuilder form, bool clientRequired)
+    {
         // Every header is anchored to the '# @auth' line rather than to line 0: these
         // headers are not in the document, but the directive that caused them is, and that
         // is the line a person can act on.
@@ -50,11 +105,11 @@ public static class OAuth2TokenRequest
             new("Accept", "application/json", grant.Line),
         };
 
-        if (grant.Placement == ClientAuthPlacement.BasicHeader)
+        if (clientRequired && grant.Placement == ClientAuthPlacement.BasicHeader)
         {
             headers.Add(new HeaderField("Authorization", BasicCredential(grant), grant.Line));
         }
-        else
+        else if (clientRequired)
         {
             Append(form, "client_id", grant.ClientId);
             Append(form, "client_secret", grant.ClientSecret);

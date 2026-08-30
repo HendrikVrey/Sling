@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Net;
 using Sling.Core.Auth;
 using Sling.Core.Cookies;
 using Sling.Core.Documents;
@@ -48,6 +49,18 @@ public sealed class RequestRunner : IDisposable
     /// <summary>The status that means the credential was refused rather than the request.</summary>
     private const int Unauthorized = 401;
 
+    /// <summary>
+    /// How long the authorization-code flow waits for somebody to finish in the browser.
+    /// </summary>
+    /// <remarks>
+    /// Separate from, and far longer than, the request timeout, because it is not measuring a
+    /// server: it is measuring a person reading a consent screen, and possibly a second factor
+    /// on a phone. It exists at all so that a sign-in nobody completes releases the listener
+    /// rather than holding a port for the life of the process; Escape cancels it long before
+    /// this does.
+    /// </remarks>
+    private static readonly TimeSpan BrowserTimeout = TimeSpan.FromMinutes(5);
+
     private readonly RequestSender _sender;
     private readonly ResponseStore _responses = new();
     private readonly TokenCache _tokens = new();
@@ -78,6 +91,25 @@ public sealed class RequestRunner : IDisposable
     /// cannot share cookies because they do not share a jar.
     /// </remarks>
     public CookieJar? Cookies { get; set; }
+
+    /// <summary>
+    /// How the authorization-code flow opens a URL in the user's browser.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A property rather than a call to <see cref="System.Diagnostics.Process"/> buried in the
+    /// flow, for two reasons. Handing a URL to the shell is the one thing this project does
+    /// that leaves the process entirely, and it should be visible and replaceable rather than
+    /// hidden; and a test cannot open a browser, so a flow with no seam here is a flow no test
+    /// can drive end to end.
+    /// </para>
+    /// <para>
+    /// The default is the system browser, which is what RFC 8252 §4 asks for: the user's own
+    /// browser, with their session and their password manager, rather than a control embedded
+    /// in this application where neither is available and the address bar cannot be seen.
+    /// </para>
+    /// </remarks>
+    public Action<Uri> OpenBrowser { get; set; } = LaunchSystemBrowser;
 
     /// <summary>
     /// Forgets everything this session has accumulated about the document: stored
@@ -381,7 +413,8 @@ public sealed class RequestRunner : IDisposable
             // with a message about permissions and no mention of the token.
             if (resolved.Auth is { } grant)
             {
-                var acquired = await AcquireTokenAsync(grant, state, cancellationToken).ConfigureAwait(false);
+                var acquired = await AcquireTokenAsync(grant, state, cancellationToken)
+                    .ConfigureAwait(false);
                 if (acquired.Token is null)
                 {
                     return false;
@@ -530,6 +563,20 @@ public sealed class RequestRunner : IDisposable
             return null;
         }
 
+        // Not the code flow. Refreshing that one means opening a browser, and a tool that
+        // pops a consent screen up because a request came back 401 is a tool that does
+        // something startling in response to something ordinary. The note says what to do
+        // instead, which is to send it again on purpose.
+        if (grant.Flow == OAuth2Flow.AuthorizationCode)
+        {
+            state.Notes.Add(
+                "The access token was refused. Signing in again means a browser, so Sling did "
+                    + "not do it on its own - send the request again to start it.");
+
+            _tokens.Invalidate(grant.CacheKey);
+            return null;
+        }
+
         _tokens.Invalidate(grant.CacheKey);
 
         var acquired = await AcquireTokenAsync(grant, state, cancellationToken).ConfigureAwait(false);
@@ -591,7 +638,25 @@ public sealed class RequestRunner : IDisposable
             return (cached, true);
         }
 
-        var request = OAuth2TokenRequest.Build(grant);
+        ResolvedRequest request;
+
+        if (grant.Flow == OAuth2Flow.AuthorizationCode)
+        {
+            var authorized = await AuthorizeInBrowserAsync(grant, state, cancellationToken)
+                .ConfigureAwait(false);
+
+            if (authorized is not { } exchange)
+            {
+                return (null, false);
+            }
+
+            request = exchange;
+        }
+        else
+        {
+            request = OAuth2TokenRequest.Build(grant);
+        }
+
         var outcome = await _sender.SendAsync(request, cookies: null, cancellationToken).ConfigureAwait(false);
         var response = outcome.Response;
 
@@ -634,6 +699,135 @@ public sealed class RequestRunner : IDisposable
         _tokens.Record(key, token, DateTimeOffset.UtcNow);
         return (token, false);
     }
+
+    /// <summary>
+    /// Runs the browser half of the authorization-code flow, and builds the exchange it earns.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The order matters and it is not the obvious one.</b> The listener is started before
+    /// the browser is opened, because the redirect can arrive the moment the user is already
+    /// signed in - a provider with a live session answers immediately, and a listener started
+    /// afterwards would miss it and then wait five minutes for a callback that has already
+    /// been refused by a closed port.
+    /// </para>
+    /// <para>
+    /// Nothing about this exchange reaches <see cref="RunResult.Exchanges"/>. The browser round
+    /// trip is not an HTTP request Sling made - it is one the user made, in their own browser,
+    /// with their own session - and the token request it produces does appear there like any
+    /// other.
+    /// </para>
+    /// <para>
+    /// The verifier is created here and used once, in the request built at the end. It is never
+    /// stored, so there is nothing to reuse across attempts and nothing to leak between them.
+    /// </para>
+    /// </remarks>
+    /// <returns>The token request to send, or null with a diagnostic already recorded.</returns>
+    private async Task<ResolvedRequest?> AuthorizeInBrowserAsync(
+        ResolvedOAuth2Grant grant,
+        RunState state,
+        CancellationToken cancellationToken)
+    {
+        if (grant.RedirectUri is not { } redirect)
+        {
+            state.Errors.Add(ParseDiagnostic.Error(
+                "This '@auth oauth2-code' block has no '@redirect-uri'.",
+                grant.Line));
+
+            return null;
+        }
+
+        var pkce = Pkce.Create();
+        var expected = Pkce.State();
+
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        deadline.CancelAfter(BrowserTimeout);
+
+        Task<CallbackResult> callback;
+
+        try
+        {
+            callback = LoopbackCallback.WaitAsync(redirect, expected, deadline.Token);
+        }
+        catch (HttpListenerException ex)
+        {
+            // Almost always the port: something else has it, or an access-control entry
+            // reserves it. Naming the address is what makes that actionable.
+            state.Errors.Add(ParseDiagnostic.Error(
+                $"Sling could not listen on '{redirect.AbsoluteUri}' for the sign-in to come "
+                    + $"back: {ex.Message}",
+                grant.Line));
+
+            return null;
+        }
+
+        try
+        {
+            OpenBrowser(OAuth2AuthorizeRequest.Build(grant, pkce.Challenge, expected));
+        }
+#pragma warning disable CA1031 // Do not catch general exception types
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            // Deliberately broad: what a shell does with a URL is the operating system's
+            // business and its failures are not a documented set. The listener has to be
+            // released either way, and a machine with no browser association is a real
+            // configuration rather than an impossible one.
+            await deadline.CancelAsync().ConfigureAwait(false);
+
+            state.Errors.Add(ParseDiagnostic.Error(
+                $"Sling could not open a browser to sign in: {ex.Message}",
+                grant.Line));
+
+            return null;
+        }
+
+        state.Notes.Add("Waiting for the sign-in to finish in your browser. Escape cancels it.");
+
+        CallbackResult result;
+
+        try
+        {
+            result = await callback.ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // The user pressed Escape. Their instruction, not a failure.
+            throw;
+        }
+        catch (OperationCanceledException)
+        {
+            state.Errors.Add(ParseDiagnostic.Error(
+                "The sign-in was not finished in time, so Sling stopped waiting for it.",
+                grant.Line));
+
+            return null;
+        }
+
+        if (result.Code is not { } code)
+        {
+            state.Errors.Add(ParseDiagnostic.Error(
+                $"The sign-in did not produce an authorization code: {result.Error}",
+                grant.Line));
+
+            return null;
+        }
+
+        return OAuth2TokenRequest.BuildCodeExchange(grant, code, pkce.Verifier);
+    }
+
+    /// <summary>
+    /// Hands a URL to the shell, which opens it in whatever the user's browser is.
+    /// </summary>
+    /// <remarks>
+    /// <c>UseShellExecute</c> is what makes this the browser rather than an attempt to run the
+    /// URL as a program. It is also the only way to reach the browser the user actually uses,
+    /// which is the whole point: their session is in it and an embedded control's is not.
+    /// </remarks>
+    private static void LaunchSystemBrowser(Uri url) =>
+        System.Diagnostics.Process.Start(
+            new System.Diagnostics.ProcessStartInfo(url.AbsoluteUri) { UseShellExecute = true })
+            ?.Dispose();
 
     /// <summary>
     /// Attaches the token as an <c>Authorization</c> header.

@@ -50,9 +50,20 @@ public partial class MainWindow
         (AuthScheme.Basic, "Basic"),
         (AuthScheme.ApiKeyHeader, "API key in a header"),
         (AuthScheme.ClientCredentials, "OAuth2 client credentials"),
+        (AuthScheme.AuthorizationCode, "OAuth2 authorization code, in a browser"),
     ];
 
     private const string UnrecognizedLabel = "Something else (left as written)";
+
+    /// <summary>
+    /// What the redirect box starts on.
+    /// </summary>
+    /// <remarks>
+    /// A suggestion and not a default: the address has to match what is registered with the
+    /// identity provider, which only its owner can arrange. Offering a plausible one saves
+    /// typing the shape of it and changes nothing about who has to register it.
+    /// </remarks>
+    private const string DefaultRedirectUri = "http://127.0.0.1:7890/callback";
 
     private const string BasicHeaderLabel = "an Authorization: Basic header (default)";
     private const string FormBodyLabel = "the form body";
@@ -170,6 +181,8 @@ public partial class MainWindow
             AuthBasicUser.Text = string.Empty;
             AuthBasicPassword.Password = string.Empty;
 
+            AuthAuthorizeUrl.Text = view.Grant?.AuthorizeUrl ?? string.Empty;
+            AuthRedirectUri.Text = view.Grant?.RedirectUri ?? DefaultRedirectUri;
             AuthTokenUrl.Text = view.Grant?.TokenUrl ?? string.Empty;
             AuthClientId.Text = view.Grant?.ClientId ?? string.Empty;
             AuthClientSecret.Text = view.Grant?.ClientSecret ?? string.Empty;
@@ -261,7 +274,14 @@ public partial class MainWindow
         AuthBearerFields.Visibility = Show(scheme == AuthScheme.Bearer);
         AuthBasicFields.Visibility = Show(scheme == AuthScheme.Basic);
         AuthApiKeyFields.Visibility = Show(scheme == AuthScheme.ApiKeyHeader);
-        AuthGrantFields.Visibility = Show(scheme == AuthScheme.ClientCredentials);
+        AuthGrantFields.Visibility = Show(IsGrant(scheme));
+        AuthBrowserFields.Visibility = Show(scheme == AuthScheme.AuthorizationCode);
+
+        // A public client has no secret to keep - PKCE is what replaces it there - so the
+        // field says so rather than looking like something that was left blank.
+        AuthClientSecretLabel.Text = scheme == AuthScheme.AuthorizationCode
+            ? "Client secret, if your provider issued one"
+            : "Client secret";
         AuthUnrecognizedFields.Visibility = Show(scheme == AuthScheme.Unrecognized);
 
         // Nothing to apply for a scheme this panel does not write: the entry exists to
@@ -313,7 +333,7 @@ public partial class MainWindow
         {
             AuthScheme.Bearer => AuthBearerValue.Text,
             AuthScheme.ApiKeyHeader => AuthApiKeyValue.Text,
-            AuthScheme.ClientCredentials => AuthClientSecret.Text,
+            AuthScheme.ClientCredentials or AuthScheme.AuthorizationCode => AuthClientSecret.Text,
             AuthScheme.Basic => AuthBasicPassword.Password.Length > 0 ? "basic" : string.Empty,
             _ => string.Empty,
         };
@@ -445,7 +465,7 @@ public partial class MainWindow
         {
             AuthScheme.Bearer => AuthBearerValue.Text.Trim(),
             AuthScheme.ApiKeyHeader => AuthApiKeyValue.Text.Trim(),
-            AuthScheme.ClientCredentials => AuthClientSecret.Text.Trim(),
+            AuthScheme.ClientCredentials or AuthScheme.AuthorizationCode => AuthClientSecret.Text.Trim(),
             AuthScheme.Basic => BasicCredential(),
             _ => string.Empty,
         };
@@ -505,7 +525,7 @@ public partial class MainWindow
             return new AuthSetting(AuthScheme.None);
         }
 
-        if (scheme != AuthScheme.ClientCredentials)
+        if (!IsGrant(scheme))
         {
             if (string.IsNullOrEmpty(credential))
             {
@@ -515,13 +535,33 @@ public partial class MainWindow
             return new AuthSetting(scheme, AuthApiKeyHeader.Text.Trim(), credential);
         }
 
+        var code = scheme == AuthScheme.AuthorizationCode;
+
         var tokenUrl = AuthTokenUrl.Text.Trim();
         var clientId = AuthClientId.Text.Trim();
 
-        if (tokenUrl.Length == 0 || clientId.Length == 0 || string.IsNullOrEmpty(credential))
+        if (tokenUrl.Length == 0 || clientId.Length == 0)
         {
             throw new ArgumentException(
-                "A client-credentials grant needs a token URL, a client id and a client secret.",
+                "A grant needs a token URL and a client id.",
+                nameof(scheme));
+        }
+
+        // Required of a confidential client, meaningless for a public one. The code flow with
+        // PKCE is what a public client uses, and demanding a secret there would refuse the
+        // commonest correct configuration for a desktop application.
+        if (!code && string.IsNullOrEmpty(credential))
+        {
+            throw new ArgumentException(
+                "A client-credentials grant needs a client secret.",
+                nameof(scheme));
+        }
+
+        if (code && (AuthAuthorizeUrl.Text.Trim().Length == 0 || AuthRedirectUri.Text.Trim().Length == 0))
+        {
+            throw new ArgumentException(
+                "An authorization-code grant needs an authorize URL and a loopback redirect "
+                    + "address that your provider has registered.",
                 nameof(scheme));
         }
 
@@ -530,15 +570,24 @@ public partial class MainWindow
             : ClientAuthPlacement.BasicHeader;
 
         return new AuthSetting(
-            AuthScheme.ClientCredentials,
+            scheme,
             Grant: new GrantFields(
                 tokenUrl,
                 clientId,
-                credential,
+                credential ?? string.Empty,
                 AuthScope.Text.Trim(),
                 AuthAudience.Text.Trim(),
-                placement));
+                placement)
+            {
+                Flow = code ? OAuth2Flow.AuthorizationCode : OAuth2Flow.ClientCredentials,
+                AuthorizeUrl = code ? AuthAuthorizeUrl.Text.Trim() : null,
+                RedirectUri = code ? AuthRedirectUri.Text.Trim() : null,
+            });
     }
+
+    /// <summary>Whether this scheme is written as a <c># @auth</c> block rather than a header.</summary>
+    private static bool IsGrant(AuthScheme scheme) =>
+        scheme is AuthScheme.ClientCredentials or AuthScheme.AuthorizationCode;
 
     private static Visibility Show(bool visible) => visible ? Visibility.Visible : Visibility.Collapsed;
 }

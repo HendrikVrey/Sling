@@ -96,7 +96,9 @@ public static class TokenFingerprint
     {
         var joined = string.Join(
             Separator,
+            key.Flow.ToString(),
             key.TokenUrl,
+            key.AuthorizeUrl ?? string.Empty,
             key.ClientId,
             key.ClientSecret,
             key.Scope ?? string.Empty,

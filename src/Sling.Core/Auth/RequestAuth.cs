@@ -40,6 +40,9 @@ public enum AuthScheme
     /// <summary>An OAuth2 client-credentials grant Sling fetches and caches.</summary>
     ClientCredentials,
 
+    /// <summary>An OAuth2 authorization-code grant, which needs a browser and a person.</summary>
+    AuthorizationCode,
+
     /// <summary>An <c>Authorization</c> header whose scheme Sling does not write.</summary>
     Unrecognized,
 }
@@ -150,7 +153,9 @@ public static class RequestAuth
         {
             return new RequestAuthView(
                 AuthOrigin.Grant,
-                AuthScheme.ClientCredentials,
+                grant.Flow == OAuth2Flow.AuthorizationCode
+                    ? AuthScheme.AuthorizationCode
+                    : AuthScheme.ClientCredentials,
                 grant.Line,
                 AuthorizationHeader,
                 null,

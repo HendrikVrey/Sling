@@ -40,7 +40,16 @@ public static partial class RequestDocumentParser
     /// comment that quietly does nothing.
     /// </summary>
     private static readonly string[] AuthDirectives =
-        ["token-url", "client-id", "client-secret", "scope", "audience", "client-auth"];
+    [
+        "token-url",
+        "authorize-url",
+        "redirect-uri",
+        "client-id",
+        "client-secret",
+        "scope",
+        "audience",
+        "client-auth",
+    ];
 
     public static RequestDocument Parse(string? text) => new Walker(SplitLines(text ?? string.Empty)).Run();
 
@@ -726,29 +735,65 @@ public static partial class RequestDocumentParser
                 return;
             }
 
-            // 'oauth2' and 'oauth2 client_credentials' both mean the one grant Sling
-            // implements. Accepting the longer spelling costs nothing and is what somebody
-            // writes when they are being explicit about which flow they mean.
-            var scheme = argument.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-
-            var recognised = scheme.Length > 0
-                && string.Equals(scheme[0], "oauth2", StringComparison.OrdinalIgnoreCase)
-                && (scheme.Length == 1
-                    || (scheme.Length == 2
-                        && string.Equals(scheme[1], "client_credentials", StringComparison.OrdinalIgnoreCase)));
-
-            if (!recognised)
+            if (ReadFlow(argument) is not { } flow)
             {
                 _diagnostics.Add(ParseDiagnostic.Error(
-                    "'@auth' takes 'oauth2' (the client-credentials grant), which is the only "
-                        + "flow Sling performs. The authorization-code flow needs a browser and is "
-                        + "not supported - send the token you already have as a header instead.",
+                    "'@auth' takes 'oauth2' for the client-credentials grant or 'oauth2-code' for "
+                        + "the authorization-code flow. Any other scheme is a header you write "
+                        + "yourself.",
                     LineNumber));
 
                 return;
             }
 
-            _pendingAuth = new PendingAuth { Line = LineNumber };
+            _pendingAuth = new PendingAuth { Line = LineNumber, Flow = flow };
+        }
+
+        /// <summary>
+        /// Which flow an <c>@auth</c> argument names, or null when it names none.
+        /// </summary>
+        /// <remarks>
+        /// Several spellings for each, because the RFC's own name for a flow and the word
+        /// people reach for are not the same. <c>oauth2</c> alone stays the
+        /// client-credentials grant, which is what it has always meant and what every
+        /// document already written with it says.
+        /// </remarks>
+        private static OAuth2Flow? ReadFlow(string argument)
+        {
+            var words = argument.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+            if (words.Length == 0)
+            {
+                return null;
+            }
+
+            var first = words[0];
+
+            if (words.Length == 1)
+            {
+                if (first.Equals("oauth2", StringComparison.OrdinalIgnoreCase))
+                {
+                    return OAuth2Flow.ClientCredentials;
+                }
+
+                return first.Equals("oauth2-code", StringComparison.OrdinalIgnoreCase)
+                    ? OAuth2Flow.AuthorizationCode
+                    : null;
+            }
+
+            if (words.Length != 2 || !first.Equals("oauth2", StringComparison.OrdinalIgnoreCase))
+            {
+                return null;
+            }
+
+            if (words[1].Equals("client_credentials", StringComparison.OrdinalIgnoreCase))
+            {
+                return OAuth2Flow.ClientCredentials;
+            }
+
+            return words[1].Equals("authorization_code", StringComparison.OrdinalIgnoreCase)
+                ? OAuth2Flow.AuthorizationCode
+                : null;
         }
 
         private void ApplyAuthDirective(string directive, string argument)
@@ -759,6 +804,14 @@ public static partial class RequestDocumentParser
             {
                 case "token-url":
                     auth.TokenUrl = argument;
+                    break;
+
+                case "authorize-url":
+                    auth.AuthorizeUrl = argument;
+                    break;
+
+                case "redirect-uri":
+                    auth.RedirectUri = argument;
                     break;
 
                 case "client-id":
@@ -820,6 +873,7 @@ public static partial class RequestDocumentParser
                 return null;
             }
 
+            var code = auth.Flow == OAuth2Flow.AuthorizationCode;
             var missing = new List<string>();
 
             if (string.IsNullOrEmpty(auth.TokenUrl))
@@ -832,15 +886,43 @@ public static partial class RequestDocumentParser
                 missing.Add("@client-id");
             }
 
-            if (string.IsNullOrEmpty(auth.ClientSecret))
+            // A client secret is required of a confidential client and meaningless for a
+            // public one. The code flow with PKCE is what a public client uses, and RFC 7636
+            // is what replaces the secret there, so demanding one would refuse the commonest
+            // correct configuration - a desktop or single-page client with no secret to keep.
+            if (!code && string.IsNullOrEmpty(auth.ClientSecret))
             {
                 missing.Add("@client-secret");
+            }
+
+            if (code && string.IsNullOrEmpty(auth.AuthorizeUrl))
+            {
+                missing.Add("@authorize-url");
+            }
+
+            // Required rather than defaulted. It has to match what is registered with the
+            // identity provider, and a default Sling chose would be a default that works on
+            // nobody's account - a silent 'redirect_uri_mismatch' rather than a sentence.
+            if (code && string.IsNullOrEmpty(auth.RedirectUri))
+            {
+                missing.Add("@redirect-uri");
+            }
+
+            if (!code && (auth.AuthorizeUrl is not null || auth.RedirectUri is not null))
+            {
+                _diagnostics.Add(ParseDiagnostic.Error(
+                    "'@authorize-url' and '@redirect-uri' belong to '# @auth oauth2-code'. A "
+                        + "client-credentials grant has no browser step and needs neither.",
+                    auth.Line));
+
+                return null;
             }
 
             if (missing.Count > 0)
             {
                 _diagnostics.Add(ParseDiagnostic.Error(
-                    $"This '@auth oauth2' block is missing {string.Join(", ", missing)}.",
+                    $"This '@auth {(code ? "oauth2-code" : "oauth2")}' block is missing "
+                        + string.Join(", ", missing) + ".",
                     auth.Line));
 
                 return null;
@@ -849,11 +931,16 @@ public static partial class RequestDocumentParser
             return new OAuth2Grant(
                 auth.TokenUrl!,
                 auth.ClientId!,
-                auth.ClientSecret!,
+                auth.ClientSecret ?? string.Empty,
                 auth.Scope,
                 auth.Audience,
                 auth.Placement,
-                auth.Line);
+                auth.Line)
+            {
+                Flow = auth.Flow,
+                AuthorizeUrl = auth.AuthorizeUrl,
+                RedirectUri = auth.RedirectUri,
+            };
         }
 
         /// <summary>
@@ -864,7 +951,13 @@ public static partial class RequestDocumentParser
         {
             public int Line { get; init; }
 
+            public OAuth2Flow Flow { get; init; }
+
             public string? TokenUrl { get; set; }
+
+            public string? AuthorizeUrl { get; set; }
+
+            public string? RedirectUri { get; set; }
 
             public string? ClientId { get; set; }
 

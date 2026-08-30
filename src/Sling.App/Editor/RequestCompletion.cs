@@ -39,7 +39,10 @@ internal static class RequestCompletion
     [
         ("name", "Names this request, so a later one can read its response as {{name.response.body.$.field}}."),
         ("auth oauth2", "Opens a client-credentials block. The directives below only mean something under it."),
+        ("auth oauth2-code", "Opens an authorization-code block. Sling opens a browser and waits for the sign-in."),
         ("token-url", "The token endpoint. Sling refuses to follow a redirect away from it."),
+        ("authorize-url", "Where the browser is sent to sign in. Authorization-code flow only."),
+        ("redirect-uri", "The loopback address the browser comes back to, like http://127.0.0.1:7890/callback. It has to match what your provider has registered."),
         ("client-id", "The client identifier."),
         ("client-secret", "The client secret. Reference it as {{client_secret}} and keep the value in the secrets file."),
         ("scope", "Space-separated scopes. Leave it out rather than writing it empty."),

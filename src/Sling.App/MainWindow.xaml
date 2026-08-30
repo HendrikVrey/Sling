@@ -1375,6 +1375,24 @@
                                             TextChanged="OnAuthFieldChanged" />
                             </StackPanel>
 
+                            <!--
+                                The two directives the browser flow adds. Shown above the
+                                token URL because that is the order the flow happens in: the
+                                browser goes to one and comes back to the other, and only
+                                then is there a code to exchange.
+                            -->
+                            <StackPanel x:Name="AuthBrowserFields" Visibility="Collapsed">
+                                <TextBlock Style="{StaticResource SettingsLabelStyle}" Text="Authorize URL" />
+                                <ui:TextBox x:Name="AuthAuthorizeUrl"
+                                            PlaceholderText="{}{{auth_base}}/authorize"
+                                            TextChanged="OnAuthFieldChanged" />
+
+                                <TextBlock Style="{StaticResource SettingsLabelStyle}" Text="Redirect back to" />
+                                <ui:TextBox x:Name="AuthRedirectUri" TextChanged="OnAuthFieldChanged" />
+                                <TextBlock Style="{StaticResource SettingsHintStyle}"
+                                           Text="A loopback address on this machine, which Sling listens on for the moment the browser comes back. It has to be registered with your identity provider exactly as written, and that is the one part Sling cannot do for you." />
+                            </StackPanel>
+
                             <StackPanel x:Name="AuthGrantFields" Visibility="Collapsed">
                                 <TextBlock Style="{StaticResource SettingsLabelStyle}" Text="Token URL" />
                                 <ui:TextBox x:Name="AuthTokenUrl"
@@ -1384,7 +1402,9 @@
                                 <TextBlock Style="{StaticResource SettingsLabelStyle}" Text="Client id" />
                                 <ui:TextBox x:Name="AuthClientId" TextChanged="OnAuthFieldChanged" />
 
-                                <TextBlock Style="{StaticResource SettingsLabelStyle}" Text="Client secret" />
+                                <TextBlock x:Name="AuthClientSecretLabel"
+                                           Style="{StaticResource SettingsLabelStyle}"
+                                           Text="Client secret" />
                                 <ui:TextBox x:Name="AuthClientSecret"
                                             PlaceholderText="{}{{client_secret}}, or paste the secret itself"
                                             TextChanged="OnAuthFieldChanged" />

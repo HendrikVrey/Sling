@@ -1,6 +1,24 @@
 namespace Sling.Core.Auth;
 
 /// <summary>
+/// Which OAuth2 flow a <c># @auth</c> block declares.
+/// </summary>
+/// <remarks>
+/// Two, and the difference between them is a person. A client-credentials grant is a form
+/// post Sling makes on its own; an authorization-code grant needs a browser, a consent
+/// screen and somebody to look at it, which is why it took a milestone of its own rather
+/// than a directive.
+/// </remarks>
+public enum OAuth2Flow
+{
+    /// <summary>RFC 6749 §4.4. Machine to machine, no user involved.</summary>
+    ClientCredentials,
+
+    /// <summary>RFC 6749 §4.1 with PKCE (RFC 7636). A browser round trip.</summary>
+    AuthorizationCode,
+}
+
+/// <summary>
 /// Where the client's own credentials go when asking for a token.
 /// </summary>
 /// <remarks>
@@ -61,7 +79,32 @@ public sealed record OAuth2Grant(
     string? Scope,
     string? Audience,
     ClientAuthPlacement Placement,
-    int Line);
+    int Line)
+{
+    /// <summary>Which flow this block declares.</summary>
+    /// <remarks>
+    /// An init-only property rather than a positional parameter, so that every existing
+    /// construction of a client-credentials grant keeps saying what it always said. The
+    /// default is the flow that existed first, which is also the one a block without an
+    /// <c>@authorize-url</c> can only be.
+    /// </remarks>
+    public OAuth2Flow Flow { get; init; }
+
+    /// <summary>
+    /// The authorization endpoint the browser is sent to, for the code flow. Null otherwise.
+    /// </summary>
+    public string? AuthorizeUrl { get; init; }
+
+    /// <summary>
+    /// The loopback address the browser comes back to, as written.
+    /// </summary>
+    /// <remarks>
+    /// The one piece of friction Sling cannot remove: this has to be registered with the
+    /// identity provider, and only its owner can do that. Everything else about the flow is
+    /// Sling's to arrange.
+    /// </remarks>
+    public string? RedirectUri { get; init; }
+}
 
 /// <summary>
 /// An <see cref="OAuth2Grant"/> with every variable substituted - the only shape a token
@@ -99,7 +142,20 @@ public sealed record ResolvedOAuth2Grant(
     /// it too, so rotating a secret takes effect at once rather than at the old token's
     /// expiry.
     /// </remarks>
-    public TokenCacheKey CacheKey => new(TokenUrl.AbsoluteUri, ClientId, ClientSecret, Scope, Audience, Placement);
+    public TokenCacheKey CacheKey => new(TokenUrl.AbsoluteUri, ClientId, ClientSecret, Scope, Audience, Placement)
+    {
+        Flow = Flow,
+        AuthorizeUrl = AuthorizeUrl?.AbsoluteUri,
+    };
+
+    /// <summary>Which flow produced, or will produce, this token.</summary>
+    public OAuth2Flow Flow { get; init; }
+
+    /// <summary>The authorization endpoint, for the code flow.</summary>
+    public Uri? AuthorizeUrl { get; init; }
+
+    /// <summary>The loopback address the browser returns to, for the code flow.</summary>
+    public Uri? RedirectUri { get; init; }
 
     /// <summary>
     /// Overridden because the compiler-generated version prints every property, and one of
@@ -126,6 +182,18 @@ public readonly record struct TokenCacheKey(
     string? Audience,
     ClientAuthPlacement Placement)
 {
+    /// <summary>Which flow the token came from.</summary>
+    /// <remarks>
+    /// In the key because two flows against the same token endpoint issue different tokens:
+    /// one is the application acting as itself and the other is it acting for a person.
+    /// Leaving it out would let a machine token be handed to a request that asked for a
+    /// user's.
+    /// </remarks>
+    public OAuth2Flow Flow { get; init; }
+
+    /// <summary>The authorization endpoint, for the code flow.</summary>
+    public string? AuthorizeUrl { get; init; }
+
     /// <summary>
     /// A hash of every field, and what the cache is actually keyed by.
     /// </summary>

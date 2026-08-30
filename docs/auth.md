@@ -26,6 +26,7 @@ is a `.http` file a colleague can review in a pull request.
 | Basic | `Authorization: Basic {{basic_auth}}`, with base64 of `user:password` in the secrets file |
 | API key in a header | `X-API-Key: {{api_key}}`, or whichever header you name |
 | OAuth2 client credentials | A `# @auth oauth2` block with its directives |
+| OAuth2 authorization code | A `# @auth oauth2-code` block, which signs in through your browser |
 
 A header whose scheme Sling does not write is shown rather than edited. A tool that silently
 reinterprets something you wrote by hand is worse than one that admits it does not know.
@@ -84,6 +85,38 @@ for.
 the token endpoint; the grant is still in your `.http` file and the credential is still in
 your environment file.
 
+## Signing in through a browser
+
+`# @auth oauth2-code` is the flow for an API that authenticates a *person*. Sending a request
+under one opens your own browser at the authorization endpoint, waits for the redirect to come
+back to a loopback address, exchanges the code for a token, and sends the request.
+
+```
+# @auth oauth2-code
+# @authorize-url {{auth_base}}/authorize
+# @token-url {{auth_base}}/oauth2/token
+# @client-id {{client_id}}
+# @redirect-uri http://127.0.0.1:7890/callback
+# @scope orders.read
+GET {{base}}/orders
+```
+
+- **PKCE is always on and always `S256`.** Each attempt invents a verifier, sends only its
+  hash, and produces the verifier when it redeems the code. An intercepted code is useless
+  without the value that never left the process. There is no way to ask for `plain`.
+- **`state` is checked**, so a callback Sling did not start is discarded without being read.
+- **`@client-secret` is optional**, and is meant to be absent for a desktop client. There is
+  no secret a desktop application can keep, and PKCE is what stands in its place.
+- **The redirect has to be a loopback `http` address with an explicit port.** No other machine
+  can reach one, which is the only reason plain `http` is acceptable there.
+- **Escape cancels the wait.** It is the one part of a send that waits on a person.
+
+**The one piece of friction Sling cannot remove:** that loopback address has to be registered
+with your identity provider, exactly as written. Only its owner can arrange that.
+
+Your own browser rather than an embedded control, which is what RFC 8252 §4 asks for: your
+session is in it, your password manager is in it, and you can see the address bar.
+
 ## When a 401 arrives
 
 If the request used a token Sling fetched, and that token came from the cache, Sling discards
@@ -93,6 +126,10 @@ labelled `retry after refresh`. See
 
 Every call Sling makes on your behalf is labelled the same way: `sent for you` for a chained
 dependency, `token request` for a token exchange.
+
+A token from the authorization-code flow is **not** refreshed this way. Signing in again means
+a consent screen, and a tool that raises one in response to an ordinary status code is doing
+something startling. Send the request again to start it.
 
 ## JWTs
 
@@ -129,6 +166,9 @@ reference against an unnamed request is the commonest way chaining fails.
 ## What is deliberately absent
 
 - **Signature verification.** See above.
+- **Refresh tokens.** A refresh token is a longer-lived credential than the one it renews, and
+  storing one is a bigger decision than storing an access token. Sending the request again
+  runs the flow again.
 - **A response-handler scripting runtime.** `> {% script %}` means an eval sandbox, which is
   a different risk class from everything else in the product. Named requests plus JSONPath
   cover the workflow, and the right-click above makes writing one a click.

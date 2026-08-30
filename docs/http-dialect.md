@@ -191,6 +191,51 @@ the token it buys are the two most valuable strings in the process, and plain HT
 both on the wire in clear; the loopback exception is the same rule browsers use for a
 secure context, so a mock authorization server still works.
 
+### The authorization-code flow
+
+For an API that authenticates a *person* rather than an application:
+
+```
+# @auth oauth2-code
+# @authorize-url {{auth_base}}/authorize
+# @token-url {{auth_base}}/oauth2/token
+# @client-id {{client_id}}
+# @redirect-uri http://127.0.0.1:7890/callback
+# @scope orders.read
+GET {{base}}/orders
+```
+
+Sending it opens your own browser at the authorization endpoint, waits for the redirect to
+come back to the loopback address, exchanges the code for a token, and sends the request. The
+token exchange appears in the response pane like every other call Sling makes for you; the
+browser round trip does not, because that request was not Sling's - it was yours.
+
+- `@authorize-url`, `@token-url`, `@client-id` and `@redirect-uri` are required.
+- **`@client-secret` is optional here**, and is meant to be absent for a desktop or
+  single-page client. A public client cannot keep a secret - whatever it ships with is in
+  the binary on every machine that has it - so what protects the flow is PKCE instead.
+- **PKCE is always on, always `S256`.** Each attempt invents a verifier, sends only its
+  SHA-256 in the authorization request, and produces the verifier when it redeems the code.
+  An intercepted code is useless without the value that never left the process. There is no
+  way to ask for `plain`: a client that offers it can be downgraded to it.
+- **`state` is checked.** A callback that does not echo the value Sling sent is discarded
+  without being read, which is what stops a code Sling never asked for being redeemed.
+
+**`@redirect-uri` must be a loopback `http` address with an explicit port**, like
+`http://127.0.0.1:7890/callback`. RFC 8252 §7.3: a desktop application receives its code on
+an interface no other machine can reach, which is the only reason plain `http` is acceptable
+there. Sling listens on exactly that address and path, answers one request, and stops.
+
+**The one piece of friction Sling cannot remove:** that address has to be registered with
+your identity provider, exactly as written. Only its owner can do that.
+
+`@authorize-url` is held to the same `https` rule as the token URL. The request that produces
+a code is worth as much as the one that redeems it.
+
+**A 401 on a token from this flow does not reopen the browser.** Signing in again means a
+consent screen, and a tool that raises one in response to an ordinary status code is doing
+something startling. Send the request again to start it.
+
 **Tokens are cached until they expire and are never written to disk.** The cache is keyed
 by the token URL, client id, client secret, scope and audience together - so asking for a
 different scope fetches a different token, and rotating a secret takes effect at once
@@ -242,5 +287,4 @@ the rest.
 | `{{$guid}}`, `{{$timestamp}}`, other dynamic variables | Deferred with the above. |
 | `# @no-redirect`, `# @no-cookie-jar`, `# @prompt` | Parsed and warned about; not honoured. |
 | A relative request target | Not planned. Write the scheme and host, or put a base URL in an environment and use `{{base}}`. |
-| OAuth2 authorization-code flow | Not planned. It needs a browser, a redirect listener and a consent screen, which is a different product. Send a token you already have as a header. |
 | `{{name.request.…}}` references | Not planned. |
