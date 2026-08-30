@@ -496,17 +496,12 @@ public partial class MainWindow
             return true;
         }
 
-        var answer = MessageBox.Show(
-            this,
-            $"{DocumentName} has unsaved changes. Save them?",
-            "Sling",
-            MessageBoxButton.YesNoCancel,
-            MessageBoxImage.Warning);
+        var answer = await AskAboutUnsavedAsync("before leaving this file").ConfigureAwait(true);
 
         return answer switch
         {
-            MessageBoxResult.Yes => await SaveAsync().ConfigureAwait(true),
-            MessageBoxResult.No => true,
+            UnsavedChoice.Save => await SaveAsync().ConfigureAwait(true),
+            UnsavedChoice.Discard => true,
             _ => false,
         };
     }
@@ -674,21 +669,16 @@ public partial class MainWindow
 
         RunGuarded(async () =>
         {
-            var answer = MessageBox.Show(
-                this,
-                $"{DocumentName} has unsaved changes. Save them before closing?",
-                "Sling",
-                MessageBoxButton.YesNoCancel,
-                MessageBoxImage.Warning);
+            var answer = await AskAboutUnsavedAsync("before closing").ConfigureAwait(true);
 
-            if (answer == MessageBoxResult.Cancel)
+            if (answer == UnsavedChoice.Cancel)
             {
                 return;
             }
 
             // A failed save, or a dismissed Save As dialog, must not close the window:
             // that would throw away the work the user just asked to keep.
-            if (answer == MessageBoxResult.Yes
+            if (answer == UnsavedChoice.Save
                 && !await SaveAsync(adoptWorkspace: false).ConfigureAwait(true))
             {
                 return;

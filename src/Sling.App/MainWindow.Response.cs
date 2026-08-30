@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Threading;
 using Etch.Core.Abstractions;
 using Etch.Core.Documents;
 using ICSharpCode.AvalonEdit.Search;
@@ -33,6 +34,11 @@ public partial class MainWindow
     private readonly List<Exchange> _exchanges = [];
 
     private ResponseSyntax? _syntax;
+
+    /// <summary>The find bars, one per pane, kept so the window's keymap can open them.</summary>
+    private SearchPanel? _requestFind;
+
+    private SearchPanel? _responseFind;
 
     /// <summary>Transform ids most recently applied, newest first.</summary>
     /// <remarks>
@@ -77,10 +83,75 @@ public partial class MainWindow
         // exactly the right feature set for a pane you cannot type into, and a better
         // answer than building a find bar to match. The request pane gets it too: finding
         // a header in a long document is the same need.
-        SearchPanel.Install(ResponsePane);
-        SearchPanel.Install(RequestPane);
+        //
+        // Both panels are kept, for two things installing them does not give. The chord is
+        // resolved on the window's tunnelling pass with the rest of the keymap and needs
+        // something to open (see ShowFind), and the match marker has to be themed: the
+        // default is LightGreen, drawn as a block behind text that keeps this pane's
+        // near-white foreground. The panel's own chrome is hardcoded to system colours and
+        // cannot be reached from here at all; Theme/FindBar.xaml retemplates it.
+        _responseFind = SearchPanel.Install(ResponsePane);
+        _requestFind = SearchPanel.Install(RequestPane);
+
+        var marker = FindPalette.Marker(Page, SyntaxPalette.Text(Application.Current?.Resources));
+
+        _responseFind.MarkerBrush = marker;
+        _requestFind.MarkerBrush = marker;
 
         InstallResponseContextMenu();
+    }
+
+    /// <summary>Opens the find bar over whichever pane the user is working in.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The chord belongs to the window, not to the editor.</b> AvalonEdit binds
+    /// <c>Ctrl+F</c> through <c>ApplicationCommands.Find</c> on the <c>TextArea</c>, so it
+    /// only fires while the keyboard focus is inside one of the two editors: click a folder
+    /// in the collections rail, or any button on the command bar, and the key did nothing at
+    /// all. Every other chord in Sling is resolved on the window's tunnelling pass and works
+    /// from anywhere, and a keymap where one entry silently depends on where you last
+    /// clicked is worse than one without it.
+    /// </para>
+    /// <para>
+    /// The two behaviours below are AvalonEdit's own, reproduced rather than inherited:
+    /// taking the chord onto the window means its <c>ExecuteFind</c> no longer runs, and
+    /// dropping either would be a regression nobody asked for.
+    /// </para>
+    /// </remarks>
+    private void ShowFind()
+    {
+        // The bar's own focus counts as the response side. It is an adorner beside the
+        // TextArea rather than inside it, so once the caret is in the search box the editor
+        // no longer reports the focus - and a second Ctrl+F would otherwise jump to the
+        // other pane while the user is looking at this one.
+        var onResponse = ResponsePane.TextArea.IsKeyboardFocusWithin
+            || _responseFind?.IsKeyboardFocusWithin == true;
+
+        // Anywhere else - the rail, the command bar, nothing focused at all - means the
+        // request document, which is the one being written.
+        var editor = onResponse ? ResponsePane : RequestPane;
+        var panel = onResponse ? _responseFind : _requestFind;
+
+        if (panel is null)
+        {
+            return;
+        }
+
+        panel.Open();
+
+        // A selection on one line is almost always the thing about to be searched for.
+        var selection = editor.TextArea.Selection;
+
+        if (!selection.IsEmpty && !selection.IsMultiline)
+        {
+            panel.SearchPattern = selection.GetText();
+        }
+
+        // Dispatched rather than called. Open() hands the bar to an adorner layer and its
+        // template has not been applied yet, so the search box Reactivate would focus does
+        // not exist until the next layout pass - calling it here leaves the caret in the
+        // document and the first thing typed goes into the buffer instead of the search box.
+        _ = Dispatcher.BeginInvoke(DispatcherPriority.Input, panel.Reactivate);
     }
 
     /// <summary>

@@ -99,18 +99,19 @@ public partial class MainWindow : FluentWindow
     {
         ArgumentNullException.ThrowIfNull(e);
 
-        // The name prompt is modal in intent, so it has to be modal in fact: while it is up
-        // it swallows every chord below. Without this, Ctrl+O behind the scrim would open a
-        // file dialog on top of a prompt whose task nothing would ever complete.
-        if (NamePromptIsOpen)
+        // A modal here is modal in fact and not only in intent: while one is up it answers
+        // the keys that dismiss it and swallows every chord below. Without this, Ctrl+O
+        // behind a scrim opens a file dialog on top of a prompt whose task nothing will ever
+        // complete, Ctrl+S writes the document behind the card, and Ctrl+Enter sends a
+        // request from a window the user has visibly stepped away from.
+        if (TryHandleModalKey(e))
         {
-            if (e.Key == Key.Escape)
-            {
-                e.Handled = true;
-                CloseNamePrompt(null);
-                return;
-            }
+            e.Handled = true;
+            return;
+        }
 
+        if (AnyModalIsOpen)
+        {
             base.OnPreviewKeyDown(e);
             return;
         }
@@ -134,24 +135,14 @@ public partial class MainWindow : FluentWindow
             }
         }
 
-        if (e.Key == Key.Escape)
+        // A modal overlay would have taken Escape already, above: while one is up it is what
+        // Escape visibly refers to, and cancelling a send from behind it would look like the
+        // key did nothing.
+        if (e.Key == Key.Escape && IsSending)
         {
-            // The overlay first. It is the thing most recently put on screen, and while it
-            // is up it is what Escape visibly refers to - cancelling a send from behind it
-            // would look like the key did nothing.
-            if (SettingsAreOpen)
-            {
-                e.Handled = true;
-                CloseSettings();
-                return;
-            }
-
-            if (IsSending)
-            {
-                e.Handled = true;
-                _inFlight?.Cancel();
-                return;
-            }
+            e.Handled = true;
+            _inFlight?.Cancel();
+            return;
         }
 
         // IsRepeat again, and for a sharper reason than the send: holding Ctrl+S opens a
@@ -171,10 +162,75 @@ public partial class MainWindow : FluentWindow
         base.OnPreviewKeyDown(e);
     }
 
+    /// <summary>True while any of the three in-window modals is on screen.</summary>
+    private bool AnyModalIsOpen => NamePromptIsOpen || ConfirmIsOpen || SettingsAreOpen;
+
     /// <summary>
-    /// The chords that show something rather than change something: settings, the local
-    /// history, and the collections rail.
+    /// Answers the keys that dismiss whichever modal is up. Returns true when the key was
+    /// one of them.
     /// </summary>
+    /// <remarks>
+    /// One method rather than a block per overlay, because the rule belongs to the class of
+    /// thing rather than to any one of them: the settings panel was missing this guard
+    /// entirely, and the next modal added would have been missing it too.
+    /// </remarks>
+    private bool TryHandleModalKey(KeyEventArgs e)
+    {
+        var escape = e.Key == Key.Escape;
+
+        if (NamePromptIsOpen)
+        {
+            if (escape)
+            {
+                CloseNamePrompt(null);
+            }
+
+            return escape;
+        }
+
+        if (ConfirmIsOpen)
+        {
+            // Escape is Cancel, which is the only safe reading: the other two answers each
+            // commit to something and one of them cannot be undone. Enter is Save for the
+            // same reason - it is the key people press without reading.
+            if (escape)
+            {
+                CloseConfirm(UnsavedChoice.Cancel);
+                return true;
+            }
+
+            if (e.Key == Key.Enter && !e.IsRepeat)
+            {
+                CloseConfirm(UnsavedChoice.Save);
+                return true;
+            }
+
+            return false;
+        }
+
+        if (SettingsAreOpen)
+        {
+            // The chord that opens it closes it, as well as Escape. Nothing else means
+            // anything while it is up.
+            if (escape || (e.Key == Key.OemComma && e.KeyboardDevice.Modifiers == ModifierKeys.Control))
+            {
+                CloseSettings();
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// The chords that show something rather than change something: settings, the find bar,
+    /// the local history, and the collections rail.
+    /// </summary>
+    /// <remarks>
+    /// Reached only when no modal overlay is up (see <see cref="AnyModalIsOpen"/>), which is
+    /// why the history case no longer closes the settings panel first: it cannot run while
+    /// that panel is open.
+    /// </remarks>
     private bool TryHandleViewKey(KeyEventArgs e)
     {
         if (e.KeyboardDevice.Modifiers != ModifierKeys.Control)
@@ -184,20 +240,18 @@ public partial class MainWindow : FluentWindow
 
         switch (e.Key)
         {
+            // Opens only. Ctrl+, is one of the two keys the modal guard above answers, so
+            // the panel is always shut by the time this runs and a toggle here would be a
+            // branch that cannot be taken.
             case Key.OemComma:
-                if (SettingsAreOpen)
-                {
-                    CloseSettings();
-                }
-                else
-                {
-                    ShowSettings();
-                }
+                ShowSettings();
+                return true;
 
+            case Key.F:
+                ShowFind();
                 return true;
 
             case Key.H:
-                CloseSettings();
                 RunGuarded(ShowHistoryAsync);
                 return true;
 

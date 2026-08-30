@@ -358,7 +358,18 @@
 
                             <TreeView.ItemTemplate>
                                 <HierarchicalDataTemplate ItemsSource="{Binding Children}">
-                                    <StackPanel Orientation="Horizontal" ToolTip="{Binding Hint}">
+                                    <!--
+                                        DockPanel, and it is what makes a long label trim
+                                        rather than get cut. A horizontal StackPanel measures
+                                        every child with infinite width, so TextTrimming can
+                                        never fire inside one - the label's desired width is
+                                        the whole string, and what the rail drew was that
+                                        string chopped mid-word at the pane edge with no
+                                        ellipsis to say so. Disabling the tree's horizontal
+                                        scrollbar is what makes the row finite; it stopped one
+                                        level short of the text.
+                                    -->
+                                    <DockPanel ToolTip="{Binding Hint}">
                                         <!--
                                             The verb, colour-coded. It is the one thing about
                                             Postman's tree that is genuinely good: DELETE does
@@ -369,6 +380,7 @@
                                         -->
                                         <TextBlock Margin="0,0,6,0"
                                                    VerticalAlignment="Center"
+                                                   DockPanel.Dock="Left"
                                                    FontFamily="Cascadia Code, Consolas, Courier New"
                                                    FontSize="10"
                                                    FontWeight="Bold"
@@ -409,7 +421,7 @@
                                                 </Style>
                                             </TextBlock.Style>
                                         </TextBlock>
-                                    </StackPanel>
+                                    </DockPanel>
                                 </HierarchicalDataTemplate>
                             </TreeView.ItemTemplate>
 
@@ -611,6 +623,64 @@
                        Opacity="0.6"
                        TextTrimming="CharacterEllipsis" />
         </DockPanel>
+
+        <!--
+            The unsaved-changes question, and the last MessageBox in the application.
+
+            A MessageBox is the operating system's dialog, not this one's: a white title bar
+            with its own minimise glyphs, a yellow warning triangle, and three buttons
+            labelled Yes, No and Cancel. Beside a Mica window whose two other modals are
+            in-window cards it read as a different program - and Yes/No/Cancel makes the
+            reader translate "No" into "throw my work away", which is the one answer here that
+            cannot be undone. The buttons now name what they do.
+        -->
+        <Grid x:Name="ConfirmOverlay"
+              Grid.Row="0"
+              Grid.RowSpan="4"
+              Background="{StaticResource OverlayScrimBrush}"
+              Visibility="Collapsed">
+            <Border x:Name="ConfirmCard"
+                    Width="420"
+                    Padding="24"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Style="{StaticResource DialogCardStyle}">
+                <StackPanel>
+                    <TextBlock x:Name="ConfirmTitle"
+                               Margin="0,0,0,4"
+                               FontSize="18"
+                               FontWeight="SemiBold"
+                               Text="Unsaved changes" />
+
+                    <!--
+                        Not SettingsHintStyle, which is 0.45 opacity. That is right for a note
+                        under a control the user is already looking at, and wrong here: this
+                        line is the question, and one of the three answers to it cannot be
+                        undone.
+                    -->
+                    <TextBlock x:Name="ConfirmHint"
+                               Margin="0,6,0,0"
+                               FontSize="13"
+                               Opacity="0.85"
+                               TextWrapping="Wrap" />
+
+                    <StackPanel Margin="0,22,0,0"
+                                HorizontalAlignment="Right"
+                                Orientation="Horizontal">
+                        <ui:Button Margin="0,0,8,0"
+                                   Click="OnConfirmCancel"
+                                   Content="Cancel" />
+                        <ui:Button Margin="0,0,8,0"
+                                   Click="OnConfirmDiscard"
+                                   Content="Discard" />
+                        <ui:Button x:Name="ConfirmSaveButton"
+                                   Appearance="Primary"
+                                   Click="OnConfirmSave"
+                                   Content="Save" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </Grid>
 
         <!--
             The one thing creating a collection needs that a rail cannot express: a name.

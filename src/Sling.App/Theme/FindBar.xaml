@@ -1,0 +1,273 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:avalon="http://icsharpcode.net/sharpdevelop/avalonedit">
+
+    <!--
+        Ctrl+F, retemplated.
+
+        AvalonEdit ships a find bar and no way to theme it. Its template hardcodes
+        SystemColors.WindowBrushKey for the surface and SystemColors.WindowTextBrushKey for
+        the border, so on Sling's dark panes it drew an opaque WHITE slab with a black
+        outline over the buffer. Neither is a TemplateBinding, so setting Background on the
+        panel does nothing - the template is the only place the colour can be changed.
+
+        The sizing was worse, and it came from the two libraries meeting. The stock template
+        pins its TextBox to 24 px and its buttons to 24 px and 16 px, sizes chosen against
+        WPF's default control styles. WPF-UI's ControlsDictionary supplies implicit styles
+        for TextBox and Button whose padding is 10,8,10,7 and 11,5,11,6 - so inside those
+        pinned boxes there was 7 px of room for the text and none at all for the arrows.
+        What shipped was a search field whose typed text was clipped to the top half of its
+        glyphs, and previous, next and close buttons that rendered as nothing: no way to
+        step through matches and no way to close the bar with the mouse.
+
+        So every control below carries an explicit Style AND an explicit Template. That is
+        not decoration - it is what keeps an implicit style from reaching in and resizing a
+        control this template has pinned. A BasedOn would reintroduce exactly the padding
+        that broke it.
+
+        The three PARTs SearchPanel's code-behind looks up are PART_searchTextBox and
+        PART_dropdownPopup; SearchCommands.FindPrevious / FindNext / CloseSearchPanel are
+        public and are what the buttons run. AvalonEdit's own DropDownButton is not used:
+        its template paints #FFB6BDD2 on hover, a Windows XP lavender, and the popup is only
+        ever asked for its IsOpen, so a ToggleButton bound to the popup does the same job in
+        colours this application chose.
+    -->
+
+    <!--
+        The bar floats over the buffer rather than sitting in it, so it needs an opaque
+        surface for the same reason DialogCardStyle does: a five-per-cent-white pane token
+        over an editor shows the editor through the panel. A token is correct for a surface,
+        not for a shape.
+    -->
+    <SolidColorBrush x:Key="FindBarGlyphBrush" Color="#E4E4E4" />
+
+    <Style x:Key="FindBarTextBoxStyle" TargetType="TextBox">
+        <Setter Property="Width" Value="190" />
+        <Setter Property="Height" Value="28" />
+        <Setter Property="Padding" Value="8,0" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="CaretBrush" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+        <Setter Property="SelectionBrush" Value="{DynamicResource AccentFillColorDefaultBrush}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="TextBox">
+                    <Border x:Name="Shell"
+                            Background="{DynamicResource ControlFillColorDefaultBrush}"
+                            BorderBrush="{DynamicResource ControlElevationBorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="5">
+                        <ScrollViewer x:Name="PART_ContentHost"
+                                      Margin="{TemplateBinding Padding}"
+                                      VerticalAlignment="Center"
+                                      Focusable="False"
+                                      HorizontalScrollBarVisibility="Hidden"
+                                      VerticalScrollBarVisibility="Hidden" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                            <Setter TargetName="Shell" Property="BorderBrush" Value="{DynamicResource AccentFillColorDefaultBrush}" />
+                        </Trigger>
+                        <!--
+                            A bad regular expression is a state the user can reach by typing,
+                            and SearchPanel reports it by marking the binding invalid. Without
+                            this the only feedback is a tooltip that may be off screen.
+                        -->
+                        <Trigger Property="Validation.HasError" Value="True">
+                            <Setter TargetName="Shell" Property="BorderBrush" Value="{DynamicResource SystemFillColorCriticalBrush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- One shape for every control on the bar that is a square with a glyph in it. -->
+    <Style x:Key="FindBarSquareStyle" TargetType="FrameworkElement">
+        <Setter Property="Width" Value="28" />
+        <Setter Property="Height" Value="28" />
+        <Setter Property="Margin" Value="4,0,0,0" />
+    </Style>
+
+    <Style x:Key="FindBarButtonStyle"
+           BasedOn="{StaticResource FindBarSquareStyle}"
+           TargetType="Button">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Shell"
+                            Background="{TemplateBinding Background}"
+                            CornerRadius="5">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Shell" Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Shell" Property="Background" Value="{DynamicResource SubtleFillColorTertiaryBrush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="FindBarToggleStyle"
+           BasedOn="{StaticResource FindBarSquareStyle}"
+           TargetType="ToggleButton">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ToggleButton">
+                    <Border x:Name="Shell"
+                            Background="{TemplateBinding Background}"
+                            CornerRadius="5">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Shell" Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="Shell" Property="Background" Value="{DynamicResource SubtleFillColorTertiaryBrush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style TargetType="{x:Type avalon:SearchPanel}">
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type avalon:SearchPanel}">
+                    <Border Margin="0,8,10,0"
+                            Padding="6"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Top"
+                            Background="{DynamicResource ContentDialogBackground}"
+                            BorderBrush="{DynamicResource ControlElevationBorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Cursor="Arrow">
+                        <Border.Effect>
+                            <DropShadowEffect BlurRadius="18"
+                                              Direction="270"
+                                              Opacity="0.45"
+                                              ShadowDepth="4"
+                                              Color="#FF000000" />
+                        </Border.Effect>
+
+                        <StackPanel Orientation="Horizontal">
+                            <TextBox x:Name="PART_searchTextBox"
+                                     Focusable="True"
+                                     Style="{StaticResource FindBarTextBoxStyle}">
+                                <TextBox.Text>
+                                    <Binding Path="SearchPattern"
+                                             RelativeSource="{RelativeSource TemplatedParent}"
+                                             UpdateSourceTrigger="PropertyChanged">
+                                        <Binding.ValidationRules>
+                                            <ExceptionValidationRule />
+                                        </Binding.ValidationRules>
+                                    </Binding>
+                                </TextBox.Text>
+                            </TextBox>
+
+                            <ToggleButton x:Name="OptionsToggle"
+                                          Style="{StaticResource FindBarToggleStyle}"
+                                          ToolTip="Match case, whole words, regular expression">
+                                <Path Width="9"
+                                      Height="5"
+                                      Data="M 0,0 L 9,0 L 4.5,5 Z"
+                                      Fill="{StaticResource FindBarGlyphBrush}" />
+                            </ToggleButton>
+
+                            <!--
+                                StaysOpen is false so a click anywhere else dismisses it, and
+                                IsOpen is bound two-way to the toggle: SearchPanel.Close()
+                                sets IsOpen directly, and without the two-way binding the
+                                toggle would stay lit over a popup that is gone.
+                            -->
+                            <Popup x:Name="PART_dropdownPopup"
+                                   AllowsTransparency="True"
+                                   IsOpen="{Binding IsChecked, ElementName=OptionsToggle, Mode=TwoWay}"
+                                   Placement="Bottom"
+                                   PlacementTarget="{Binding ElementName=OptionsToggle}"
+                                   StaysOpen="False">
+                                <Border Margin="0,6,8,8"
+                                        Padding="12,10"
+                                        Background="{DynamicResource ContentDialogBackground}"
+                                        BorderBrush="{DynamicResource ControlElevationBorderBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="8"
+                                        TextElement.FontSize="12"
+                                        TextElement.Foreground="{DynamicResource TextFillColorPrimaryBrush}">
+                                    <Border.Effect>
+                                        <DropShadowEffect BlurRadius="18"
+                                                          Direction="270"
+                                                          Opacity="0.45"
+                                                          ShadowDepth="4"
+                                                          Color="#FF000000" />
+                                    </Border.Effect>
+                                    <StackPanel>
+                                        <CheckBox Content="{Binding Localization.MatchCaseText, RelativeSource={RelativeSource TemplatedParent}}"
+                                                  IsChecked="{Binding MatchCase, RelativeSource={RelativeSource TemplatedParent}}" />
+                                        <CheckBox Margin="0,6,0,0"
+                                                  Content="{Binding Localization.MatchWholeWordsText, RelativeSource={RelativeSource TemplatedParent}}"
+                                                  IsChecked="{Binding WholeWords, RelativeSource={RelativeSource TemplatedParent}}" />
+                                        <CheckBox Margin="0,6,0,0"
+                                                  Content="{Binding Localization.UseRegexText, RelativeSource={RelativeSource TemplatedParent}}"
+                                                  IsChecked="{Binding UseRegex, RelativeSource={RelativeSource TemplatedParent}}" />
+                                    </StackPanel>
+                                </Border>
+                            </Popup>
+
+                            <Button Command="avalon:SearchCommands.FindPrevious"
+                                    Style="{StaticResource FindBarButtonStyle}"
+                                    ToolTip="{Binding Localization.FindPreviousText, RelativeSource={RelativeSource TemplatedParent}}">
+                                <Path Width="10"
+                                      Height="6"
+                                      Data="M 0,6 L 5,0 L 10,6"
+                                      Stroke="{StaticResource FindBarGlyphBrush}"
+                                      StrokeEndLineCap="Round"
+                                      StrokeStartLineCap="Round"
+                                      StrokeThickness="1.4" />
+                            </Button>
+
+                            <Button Command="avalon:SearchCommands.FindNext"
+                                    Style="{StaticResource FindBarButtonStyle}"
+                                    ToolTip="{Binding Localization.FindNextText, RelativeSource={RelativeSource TemplatedParent}}">
+                                <Path Width="10"
+                                      Height="6"
+                                      Data="M 0,0 L 5,6 L 10,0"
+                                      Stroke="{StaticResource FindBarGlyphBrush}"
+                                      StrokeEndLineCap="Round"
+                                      StrokeStartLineCap="Round"
+                                      StrokeThickness="1.4" />
+                            </Button>
+
+                            <Button Margin="8,0,0,0"
+                                    Command="avalon:SearchCommands.CloseSearchPanel"
+                                    Style="{StaticResource FindBarButtonStyle}"
+                                    ToolTip="Close  (Esc)">
+                                <Path Width="9"
+                                      Height="9"
+                                      Data="M 0,0 L 9,9 M 9,0 L 0,9"
+                                      Stroke="{StaticResource FindBarGlyphBrush}"
+                                      StrokeEndLineCap="Round"
+                                      StrokeStartLineCap="Round"
+                                      StrokeThickness="1.4" />
+                            </Button>
+                        </StackPanel>
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+</ResourceDictionary>

@@ -92,6 +92,10 @@ internal static class SyntaxPalette
     /// </remarks>
     internal static readonly Color FallbackPage = Color.FromRgb(0x20, 0x20, 0x20);
 
+    /// <summary>The pane's body text colour when the real one cannot be read.</summary>
+    /// <remarks>WPF-UI's dark primary text, alpha dropped, for the reason above.</remarks>
+    internal static readonly Color FallbackText = Color.FromRgb(0xFF, 0xFF, 0xFF);
+
     /// <summary>The colour each role starts from, before the legibility clamp.</summary>
     /// <remarks>
     /// <see cref="SyntaxRole.Tag"/> is deliberately not the same blue as
@@ -235,6 +239,29 @@ internal static class SyntaxPalette
         }
 
         return FallbackPage;
+    }
+
+    /// <summary>
+    /// The colour body text is actually drawn in on a pane, read from the live theme when
+    /// it can be.
+    /// </summary>
+    /// <param name="resources">
+    /// The application's resource dictionary, or null in a test or before startup.
+    /// </param>
+    /// <remarks>
+    /// Needed by <see cref="FindPalette"/>, which computes a colour to draw <em>behind</em>
+    /// this one and so has to know what it is. Same shape and same reasoning as
+    /// <see cref="Page"/>, fallback included: a missing resource must degrade to the colour
+    /// the pane really uses rather than to one against which every ratio passes.
+    /// </remarks>
+    internal static Color Text(ResourceDictionary? resources)
+    {
+        if (resources?["TextFillColorPrimary"] is Color colour && colour.A > 0)
+        {
+            return Color.FromRgb(colour.R, colour.G, colour.B);
+        }
+
+        return FallbackText;
     }
 
     /// <summary>The role a grammar's colour name maps to.</summary>

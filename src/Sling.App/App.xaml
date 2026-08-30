@@ -13,6 +13,13 @@
                 <ui:ThemesDictionary Theme="Dark" />
                 <ui:ControlsDictionary />
                 <ResourceDictionary Source="Theme/Panes.xaml" />
+                <!--
+                    AvalonEdit's find bar, retemplated. It belongs here rather than on the
+                    window because SearchPanel.Install builds the panel itself and hands it
+                    to an adorner layer, so there is no element in this application's markup
+                    to carry a local style.
+                -->
+                <ResourceDictionary Source="Theme/FindBar.xaml" />
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </Application.Resources>
