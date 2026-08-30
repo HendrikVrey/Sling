@@ -67,6 +67,8 @@ public partial class MainWindow
     /// <summary>Wires the document side. Called once, from the constructor.</summary>
     private void InitializeWorkspace()
     {
+        InitializeCollections();
+
         RequestPane.TextChanged += OnRequestTextChanged;
 
         // Environment files are edited outside Sling — that is the point of them being
@@ -97,8 +99,8 @@ public partial class MainWindow
 
         switch (e.Key)
         {
-            case Key.N when !shift:
-                RunGuarded(NewDocumentAsync);
+            case Key.N:
+                RunGuarded(shift ? NewRequestAsync : NewDocumentAsync);
                 return true;
 
             case Key.O:
@@ -167,6 +169,11 @@ public partial class MainWindow
 
     private void OnRequestTextChanged(object? sender, EventArgs e)
     {
+        // Before the _dirty short-circuit, deliberately: every keystroke after the first is
+        // one this returns early on, and those are exactly the ones that add the '###' the
+        // rail is meant to notice.
+        QueueRequestRefresh();
+
         if (_loadingDocument || _dirty)
         {
             return;
@@ -177,34 +184,6 @@ public partial class MainWindow
     }
 
     private void OnWindowActivated(object? sender, EventArgs e) => ReloadEnvironments();
-
-    private void OnFileSelected(object sender, SelectionChangedEventArgs e)
-    {
-        if (_rebuildingLists || _workspace is null || FileList.SelectedItem is not string relative)
-        {
-            return;
-        }
-
-        var path = Path.Combine(_workspace.Root, relative);
-
-        if (string.Equals(path, _documentPath, StringComparison.OrdinalIgnoreCase))
-        {
-            return;
-        }
-
-        RunGuarded(async () =>
-        {
-            if (!await ConfirmDiscardAsync().ConfigureAwait(true))
-            {
-                // Put the selection back on the file that is actually open, without the
-                // restoration itself being read as a new choice.
-                SelectOpenFileInList();
-                return;
-            }
-
-            await LoadDocumentAsync(path).ConfigureAwait(true);
-        });
-    }
 
     private void OnEnvironmentSelected(object sender, SelectionChangedEventArgs e)
     {
@@ -305,12 +284,9 @@ public partial class MainWindow
 
         // A folder with exactly one request file has an obvious thing to open, and doing
         // it saves the one click that every single-file workspace would otherwise need.
-        if (FileList.Items.Count == 1
-            && _workspace is not null
-            && FileList.Items[0] is string only
-            && await ConfirmDiscardAsync().ConfigureAwait(true))
+        if (SingleDocumentPath() is { } only && await ConfirmDiscardAsync().ConfigureAwait(true))
         {
-            await LoadDocumentAsync(Path.Combine(_workspace.Root, only)).ConfigureAwait(true);
+            await LoadDocumentAsync(only).ConfigureAwait(true);
         }
     }
 
@@ -328,12 +304,16 @@ public partial class MainWindow
         _runner.ForgetSession();
         ResetCookieJar();
 
-        FilesRail.Visibility = Visibility.Visible;
+        ShowWorkspaceRail(hasWorkspace: true);
         FilesLabel.Text = Path.GetFileName(workspace.Root.TrimEnd(Path.DirectorySeparatorChar)).ToUpperInvariant();
         FilesLabel.ToolTip = workspace.Root;
 
-        RefreshFileList();
-        SelectOpenFileInList();
+        // A different folder is a different tree; carrying the last one's open branches over
+        // would expand paths that no longer exist and collapse the ones that do.
+        _expanded.Clear();
+
+        RefreshCollections();
+        SelectOpenDocumentInTree();
         ReloadEnvironments();
     }
 
@@ -370,6 +350,10 @@ public partial class MainWindow
     /// </remarks>
     private void SetDocument(string text, string? path)
     {
+        // The outgoing file's rail rows were filled from the buffer, and the buffer is about
+        // to be replaced — including, on a discarded edit, by text that was never on disk.
+        ResetRailDocument(_documentPath);
+
         _loadingDocument = true;
 
         try
@@ -387,8 +371,17 @@ public partial class MainWindow
         _runner.ForgetSession();
         ResetCookieJar();
 
-        SelectOpenFileInList();
+        // Before the selection, so the rail has this file's requests under it by the time
+        // the row is revealed rather than a placeholder that resolves a moment later.
+        RefreshOpenDocumentRequests();
+
+        SelectOpenDocumentInTree();
         UpdateTitle();
+
+        // A whole new buffer, so the cached parse behind the send target is worthless. This
+        // is a load rather than a keystroke, so the reparse is affordable and the label is
+        // right the moment the file appears.
+        UpdateSendTarget(reparse: true);
     }
 
     /// <summary>Saves, asking where to put it if the document has never been saved.</summary>
@@ -446,10 +439,10 @@ public partial class MainWindow
         }
         else
         {
-            RefreshFileList();
+            RefreshCollections();
         }
 
-        SelectOpenFileInList();
+        SelectOpenDocumentInTree();
         return true;
     }
 
@@ -631,63 +624,6 @@ public partial class MainWindow
         }
     }
 
-    private void RefreshFileList()
-    {
-        if (_workspace is null)
-        {
-            return;
-        }
-
-        var files = _workspace.RequestFiles(out var truncated);
-
-        _rebuildingLists = true;
-
-        try
-        {
-            FileList.ItemsSource = files;
-        }
-        finally
-        {
-            _rebuildingLists = false;
-        }
-
-        if (truncated)
-        {
-            StatusLeft.Text = "That folder holds more request files than the list will show. "
-                + "Open a folder closer to the ones you want.";
-        }
-    }
-
-    /// <summary>
-    /// Moves the list's selection onto the open document without that looking like a
-    /// click.
-    /// </summary>
-    private void SelectOpenFileInList()
-    {
-        if (_workspace is null)
-        {
-            return;
-        }
-
-        _rebuildingLists = true;
-
-        try
-        {
-            FileList.SelectedItem = _documentPath is null
-                ? null
-                : FileList.Items
-                    .OfType<string>()
-                    .FirstOrDefault(relative => string.Equals(
-                        Path.Combine(_workspace.Root, relative),
-                        _documentPath,
-                        StringComparison.OrdinalIgnoreCase));
-        }
-        finally
-        {
-            _rebuildingLists = false;
-        }
-    }
-
     private string DocumentName => _documentPath is null ? "Untitled" : Path.GetFileName(_documentPath);
 
     private void UpdateTitle()
@@ -697,6 +633,11 @@ public partial class MainWindow
         Title = $"{DocumentName}{marker} — Sling";
         RequestLabel.Text = $"{DocumentName.ToUpperInvariant()}{marker}";
         RequestLabel.ToolTip = _documentPath;
+
+        // The Save button's enabled state is the dirty marker in another form, so it is
+        // recomputed here rather than at each of the several places that set _dirty — one of
+        // which would eventually be forgotten.
+        UpdateToolbar();
     }
 
     /// <summary>

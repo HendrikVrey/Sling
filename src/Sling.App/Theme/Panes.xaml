@@ -23,6 +23,79 @@
     </Style>
 
     <!--
+        The label above a pane: COLLECTIONS, the open file's name, RESPONSE. One style
+        rather than four copies of the same three attributes, because they are one role and
+        a header that drifts out of step with its neighbour is the kind of thing nobody
+        reports and everybody sees.
+    -->
+    <Style x:Key="PaneHeaderStyle" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Opacity" Value="0.55" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+    </Style>
+
+    <!--
+        A modal card, and it is deliberately NOT PaneBorderStyle — which is the bug this
+        style exists to fix.
+
+        CardBackgroundFillColorDefaultBrush is #0DFFFFFF: five per cent white, which is
+        exactly right for a pane sitting on the window's own Mica backdrop and exactly
+        wrong for a card floating over a scrim. The settings panel and the name prompt were
+        both 95% transparent, so what showed through them was the darkened window behind —
+        they read as faded, half-rendered and broken. A dialog needs an opaque surface of
+        its own, and WPF-UI ships the one WinUI uses for exactly this: ContentDialog's.
+    -->
+    <Style x:Key="DialogCardStyle" TargetType="Border">
+        <Setter Property="CornerRadius" Value="12" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="BorderBrush" Value="{DynamicResource ContentDialogBorderBrush}" />
+        <Setter Property="Background" Value="{DynamicResource ContentDialogBackground}" />
+        <Setter Property="Effect">
+            <Setter.Value>
+                <!--
+                    Shared by both overlays, and safe to share: a Freezable used read-only.
+                    The shadow is what separates the card from the scrim — without it an
+                    opaque panel on a dark wash reads as a region of the window rather than
+                    as something on top of it.
+                -->
+                <DropShadowEffect BlurRadius="32"
+                                  Direction="270"
+                                  Opacity="0.5"
+                                  ShadowDepth="8"
+                                  Color="#FF000000" />
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!--
+        The wash behind a modal card. Darker than WinUI's SmokeFillColorDefault (#4D000000)
+        on purpose: Sling's own surface is already near-black, and a 30% wash over it does
+        not read as "the window behind is inactive".
+    -->
+    <SolidColorBrush x:Key="OverlayScrimBrush" Color="#000000" Opacity="0.62" />
+
+    <!--
+        The status pill beside the RESPONSE label. Only the geometry lives here — every
+        colour on it is computed against the pane at runtime by StatusPalette, because a
+        colour written into a style is a colour nothing can hold to a contrast floor.
+    -->
+    <Style x:Key="StatusPillStyle" TargetType="Border">
+        <Setter Property="CornerRadius" Value="10" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Padding" Value="9,1" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <!-- The hairline between two groups of toolbar buttons. -->
+    <Style x:Key="ToolbarSeparatorStyle" TargetType="Border">
+        <Setter Property="Width" Value="1" />
+        <Setter Property="Margin" Value="6,5,10,5" />
+        <Setter Property="Background" Value="{DynamicResource DividerStrokeColorDefaultBrush}" />
+    </Style>
+
+    <!--
         The settings overlay's two text roles. Styles rather than attributes repeated on
         each element, so the spacing between a label and the control under it is one
         number in one place — that overlay is the only screen in Sling with a vertical

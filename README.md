@@ -1,6 +1,12 @@
-# Sling
+<p align="center">
+  <img src="assets/sling-256.png" alt="Sling logo" width="112">
+</p>
 
-An editor-first HTTP client for Windows. The request is a document, not a form.
+<h1 align="center">Sling</h1>
+
+<p align="center">
+  <b>An editor-first HTTP client for Windows. The request is a document, not a form.</b>
+</p>
 
 ```http
 @base = https://api.example.com
@@ -16,8 +22,10 @@ GET {{base}}/me
 Authorization: Bearer {{login.response.body.$.access_token}}
 ```
 
-That is the whole interface. `Ctrl+Enter` sends the request under the caret; the
-response opens beside it in a real editor buffer — highlighted, foldable, searchable.
+That is the whole interface. **Send** — or `Ctrl+Enter` — sends the request under the
+caret, and the command bar says which one that is before you press it; the response opens
+beside it in a real editor buffer, highlighted, foldable, searchable, with its status
+colour-coded beside the pane.
 
 ## Why
 
@@ -31,9 +39,32 @@ files — the same format Visual Studio 2022, Rider and the VS Code REST Client 
 read. A collection becomes a folder of text files. Grouping is `###` separators;
 hierarchy is folders; sharing is `git push`; review is a normal diff.
 
-No account, no cloud, no sync, no collection tree, no save dialog.
+There **is** a collection tree — folders, files and the requests inside them, with the
+verbs colour-coded, and buttons to add to it. What there is not is a collection *format*
+behind it: the tree is drawn from the folder every time, so renaming a collection is
+renaming a directory and moving one is `git mv`.
+[docs/collections.md](docs/collections.md) has the rest.
+
+No account, no cloud, no sync, no save dialog.
 
 ## Status
+
+**The command bar.** Send, Run all, a File menu, Save, History and Settings are buttons
+above the panes, with the collections rail on a toggle beside them. Every chord Sling has
+is now something you can see, and every button names its own chord — the keyboard is still
+the fast path, it is just no longer the only way to find out a command exists. Beside the
+buttons is the request Send would send; beside RESPONSE is the status, coloured by class.
+
+**Collections.** The rail is a tree: collections (folders), the request files in them, and
+the requests inside each file with their verbs colour-coded. Clicking a request opens its
+file and puts the caret on it, so `Ctrl+Enter` sends it; moving around a file highlights
+the request that would go. **+ Collection**, **+ File** and **+ Request** sit above the
+tree and land inside whatever is selected.
+
+Nothing is stored to make this work — no manifest, no index, no ordering — so a collection
+is still just a directory and Sling can be deleted without taking your requests with it.
+There is deliberately no rename and no delete in the rail;
+[docs/collections.md](docs/collections.md) says why.
 
 **M4 — the Postman importer.** `Ctrl+I`, pick your collection export and its environment
 exports in the same dialog, pick a folder. Sling writes the `.http` files, writes both
@@ -133,6 +164,11 @@ is written down in [docs/http-dialect.md](docs/http-dialect.md).
 
 ## Keys
 
+Every one of these is also a button on the command bar above the panes, and each button
+names its own chord in its tooltip — the toolbar is there to make the keyboard findable,
+not to replace it. The **File** menu lists the document commands with their gestures
+beside them.
+
 | | |
 |---|---|
 | `Ctrl+Enter` | Send the request under the caret |
@@ -142,6 +178,8 @@ is written down in [docs/http-dialect.md](docs/http-dialect.md).
 | `Ctrl+I` | Import a Postman export |
 | `Ctrl+S` / `Ctrl+Shift+S` | Save / save as |
 | `Ctrl+N` | New document |
+| `Ctrl+Shift+N` | Add a request to the open file |
+| `Ctrl+B` | Show or hide the collections rail |
 | `Ctrl+F` | Find, in either pane |
 | `Ctrl+H` | Show the local history |
 | `Ctrl+,` | Settings |

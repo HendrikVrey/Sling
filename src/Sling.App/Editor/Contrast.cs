@@ -113,7 +113,13 @@ internal static class Contrast
     }
 
     /// <summary>Mixes <paramref name="from"/> towards <paramref name="to"/>, quantised to bytes.</summary>
-    private static Color Blend(Color from, Color to, double amount) =>
+    /// <remarks>
+    /// Internal rather than private because <see cref="StatusPalette"/> needs the same
+    /// operation to compute the opaque colour a tinted pill actually renders as — and a
+    /// second copy of a blend is a second rounding rule, which is precisely how two
+    /// surfaces that are meant to match stop matching.
+    /// </remarks>
+    internal static Color Blend(Color from, Color to, double amount) =>
         Color.FromRgb(
             Channel(from.R, to.R, amount),
             Channel(from.G, to.G, amount),

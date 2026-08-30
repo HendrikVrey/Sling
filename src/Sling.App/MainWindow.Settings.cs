@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Windows;
+using Sling.App.Editor;
 using Sling.Core.Cookies;
 using Sling.Core.Rendering;
 using Sling.Http;
@@ -118,13 +119,13 @@ public partial class MainWindow
             _loadingSettings = false;
         }
 
-        SettingsOverlay.Visibility = Visibility.Visible;
+        Overlays.Reveal(SettingsOverlay, SettingsCard);
         TimeoutBox.Focus();
     }
 
     private void CloseSettings()
     {
-        SettingsOverlay.Visibility = Visibility.Collapsed;
+        Overlays.Hide(SettingsOverlay);
         RequestPane.Focus();
     }
 

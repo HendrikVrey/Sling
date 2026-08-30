@@ -13,8 +13,57 @@
                  WindowCornerPreference="Round"
                  WindowStartupLocation="CenterScreen">
 
+    <!--
+        The chrome's control styles live here rather than in Theme/Panes.xaml, and the
+        reason is a WPF rule rather than a preference: a StaticResource inside a dictionary
+        loaded by Source cannot see a sibling dictionary merged beside it, so a style that
+        wants BasedOn="{StaticResource {x:Type ui:Button}}" has to sit somewhere that can
+        walk up to Application.Resources. Panes.xaml keeps the colour and geometry tokens,
+        which use DynamicResource and have no such problem.
+    -->
+    <ui:FluentWindow.Resources>
+        <Style x:Key="ToolbarButtonStyle"
+               BasedOn="{StaticResource {x:Type ui:Button}}"
+               TargetType="ui:Button">
+            <Setter Property="Padding" Value="11,5" />
+            <Setter Property="Margin" Value="0,0,6,0" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <!-- Icon only, so the padding is square rather than a label's. -->
+        <Style x:Key="ToolbarIconButtonStyle"
+               BasedOn="{StaticResource ToolbarButtonStyle}"
+               TargetType="ui:Button">
+            <Setter Property="Padding" Value="7,5" />
+        </Style>
+
+        <Style x:Key="ToolbarMenuButtonStyle"
+               BasedOn="{StaticResource {x:Type ui:DropDownButton}}"
+               TargetType="ui:DropDownButton">
+            <Setter Property="Padding" Value="11,5" />
+            <Setter Property="Margin" Value="0,0,6,0" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <!--
+            The rail's creation buttons. Stretched and centred so three of them read as one
+            control strip rather than as three things that happen to be next to each other.
+        -->
+        <Style x:Key="RailActionButtonStyle"
+               BasedOn="{StaticResource {x:Type ui:Button}}"
+               TargetType="ui:Button">
+            <Setter Property="Padding" Value="4,4" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+        </Style>
+    </ui:FluentWindow.Resources>
+
     <Grid>
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
@@ -25,37 +74,356 @@
                      Title="{Binding Title, RelativeSource={RelativeSource AncestorType=Window}}" />
 
         <!--
+            The command bar.
+
+            Every action here already had a chord and nothing else, which is a keymap rather
+            than an interface: a command nobody can see is a command nobody finds. Each
+            button names its own shortcut in its tooltip and every item in the File menu
+            carries its gesture, so the toolbar teaches the keyboard instead of replacing it.
+
+            DockPanel for the reason the status bar and the rail are DockPanels: WPF never
+            compresses an Auto region, so a toolbar built from Auto columns pushes its
+            right-hand end off screen at narrow widths. Declaration order is priority order,
+            which is why Settings and History are declared first — they are the two that must
+            survive — and the send target, which is a label and can trim, is the fill child.
+        -->
+        <DockPanel Grid.Row="1"
+                   Margin="12,2,12,10"
+                   LastChildFill="True">
+            <ui:Button x:Name="SettingsButton"
+                       Margin="0"
+                       DockPanel.Dock="Right"
+                       Click="OnSettingsClicked"
+                       Icon="{ui:SymbolIcon Settings24}"
+                       Style="{StaticResource ToolbarIconButtonStyle}"
+                       ToolTip="Settings  (Ctrl+,)" />
+
+            <ui:Button x:Name="HistoryButton"
+                       DockPanel.Dock="Right"
+                       Click="OnHistoryClicked"
+                       Icon="{ui:SymbolIcon History24}"
+                       Style="{StaticResource ToolbarIconButtonStyle}"
+                       ToolTip="What has been sent, with credentials removed  (Ctrl+H)" />
+
+            <!--
+                Send is the application, and it is the only Primary control on this bar. It
+                turns into Cancel for the duration of a request rather than sitting there
+                disabled — Escape already cancels, and a button that does nothing while the
+                thing it started is running is a button that has to be explained.
+
+                MinWidth because "Cancel" is wider than "Send": without it the whole left
+                group shuffles sideways every time a request starts, which is movement under
+                a cursor that is on its way to the button.
+            -->
+            <!--
+                Hiding the rail, which at 250 px is half the window on a narrow one. The
+                panes have a 160 px minimum each, so below roughly 620 px of client width
+                the response pane starts being clipped no matter how the space is divided —
+                and until now the only way out was to widen the window. One button gives the
+                whole width back.
+            -->
+            <ui:Button x:Name="RailToggleButton"
+                       DockPanel.Dock="Left"
+                       Click="OnToggleRail"
+                       Icon="{ui:SymbolIcon PanelLeftContract24}"
+                       Style="{StaticResource ToolbarIconButtonStyle}"
+                       ToolTip="Hide the collections rail  (Ctrl+B)" />
+
+            <ui:Button x:Name="SendButton"
+                       MinWidth="92"
+                       DockPanel.Dock="Left"
+                       Appearance="Primary"
+                       Click="OnSendClicked"
+                       Content="Send"
+                       Icon="{ui:SymbolIcon Send24}"
+                       Style="{StaticResource ToolbarButtonStyle}"
+                       ToolTip="Send the request under the caret  (Ctrl+Enter)" />
+
+            <ui:Button x:Name="RunAllButton"
+                       DockPanel.Dock="Left"
+                       Click="OnRunAllClicked"
+                       Content="Run all"
+                       Icon="{ui:SymbolIcon FastForward24}"
+                       Style="{StaticResource ToolbarButtonStyle}"
+                       ToolTip="Send every request in this file, top to bottom  (Ctrl+Shift+Enter)" />
+
+            <Border DockPanel.Dock="Left" Style="{StaticResource ToolbarSeparatorStyle}" />
+
+            <!--
+                One visible button that reveals every document command with the key that
+                also runs it. A menu rather than eight more buttons: these are the commands
+                somebody reaches for a few times a session, and a toolbar that shows all of
+                them equally says none of them matter more than Send.
+            -->
+            <ui:DropDownButton x:Name="FileMenuButton"
+                               DockPanel.Dock="Left"
+                               Content="File"
+                               Icon="{ui:SymbolIcon Document24}"
+                               Style="{StaticResource ToolbarMenuButtonStyle}"
+                               ToolTip="Open, create, save and import">
+                <ui:DropDownButton.Flyout>
+                    <ContextMenu>
+                        <MenuItem Click="OnOpenFolderClicked"
+                                  Header="Open folder…"
+                                  InputGestureText="Ctrl+Shift+O" />
+                        <MenuItem Click="OnOpenDocumentClicked"
+                                  Header="Open file…"
+                                  InputGestureText="Ctrl+O" />
+                        <Separator />
+                        <MenuItem Click="OnNewCollection" Header="New collection…" />
+                        <MenuItem Click="OnNewDocument" Header="New request file…" />
+                        <MenuItem Click="OnNewRequest"
+                                  Header="New request in this file"
+                                  InputGestureText="Ctrl+Shift+N" />
+                        <MenuItem Click="OnNewEmptyDocumentClicked"
+                                  Header="New empty document"
+                                  InputGestureText="Ctrl+N" />
+                        <Separator />
+                        <MenuItem Click="OnSaveClicked"
+                                  Header="Save"
+                                  InputGestureText="Ctrl+S" />
+                        <MenuItem Click="OnSaveAsClicked"
+                                  Header="Save as…"
+                                  InputGestureText="Ctrl+Shift+S" />
+                        <Separator />
+                        <MenuItem Click="OnImportClicked"
+                                  Header="Import from Postman…"
+                                  InputGestureText="Ctrl+I" />
+                    </ContextMenu>
+                </ui:DropDownButton.Flyout>
+            </ui:DropDownButton>
+
+            <!--
+                Save has its own button despite being in the menu above. It is the one
+                command in that list with a state — there are unsaved changes or there are
+                not — and a disabled button is the cheapest possible answer to "did that
+                save?".
+            -->
+            <ui:Button x:Name="SaveButton"
+                       DockPanel.Dock="Left"
+                       Click="OnSaveClicked"
+                       Content="Save"
+                       Icon="{ui:SymbolIcon Save24}"
+                       Style="{StaticResource ToolbarButtonStyle}"
+                       ToolTip="Write this file to disk  (Ctrl+S)" />
+
+            <Border DockPanel.Dock="Left" Style="{StaticResource ToolbarSeparatorStyle}" />
+
+            <!--
+                What Send would send. The rail already highlights the row, but the rail is
+                only there when a folder is open — and the question "which of these is about
+                to go out" is the one this application must never leave ambiguous.
+            -->
+            <Grid VerticalAlignment="Center">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <TextBlock x:Name="SendTargetMethod"
+                           Grid.Column="0"
+                           Margin="0,0,7,0"
+                           VerticalAlignment="Center"
+                           FontFamily="Cascadia Code, Consolas, Courier New"
+                           FontSize="11"
+                           FontWeight="Bold" />
+
+                <TextBlock x:Name="SendTargetLabel"
+                           Grid.Column="1"
+                           VerticalAlignment="Center"
+                           FontSize="12"
+                           Opacity="0.5"
+                           TextTrimming="CharacterEllipsis" />
+            </Grid>
+        </DockPanel>
+
+        <!--
             DockPanel, not a fourth Grid column. WPF never compresses an Auto column, so a
             file rail in one would push the response pane off screen at narrow widths —
             the bug Etch shipped in its status bar and had to rebuild. A DockPanel gives
             its fill child the remainder clamped at zero instead, so the rail takes its
             width and the panes shrink.
         -->
-        <DockPanel Grid.Row="1" Margin="12,0,12,8" LastChildFill="True">
+        <DockPanel Grid.Row="2" Margin="12,0,12,8" LastChildFill="True">
             <!--
-                The workspace: the .http files in the folder that is open. Shown only when
-                there is one, because with no folder open it would be an empty box
-                explaining nothing.
+                The collections rail: the folders and .http files in the workspace, and the
+                requests inside them.
+
+                A collection is a folder and an endpoint is a '###' block - no index, no
+                metadata, nothing for Sling to own. Sling.md §1 has not changed; what this
+                adds is a way to see the structure that was always on disk.
+
+                ALWAYS VISIBLE, and that is a correction. It used to appear only once a
+                folder was open, on the grounds that an empty box explains nothing - but a
+                panel that is absent explains even less. On first run the whole feature was
+                invisible and the way to reach it was a chord nobody had been told about.
+                The empty state below is the explanation the collapsed rail was missing.
             -->
             <DockPanel x:Name="FilesRail"
-                       Width="190"
+                       Width="250"
                        Margin="0,0,10,0"
-                       DockPanel.Dock="Left"
-                       Visibility="Collapsed">
+                       DockPanel.Dock="Left">
                 <TextBlock x:Name="FilesLabel"
                            Margin="2,0,0,6"
                            DockPanel.Dock="Top"
-                           FontSize="12"
-                           Opacity="0.6"
-                           Text="FILES"
-                           TextTrimming="CharacterEllipsis" />
+                           Style="{StaticResource PaneHeaderStyle}"
+                           Text="COLLECTIONS" />
+
+                <!--
+                    All three creations, side by side and the same width. A rail whose only
+                    way to add something is a right-click is a rail people believe is
+                    read-only — and "New request file" used to be reachable *only* by
+                    right-clicking, which is the least discoverable affordance there is.
+                -->
+                <UniformGrid x:Name="RailActions"
+                             Margin="0,0,0,8"
+                             Columns="3"
+                             DockPanel.Dock="Top"
+                             Visibility="Collapsed">
+                    <ui:Button Margin="0,0,3,0"
+                               Click="OnNewCollection"
+                               Content="+ Collection"
+                               Style="{StaticResource RailActionButtonStyle}"
+                               ToolTip="Create a folder with a request file in it" />
+                    <ui:Button Margin="3,0,3,0"
+                               Click="OnNewDocument"
+                               Content="+ File"
+                               Style="{StaticResource RailActionButtonStyle}"
+                               ToolTip="Create a .http file in whatever is selected" />
+                    <ui:Button Margin="3,0,0,0"
+                               Click="OnNewRequest"
+                               Content="+ Request"
+                               Style="{StaticResource RailActionButtonStyle}"
+                               ToolTip="Append a request to the file that is open  (Ctrl+Shift+N)" />
+                </UniformGrid>
+
                 <Border Style="{StaticResource PaneBorderStyle}">
-                    <ListBox x:Name="FileList"
-                             Padding="4"
-                             Background="Transparent"
-                             BorderThickness="0"
-                             FontSize="12"
-                             SelectionChanged="OnFileSelected" />
+                    <Grid>
+                        <!--
+                            What the rail says before there is anything in it. It names the
+                            concept, says what a collection actually is - because that is the
+                            one thing somebody arriving from Postman will get wrong - and gives
+                            them the button rather than a chord to discover.
+                        -->
+                        <StackPanel x:Name="EmptyRail"
+                                    Margin="14,18,14,14"
+                                    VerticalAlignment="Top">
+                            <TextBlock FontSize="12"
+                                       Opacity="0.75"
+                                       Text="No folder open"
+                                       TextWrapping="Wrap" />
+                            <TextBlock Margin="0,6,0,0"
+                                       FontSize="11"
+                                       Opacity="0.45"
+                                       Text="A collection is a folder of .http files. Open one and it appears here, with the requests inside each file."
+                                       TextWrapping="Wrap" />
+                            <ui:Button Margin="0,14,0,0"
+                                       Appearance="Primary"
+                                       Click="OnOpenFolderClicked"
+                                       Content="Open a folder"
+                                       Icon="{ui:SymbolIcon FolderOpen24}"
+                                       Style="{StaticResource RailActionButtonStyle}" />
+                            <ui:Button Margin="0,6,0,0"
+                                       Click="OnImportClicked"
+                                       Content="Import from Postman"
+                                       Icon="{ui:SymbolIcon ArrowImport24}"
+                                       Style="{StaticResource RailActionButtonStyle}" />
+                            <TextBlock Margin="0,10,0,0"
+                                       HorizontalAlignment="Center"
+                                       FontSize="10"
+                                       Opacity="0.4"
+                                       Text="Ctrl+Shift+O  ·  Ctrl+I" />
+                        </StackPanel>
+
+                        <TreeView x:Name="CollectionsTree"
+                                  Padding="4"
+                                  Background="Transparent"
+                                  BorderThickness="0"
+                                  FontSize="12"
+                                  ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                  SelectedItemChanged="OnCollectionSelected"
+                                  Visibility="Collapsed">
+                            <TreeView.ItemContainerStyle>
+                                <!--
+                                    Expansion and selection are driven from code as well as by
+                                    clicking - opening a file has to reveal and select its row -
+                                    so both are bound rather than reached through the container,
+                                    which for a collapsed branch does not exist yet.
+                                -->
+                                <Style BasedOn="{StaticResource {x:Type TreeViewItem}}" TargetType="TreeViewItem">
+                                    <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
+                                    <Setter Property="IsSelected" Value="{Binding IsSelected, Mode=TwoWay}" />
+                                </Style>
+                            </TreeView.ItemContainerStyle>
+
+                            <TreeView.ItemTemplate>
+                                <HierarchicalDataTemplate ItemsSource="{Binding Children}">
+                                    <StackPanel Orientation="Horizontal" ToolTip="{Binding Hint}">
+                                        <!--
+                                            The verb, colour-coded. It is the one thing about
+                                            Postman's tree that is genuinely good: DELETE does
+                                            not look like GET, so the shape of a collection is
+                                            legible without reading it. Every colour is held to
+                                            the same contrast floor as the response pane - see
+                                            MethodPalette.
+                                        -->
+                                        <TextBlock Margin="0,0,6,0"
+                                                   VerticalAlignment="Center"
+                                                   FontFamily="Cascadia Code, Consolas, Courier New"
+                                                   FontSize="10"
+                                                   FontWeight="Bold"
+                                                   Foreground="{Binding MethodBrush}"
+                                                   Text="{Binding Method}">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsRequest}" Value="False">
+                                                            <Setter Property="Visibility" Value="Collapsed" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+
+                                        <TextBlock VerticalAlignment="Center"
+                                                   Text="{Binding Label}"
+                                                   TextTrimming="CharacterEllipsis">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Style.Triggers>
+                                                        <!--
+                                                            Weight carries depth, so the level a
+                                                            row sits at is readable without
+                                                            counting indents: a collection is the
+                                                            heading, a file is the label, a
+                                                            request is the content.
+                                                        -->
+                                                        <DataTrigger Binding="{Binding IsFolder}" Value="True">
+                                                            <Setter Property="FontWeight" Value="SemiBold" />
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding IsPlaceholder}" Value="True">
+                                                            <Setter Property="Opacity" Value="0.4" />
+                                                            <Setter Property="FontStyle" Value="Italic" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </StackPanel>
+                                </HierarchicalDataTemplate>
+                            </TreeView.ItemTemplate>
+
+                            <TreeView.ContextMenu>
+                                <ContextMenu>
+                                    <MenuItem Click="OnNewCollection" Header="New collection…" />
+                                    <MenuItem Click="OnNewDocument" Header="New request file…" />
+                                    <MenuItem Click="OnNewRequest"
+                                              Header="New request…"
+                                              InputGestureText="Ctrl+Shift+N" />
+                                </ContextMenu>
+                            </TreeView.ContextMenu>
+                        </TreeView>
+                    </Grid>
                 </Border>
             </DockPanel>
 
@@ -87,25 +455,22 @@
 
                         <TextBlock x:Name="RequestLabel"
                                    Grid.Column="0"
-                                   VerticalAlignment="Center"
-                                   FontSize="12"
-                                   Opacity="0.6"
-                                   Text="REQUEST"
-                                   TextTrimming="CharacterEllipsis" />
+                                   Style="{StaticResource PaneHeaderStyle}"
+                                   Text="REQUEST" />
 
                         <ComboBox x:Name="EnvironmentPicker"
                                   Grid.Column="1"
                                   Margin="12,0,0,0"
                                   Padding="8,2"
                                   FontSize="12"
-                                  Visibility="Collapsed"
-                                  SelectionChanged="OnEnvironmentSelected" />
+                                  SelectionChanged="OnEnvironmentSelected"
+                                  Visibility="Collapsed" />
                     </Grid>
 
                     <Border Style="{StaticResource PaneBorderStyle}">
                         <avalon:TextEditor x:Name="RequestPane"
-                                           Style="{StaticResource PaneEditorStyle}"
-                                           ShowLineNumbers="True" />
+                                           ShowLineNumbers="True"
+                                           Style="{StaticResource PaneEditorStyle}" />
                     </Border>
                 </DockPanel>
 
@@ -131,23 +496,40 @@
                     <Grid DockPanel.Dock="Top" Margin="2,0,0,6">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
 
                         <TextBlock Grid.Column="0"
-                                   VerticalAlignment="Center"
-                                   FontSize="12"
-                                   Opacity="0.6"
+                                   Style="{StaticResource PaneHeaderStyle}"
                                    Text="RESPONSE" />
 
+                        <!--
+                            The status, coloured by class. It is the first thing anybody
+                            looks for after a send and it used to be the third field of a
+                            grey run-on line in the status bar. Colours come from
+                            StatusPalette, which holds them to the same contrast floor as
+                            everything else on this surface.
+                        -->
+                        <Border x:Name="StatusPill"
+                                Grid.Column="1"
+                                Margin="10,0,0,0"
+                                Style="{StaticResource StatusPillStyle}"
+                                Visibility="Collapsed">
+                            <TextBlock x:Name="StatusPillText"
+                                       FontFamily="Cascadia Code, Consolas, Courier New"
+                                       FontSize="11"
+                                       FontWeight="Bold" />
+                        </Border>
+
                         <ComboBox x:Name="ExchangePicker"
-                                  Grid.Column="1"
+                                  Grid.Column="2"
                                   Margin="12,0,0,0"
                                   Padding="8,2"
                                   HorizontalAlignment="Left"
                                   FontSize="12"
-                                  Visibility="Collapsed"
-                                  SelectionChanged="OnExchangeSelected" />
+                                  SelectionChanged="OnExchangeSelected"
+                                  Visibility="Collapsed" />
                     </Grid>
 
                     <Border Style="{StaticResource PaneBorderStyle}">
@@ -158,11 +540,11 @@
                                 a URL in a debugging tool exists to be copied.
                             -->
                             <TextBox x:Name="RequestLine"
-                                     DockPanel.Dock="Top"
                                      Margin="10,10,10,0"
                                      Padding="0"
                                      Background="Transparent"
                                      BorderThickness="0"
+                                     DockPanel.Dock="Top"
                                      FontFamily="Cascadia Code, Consolas, Courier New"
                                      FontSize="12"
                                      Foreground="{DynamicResource TextFillColorSecondaryBrush}"
@@ -176,23 +558,23 @@
                                 below the fold on every send.
                             -->
                             <Expander x:Name="HeadersExpander"
-                                      DockPanel.Dock="Top"
                                       Margin="10,8,10,0"
+                                      DockPanel.Dock="Top"
                                       FontSize="12"
                                       Visibility="Collapsed">
                                 <TextBox x:Name="HeadersText"
-                                         Margin="0,6,0,0"
                                          MaxHeight="180"
+                                         Margin="0,6,0,0"
                                          Padding="0"
                                          Background="Transparent"
                                          BorderThickness="0"
                                          FontFamily="Cascadia Code, Consolas, Courier New"
                                          FontSize="12"
                                          Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                         HorizontalScrollBarVisibility="Auto"
                                          IsReadOnly="True"
                                          TextWrapping="NoWrap"
-                                         VerticalScrollBarVisibility="Auto"
-                                         HorizontalScrollBarVisibility="Auto" />
+                                         VerticalScrollBarVisibility="Auto" />
                             </Expander>
 
                             <!--
@@ -203,8 +585,8 @@
                                 document that is mostly not the thing being transformed.
                             -->
                             <avalon:TextEditor x:Name="ResponsePane"
-                                               Style="{StaticResource PaneEditorStyle}"
-                                               IsReadOnly="True" />
+                                               IsReadOnly="True"
+                                               Style="{StaticResource PaneEditorStyle}" />
                         </DockPanel>
                     </Border>
                 </DockPanel>
@@ -218,10 +600,10 @@
             a priority order, and the fill child's arranged width does not depend on its
             own content, which is what makes it stable rather than merely better.
         -->
-        <DockPanel Grid.Row="2" Margin="14,0,14,10" LastChildFill="True">
+        <DockPanel Grid.Row="3" Margin="14,0,14,10" LastChildFill="True">
             <TextBlock x:Name="StatusRight"
-                       DockPanel.Dock="Right"
                        Margin="12,0,0,0"
+                       DockPanel.Dock="Right"
                        FontSize="12"
                        Opacity="0.5" />
             <TextBlock x:Name="StatusLeft"
@@ -229,6 +611,56 @@
                        Opacity="0.6"
                        TextTrimming="CharacterEllipsis" />
         </DockPanel>
+
+        <!--
+            The one thing creating a collection needs that a rail cannot express: a name.
+            An overlay rather than a dialog window, for the same reasons the settings panel
+            is one - no second set of chrome, no second theme to keep in step, and Escape
+            closes it the way Escape closes everything else here.
+        -->
+        <Grid x:Name="NamePromptOverlay"
+              Grid.Row="0"
+              Grid.RowSpan="4"
+              Background="{StaticResource OverlayScrimBrush}"
+              Visibility="Collapsed">
+            <Border x:Name="NamePromptCard"
+                    Width="400"
+                    Padding="24"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Style="{StaticResource DialogCardStyle}">
+                <StackPanel>
+                    <TextBlock x:Name="NamePromptTitle"
+                               Margin="0,0,0,4"
+                               FontSize="18"
+                               FontWeight="SemiBold" />
+                    <TextBlock x:Name="NamePromptHint" Style="{StaticResource SettingsHintStyle}" />
+
+                    <TextBox x:Name="NamePromptBox"
+                             Margin="0,16,0,0"
+                             KeyDown="OnNamePromptKey"
+                             MaxLength="200" />
+
+                    <TextBlock x:Name="NamePromptError"
+                               Margin="0,8,0,0"
+                               FontSize="11"
+                               Foreground="#F48771"
+                               TextWrapping="Wrap"
+                               Visibility="Collapsed" />
+
+                    <StackPanel Margin="0,20,0,0"
+                                HorizontalAlignment="Right"
+                                Orientation="Horizontal">
+                        <ui:Button Margin="0,0,8,0"
+                                   Click="OnNamePromptCancel"
+                                   Content="Cancel" />
+                        <ui:Button Appearance="Primary"
+                                   Click="OnNamePromptAccept"
+                                   Content="Create" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </Grid>
 
         <!--
             Settings, as an overlay over the whole window rather than a second Window.
@@ -241,100 +673,117 @@
         -->
         <Grid x:Name="SettingsOverlay"
               Grid.Row="0"
-              Grid.RowSpan="3"
-              Background="#B0000000"
+              Grid.RowSpan="4"
+              Background="{StaticResource OverlayScrimBrush}"
               Visibility="Collapsed">
-            <Border Width="440"
+            <Border x:Name="SettingsCard"
+                    Width="440"
                     MaxHeight="640"
                     Padding="24"
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center"
-                    Style="{StaticResource PaneBorderStyle}">
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <StackPanel>
-                        <TextBlock Margin="0,0,0,4"
-                                   FontSize="20"
-                                   FontWeight="SemiBold"
-                                   Text="Settings" />
-                        <TextBlock x:Name="SettingsPath"
-                                   Margin="0,0,0,10"
-                                   FontSize="11"
-                                   Opacity="0.5"
-                                   TextTrimming="CharacterEllipsis" />
+                    Style="{StaticResource DialogCardStyle}">
+                <!--
+                    DockPanel so the heading and the Close button are outside the scroll
+                    region. They were inside it, which put Close below the fold on a 640 px
+                    card — a modal panel whose only visible way out was a chord. Found by
+                    looking at it; nothing could have asserted it.
+                -->
+                <DockPanel>
+                    <TextBlock Margin="0,0,0,4"
+                               DockPanel.Dock="Top"
+                               FontSize="20"
+                               FontWeight="SemiBold"
+                               Text="Settings" />
+                    <TextBlock x:Name="SettingsPath"
+                               Margin="0,0,0,10"
+                               DockPanel.Dock="Top"
+                               FontSize="11"
+                               Opacity="0.5"
+                               TextTrimming="CharacterEllipsis" />
 
-                        <TextBlock Style="{StaticResource SettingsLabelStyle}" Text="Request timeout (seconds)" />
-                        <ui:NumberBox x:Name="TimeoutBox"
-                                      MaxDecimalPlaces="0"
-                                      Maximum="3600"
-                                      Minimum="1"
-                                      ValueChanged="OnSettingChanged" />
+                    <ui:Button Margin="0,20,0,0"
+                               HorizontalAlignment="Right"
+                               Appearance="Primary"
+                               Click="OnCloseSettings"
+                               Content="Close"
+                               DockPanel.Dock="Bottom" />
 
-                        <TextBlock Style="{StaticResource SettingsLabelStyle}" Text="Largest response held (MB)" />
-                        <ui:NumberBox x:Name="BodyCapBox"
-                                      MaxDecimalPlaces="0"
-                                      Maximum="512"
-                                      Minimum="1"
-                                      ValueChanged="OnSettingChanged" />
-
-                        <TextBlock Style="{StaticResource SettingsLabelStyle}" Text="Redirects followed" />
-                        <ui:NumberBox x:Name="RedirectsBox"
-                                      MaxDecimalPlaces="0"
-                                      Maximum="20"
-                                      Minimum="0"
-                                      ValueChanged="OnSettingChanged" />
-
-                        <TextBlock Style="{StaticResource SettingsLabelStyle}" Text="Cookies" />
-                        <ui:ToggleSwitch x:Name="CookiesToggle"
-                                         Checked="OnSettingToggled"
-                                         Content="Store and replay cookies"
-                                         Unchecked="OnSettingToggled" />
-                        <TextBlock Style="{StaticResource SettingsHintStyle}"
-                                   Text="One jar per environment, in memory only — nothing is written to disk." />
-
-                        <TextBlock Style="{StaticResource SettingsLabelStyle}" Text="History" />
-                        <ui:ToggleSwitch x:Name="HistoryToggle"
-                                         Checked="OnSettingToggled"
-                                         Content="Record requests locally"
-                                         Unchecked="OnSettingToggled" />
-                        <TextBlock Style="{StaticResource SettingsHintStyle}"
-                                   Text="Credentials are removed before anything is written, and no body is stored at all. Ctrl+H shows it." />
-
-                        <TextBlock Style="{StaticResource SettingsLabelStyle}" Text="History entries kept" />
-                        <ui:NumberBox x:Name="HistoryEntriesBox"
-                                      MaxDecimalPlaces="0"
-                                      Maximum="10000"
-                                      Minimum="10"
-                                      ValueChanged="OnSettingChanged" />
-
-                        <StackPanel Margin="0,22,0,0" Orientation="Horizontal">
-                            <ui:Button Margin="0,0,8,0"
-                                       Click="OnShowCookies"
-                                       Content="Show cookies" />
-                            <ui:Button Margin="0,0,8,0"
-                                       Click="OnClearCookies"
-                                       Content="Clear cookies" />
-                            <ui:Button Click="OnClearHistory" Content="Clear history" />
-                        </StackPanel>
-
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
                         <!--
-                            Stated rather than offered. Sling.md §5.3 allows a TLS bypass
-                            only per request and only with loud indication, so there is no
-                            global switch here to find — and saying why is better than
-                            leaving someone to hunt for one.
+                            The right margin is the scrollbar's lane. WPF-UI draws it inside
+                            the viewport, so without this it sits on top of the number boxes
+                            and clips the hint text under them.
                         -->
-                        <TextBlock Margin="0,20,0,0"
-                                   FontSize="11"
-                                   Opacity="0.5"
-                                   Text="Certificate validation is always on and has no setting. A global bypass gets switched on once and left on."
-                                   TextWrapping="Wrap" />
+                        <StackPanel Margin="0,0,14,0">
+                            <TextBlock Style="{StaticResource SettingsLabelStyle}" Text="Request timeout (seconds)" />
+                            <ui:NumberBox x:Name="TimeoutBox"
+                                          MaxDecimalPlaces="0"
+                                          Maximum="3600"
+                                          Minimum="1"
+                                          ValueChanged="OnSettingChanged" />
 
-                        <ui:Button Margin="0,20,0,0"
-                                   HorizontalAlignment="Right"
-                                   Appearance="Primary"
-                                   Click="OnCloseSettings"
-                                   Content="Close" />
-                    </StackPanel>
-                </ScrollViewer>
+                            <TextBlock Style="{StaticResource SettingsLabelStyle}" Text="Largest response held (MB)" />
+                            <ui:NumberBox x:Name="BodyCapBox"
+                                          MaxDecimalPlaces="0"
+                                          Maximum="512"
+                                          Minimum="1"
+                                          ValueChanged="OnSettingChanged" />
+
+                            <TextBlock Style="{StaticResource SettingsLabelStyle}" Text="Redirects followed" />
+                            <ui:NumberBox x:Name="RedirectsBox"
+                                          MaxDecimalPlaces="0"
+                                          Maximum="20"
+                                          Minimum="0"
+                                          ValueChanged="OnSettingChanged" />
+
+                            <TextBlock Style="{StaticResource SettingsLabelStyle}" Text="Cookies" />
+                            <ui:ToggleSwitch x:Name="CookiesToggle"
+                                             Checked="OnSettingToggled"
+                                             Content="Store and replay cookies"
+                                             Unchecked="OnSettingToggled" />
+                            <TextBlock Style="{StaticResource SettingsHintStyle}"
+                                       Text="One jar per environment, in memory only — nothing is written to disk." />
+
+                            <TextBlock Style="{StaticResource SettingsLabelStyle}" Text="History" />
+                            <ui:ToggleSwitch x:Name="HistoryToggle"
+                                             Checked="OnSettingToggled"
+                                             Content="Record requests locally"
+                                             Unchecked="OnSettingToggled" />
+                            <TextBlock Style="{StaticResource SettingsHintStyle}"
+                                       Text="Credentials are removed before anything is written, and no body is stored at all. Ctrl+H shows it." />
+
+                            <TextBlock Style="{StaticResource SettingsLabelStyle}" Text="History entries kept" />
+                            <ui:NumberBox x:Name="HistoryEntriesBox"
+                                          MaxDecimalPlaces="0"
+                                          Maximum="10000"
+                                          Minimum="10"
+                                          ValueChanged="OnSettingChanged" />
+
+                            <StackPanel Margin="0,22,0,0" Orientation="Horizontal">
+                                <ui:Button Margin="0,0,8,0"
+                                           Click="OnShowCookies"
+                                           Content="Show cookies" />
+                                <ui:Button Margin="0,0,8,0"
+                                           Click="OnClearCookies"
+                                           Content="Clear cookies" />
+                                <ui:Button Click="OnClearHistory" Content="Clear history" />
+                            </StackPanel>
+
+                            <!--
+                                Stated rather than offered. Sling.md §5.3 allows a TLS bypass
+                                only per request and only with loud indication, so there is no
+                                global switch here to find — and saying why is better than
+                                leaving someone to hunt for one.
+                            -->
+                            <TextBlock Margin="0,20,0,0"
+                                       FontSize="11"
+                                       Opacity="0.5"
+                                       Text="Certificate validation is always on and has no setting. A global bypass gets switched on once and left on."
+                                       TextWrapping="Wrap" />
+                        </StackPanel>
+                    </ScrollViewer>
+                </DockPanel>
             </Border>
         </Grid>
     </Grid>

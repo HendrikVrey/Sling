@@ -80,6 +80,10 @@ public partial class MainWindow : FluentWindow
         // should be asked whether to save text they did not write.
         InitializeWorkspace();
 
+        // Last: the command bar reads the document and the dirty flag, both of which the
+        // workspace has just settled.
+        InitializeChrome();
+
         ShowMessage("Nothing sent yet.");
     }
 
@@ -94,6 +98,22 @@ public partial class MainWindow : FluentWindow
     protected override void OnPreviewKeyDown(KeyEventArgs e)
     {
         ArgumentNullException.ThrowIfNull(e);
+
+        // The name prompt is modal in intent, so it has to be modal in fact: while it is up
+        // it swallows every chord below. Without this, Ctrl+O behind the scrim would open a
+        // file dialog on top of a prompt whose task nothing would ever complete.
+        if (NamePromptIsOpen)
+        {
+            if (e.Key == Key.Escape)
+            {
+                e.Handled = true;
+                CloseNamePrompt(null);
+                return;
+            }
+
+            base.OnPreviewKeyDown(e);
+            return;
+        }
 
         // IsRepeat: holding the chord down would otherwise queue a send per auto-repeat
         // tick, at roughly 30 Hz, against whatever server the caret happens to be on.
@@ -152,8 +172,8 @@ public partial class MainWindow : FluentWindow
     }
 
     /// <summary>
-    /// The chords that show something rather than change something: settings, and the
-    /// local history.
+    /// The chords that show something rather than change something: settings, the local
+    /// history, and the collections rail.
     /// </summary>
     private bool TryHandleViewKey(KeyEventArgs e)
     {
@@ -181,6 +201,10 @@ public partial class MainWindow : FluentWindow
                 RunGuarded(ShowHistoryAsync);
                 return true;
 
+            case Key.B:
+                ToggleRail();
+                return true;
+
             default:
                 return false;
         }
@@ -196,6 +220,22 @@ public partial class MainWindow : FluentWindow
         _inFlight?.Cancel();
         _runner.Dispose();
         _syntax?.Dispose();
+
+        // A DispatcherTimer is rooted by the dispatcher, not by this window, so one left
+        // running keeps the window alive and ticks into controls that are gone.
+        _requestRefresh.Stop();
+        _requestRefresh.Tick -= OnRequestRefreshTick;
+
+        // The caret belongs to the editor's TextArea, not to this window, so the handler is
+        // not collected with it. Two things listen to it — the rail's highlight and the
+        // command bar's send target — and both have to come off.
+        RequestPane.TextArea.Caret.PositionChanged -= OnCaretMoved;
+        RemoveChromeHandlers();
+
+        // Anything still awaiting the prompt gets an answer rather than a task that never
+        // completes — the continuation is a command that would otherwise sit on the heap
+        // holding the closed window.
+        CloseNamePrompt(null);
 
         // The pasting handler is attached to a control rather than to this window, so it
         // is not collected with the window on its own.
@@ -332,6 +372,17 @@ public partial class MainWindow : FluentWindow
         using var cancellation = new CancellationTokenSource();
         _inFlight = cancellation;
 
+        // The Send button is Cancel for as long as this token lives, so it is refreshed
+        // wherever the token changes rather than at the call sites — a send started from the
+        // keyboard has to change the button too.
+        UpdateToolbar();
+
+        // The pill describes the response in the pane, and there is about to not be one.
+        // Leaving the last send's status up while the next is in flight reads as an answer
+        // to the question just asked — found by watching a slow request run under a 500 the
+        // previous one had produced.
+        HideStatusPill();
+
         StatusLeft.Text = sendingMessage;
         StatusRight.Text = string.Empty;
 
@@ -382,6 +433,7 @@ public partial class MainWindow : FluentWindow
         finally
         {
             _inFlight = null;
+            UpdateToolbar();
         }
     }
 

@@ -203,6 +203,8 @@ public partial class MainWindow
 
         SetBody(body, analysis);
 
+        ShowStatusPill(response);
+
         StatusLeft.Text = $"{request.Method} {request.Url}";
         StatusRight.Text = ResponseRenderer.Summarize(response);
     }
@@ -230,6 +232,7 @@ public partial class MainWindow
 
         RequestLine.Visibility = Visibility.Collapsed;
         HeadersExpander.Visibility = Visibility.Collapsed;
+        HideStatusPill();
 
         SetBody(text, BodyAnalysis.None);
     }

@@ -60,7 +60,7 @@ public sealed class WorkspaceFileSource : IRequestFileSource
         // A workspace that does not contain the document is not this document's boundary.
         // It happens whenever a file is opened from outside the open folder, and treating
         // it as the root would widen the boundary to a tree the document is not in.
-        if (!IsWithin(_root, _documentDirectory))
+        if (!WorkspacePaths.IsWithin(_root, _documentDirectory))
         {
             _root = _documentDirectory;
         }
@@ -108,7 +108,7 @@ public sealed class WorkspaceFileSource : IRequestFileSource
             return false;
         }
 
-        if (!IsWithin(_root, resolved))
+        if (!WorkspacePaths.IsWithin(_root, resolved))
         {
             reason = $"it is outside '{_root}'. An import may only read files inside the workspace";
             return false;
@@ -216,50 +216,12 @@ public sealed class WorkspaceFileSource : IRequestFileSource
     private bool IsReachedWithoutLeaving(FileInfo file, [NotNullWhen(false)] out string? reason)
     {
         if (file.ResolveLinkTarget(returnFinalTarget: true) is { } target
-            && !IsWithin(_root, Path.GetFullPath(target.FullName)))
+            && !WorkspacePaths.IsWithin(_root, Path.GetFullPath(target.FullName)))
         {
             reason = "it is a link to a file outside the workspace";
             return false;
         }
 
-        for (var directory = file.Directory;
-             directory is not null && !IsSamePath(directory.FullName, _root);
-             directory = directory.Parent)
-        {
-            if (directory.ResolveLinkTarget(returnFinalTarget: true) is { } hop
-                && !IsWithin(_root, Path.GetFullPath(hop.FullName)))
-            {
-                reason = $"it is reached through '{directory.Name}', which is a link that leaves "
-                    + "the workspace";
-                return false;
-            }
-        }
-
-        reason = null;
-        return true;
-    }
-
-    private static bool IsSamePath(string left, string right) =>
-        string.Equals(
-            left.TrimEnd(Path.DirectorySeparatorChar),
-            right.TrimEnd(Path.DirectorySeparatorChar),
-            StringComparison.OrdinalIgnoreCase);
-
-    /// <summary>
-    /// Whether <paramref name="candidate"/> is <paramref name="root"/> or sits beneath it.
-    /// </summary>
-    /// <remarks>
-    /// Compared through <see cref="Path.GetRelativePath"/> rather than by string prefix:
-    /// a prefix test says <c>C:\work\api-secrets</c> is inside <c>C:\work\api</c>, which
-    /// is the classic way this check is got wrong. Case-insensitive because Windows file
-    /// names are.
-    /// </remarks>
-    private static bool IsWithin(string root, string candidate)
-    {
-        var relative = Path.GetRelativePath(root, candidate);
-
-        return !Path.IsPathRooted(relative)
-            && !relative.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal)
-            && !string.Equals(relative, "..", StringComparison.Ordinal);
+        return WorkspacePaths.DirectoryChainStaysWithin(file.Directory, _root, out reason);
     }
 }
