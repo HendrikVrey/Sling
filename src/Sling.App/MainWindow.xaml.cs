@@ -23,9 +23,10 @@ public partial class MainWindow : FluentWindow
 {
     /// <summary>
     /// Seeded into the request pane on first run so the window is never empty and the
-    /// <c>.http</c> dialect is visible immediately. Replaced by a real document store in
-    /// M3; it is a literal here rather than a file on disk because there is no
-    /// persistence layer to load it from yet.
+    /// <c>.http</c> dialect is visible immediately - unless Sling was launched with a
+    /// file, in which case that file is the document and this would only flicker past.
+    /// Replaced by a real document store in M3; it is a literal here rather than a file
+    /// on disk because there is no persistence layer to load it from yet.
     /// </summary>
     /// <remarks>
     /// Deliberately a chain against a public API that needs no credentials: pressing
@@ -59,7 +60,13 @@ public partial class MainWindow : FluentWindow
     {
         InitializeComponent();
 
-        RequestPane.Text = SampleRequest;
+        // Not when a file was named on the command line: that file is about to replace
+        // this, and the sample would show for the frame in between - a document nobody
+        // asked for, in a window opened by double-clicking a different one.
+        if (App.StartupFile is null)
+        {
+            RequestPane.Text = SampleRequest;
+        }
 
         // The hint first, so anything the initialisers below have to say survives. It used
         // to be assigned at the end, which meant a settings file that would not parse

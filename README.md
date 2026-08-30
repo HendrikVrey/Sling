@@ -8,6 +8,22 @@
   <b>An editor-first HTTP client for Windows. The request is a document, not a form.</b>
 </p>
 
+<p align="center">
+  <a href="#download">Download</a> ·
+  <a href="#why">Why</a> ·
+  <a href="#keys">Keys</a> ·
+  <a href="#security">Security</a> ·
+  <a href="#building">Building</a> ·
+  <a href="#licence">Licence</a>
+</p>
+
+<p align="center">
+  <img alt="Windows 10 and 11" src="https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4">
+  <img alt=".NET 10" src="https://img.shields.io/badge/.NET-10-512BD4">
+  <img alt="Licence: source-available" src="https://img.shields.io/badge/licence-source--available-B8860B">
+  <img alt="No telemetry" src="https://img.shields.io/badge/telemetry-none-2E7D32">
+</p>
+
 ```http
 @base = https://api.example.com
 
@@ -26,6 +42,59 @@ That is the whole interface. **Send** - or `Ctrl+Enter` - sends the request unde
 caret, and the command bar says which one that is before you press it; the response opens
 beside it in a real editor buffer, highlighted, foldable, searchable, with its status
 colour-coded beside the pane.
+
+---
+
+## Download
+
+**[Download Sling-Setup.exe](https://github.com/HendrikVrey/Sling/releases/latest/download/Sling-Setup.exe)**
+- one installer carrying both `win-x64` and `win-arm64`.
+
+That link is permanent and serves the newest **versioned** release. There is a second,
+equally permanent link for the newest build of `master`:
+
+**[Sling-Setup.exe from the latest build of `master`](https://github.com/HendrikVrey/Sling/releases/download/latest/Sling-Setup.exe)**
+
+Every merge rebuilds it, and nothing is published unless the test suite passes, so a
+broken commit leaves the previous installer in place rather than replacing it. The version
+it reports looks like `1.0.0-dev.47`, which is the base version plus the build that
+produced it. GitHub's `/releases/latest/` deliberately skips prereleases, which is what
+keeps the two links apart and both of them permanent.
+
+The installer is **per-user**. It asks for no administrator rights and shows no UAC
+prompt, it installs to `%LOCALAPPDATA%\Programs\Sling`, and everything it writes to the
+registry is under `HKEY_CURRENT_USER`. No other account on the machine is touched, and
+there is no service and nothing that runs at startup.
+
+It asks two questions, both unticked by default:
+
+- **Make Sling the default for `.http` and `.rest`.** Left unticked because Visual Studio
+  2022, Rider and the VS Code REST Client all read these files, and one of them very
+  likely holds the default on your machine already. If Windows has a user-chosen default
+  recorded, it keeps it and you finish the change in Settings → Apps → Default apps; that
+  is Windows protecting a choice you made, not the installer failing.
+- **A desktop shortcut.**
+
+Installing Sling puts it in Windows' own **"Open with"** submenu for `.http` and `.rest`
+whether or not you tick either box, and double-clicking a request file opens that file
+with its folder as the workspace - so the environments beside it load and the collections
+rail fills in. Uninstalling puts back whatever held the association before, and leaves
+every other application's entry in the "Open with" list alone.
+
+There is deliberately no "Open with Sling" entry on every file in Explorer. Sling reads
+one format; an entry that would produce an unparseable document on any other file is
+noise.
+
+Windows SmartScreen will warn you the first time, because nothing here is code-signed.
+That is a real warning and worth treating as one: it means Windows cannot confirm who
+built this. Expect it to be **more insistent for an installer** than it is for a bare
+executable - SmartScreen weights installers more heavily. If that is not a trade you want
+to make, [build it yourself](#building) - the source is right here, and that is rather the
+point.
+
+There is no portable ZIP. Building it yourself is the no-install route.
+
+---
 
 ## Why
 
@@ -157,7 +226,9 @@ express becomes a comment saying what was dropped;
 [docs/curl-import.md](docs/curl-import.md) has the rules, including the two flags it
 deliberately refuses.
 
-Still to come: a release build (M5).
+**M5 - the release.** `Sling-Setup.exe` is built by CI on every merge to `master` and on
+every `v*` tag, and neither channel publishes unless the suite is green. See
+[Download](#download).
 
 The exact dialect Sling reads, and every place it differs from the VS Code REST Client,
 is written down in [docs/http-dialect.md](docs/http-dialect.md).
@@ -241,6 +312,31 @@ dotnet build Sling.slnx
 ```bash
 dotnet test Sling.slnx
 ```
+
+Running it from a build is the no-install route, and it is the answer to the SmartScreen
+warning above.
+
+### Building the installer
+
+Also needs [Inno Setup](https://jrsoftware.org/isinfo.php) on the `PATH`. Publish both
+architectures first - the script packs whichever one matches the machine it is installing
+on, so both have to exist:
+
+```bash
+dotnet publish src/Sling.App/Sling.App.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:PublishReadyToRun=true -p:Version=1.0.0 -o publish/win-x64
+```
+
+```bash
+dotnet publish src/Sling.App/Sling.App.csproj -c Release -r win-arm64 --self-contained true -p:PublishSingleFile=true -p:PublishReadyToRun=true -p:Version=1.0.0 -o publish/win-arm64
+```
+
+```bash
+iscc installer\Sling.iss /DAppVersion=1.0.0 /DNumericVersion=1.0.0
+```
+
+`Sling-Setup.exe` lands in `dist/`. `NumericVersion` is separate because Inno Setup's
+`VersionInfoVersion` must be strictly numeric, and a version like `1.0.0-dev.47` is not.
+[.github/workflows/release.yml](.github/workflows/release.yml) runs exactly these commands.
 
 ## Layout
 

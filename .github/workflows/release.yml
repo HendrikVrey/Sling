@@ -1,0 +1,272 @@
+name: Release
+
+# Builds Sling-Setup.exe and publishes it. Two channels, one pipeline, because the only
+# thing that differs between them is which release the artefact lands in.
+#
+#   push to master   ->  the rolling "latest" prerelease, force-replaced every time, so
+#                        the download link is always the newest build of master
+#   push of a v* tag ->  a stable, draft release at that version, kept for ever
+#
+# The two are addressed by different permanent URLs, and the difference is not arbitrary.
+# GitHub's /releases/latest/ deliberately skips prereleases, so it can never serve the
+# rolling build; the rolling build is reached through its fixed tag instead. That is what
+# lets both links be permanent and mean different things:
+#
+#   .../releases/download/latest/Sling-Setup.exe        newest build of master
+#   .../releases/latest/download/Sling-Setup.exe        newest versioned release
+#
+# Neither channel publishes anything unless the tests pass. A red suite leaves the
+# previous installer in place rather than replacing it with a broken one.
+#
+# There is no signing certificate, so Sling-Setup.exe is unsigned and SmartScreen will
+# warn about it - more insistently than it does for a bare executable, because it weights
+# installers. The README says so plainly rather than leaving a user to discover it.
+on:
+  push:
+    branches:
+      - master
+    tags:
+      - "v*"
+    # Documentation-only pushes do not change the binary, and republishing an identical
+    # installer costs a download URL a needless gap while it is replaced.
+    #
+    # This affects the master channel only: GitHub evaluates path filters for branch
+    # pushes and skips them entirely for tag pushes, so a v* tag always releases no matter
+    # which files it happens to sit on top of. That is the behaviour wanted here, and it
+    # is written down because the opposite would be a silent no-release.
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - ".gitignore"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to build, without the leading v. Publishes a draft release."
+        required: true
+
+permissions:
+  contents: write
+  # Etch.Core comes from this account's private GitHub Packages feed. Read only: Sling
+  # publishes no packages of its own.
+  packages: read
+
+# Two merges in quick succession must not race to replace the same release. The older run
+# is cancelled rather than queued: its output would be stale the moment the newer one
+# finished.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  release:
+    # Windows, and not negotiable: Sling.App targets net10.0-windows with UseWPF, which
+    # does not build anywhere else.
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      # Everything channel-specific is decided here and nowhere else, so the rest of the
+      # pipeline is identical for a rolling build and for a tagged release.
+      - name: Decide the channel and the version
+        id: channel
+        shell: pwsh
+        # The manual input arrives through the environment rather than being pasted into
+        # the script text, where a value containing a quote would end the literal and run
+        # whatever followed.
+        env:
+          INPUT_VERSION: ${{ github.event.inputs.version }}
+        run: |
+          # Directory.Build.props is the single source of truth for the base version.
+          # Bumping it there is what moves the rolling version, so there is no second
+          # place to remember.
+          $props = Get-Content Directory.Build.props -Raw
+          if ($props -notmatch '<VersionPrefix>([^<]+)</VersionPrefix>') {
+            throw 'No <VersionPrefix> in Directory.Build.props.'
+          }
+          $base = $Matches[1].Trim()
+
+          if ("$env:GITHUB_REF" -like 'refs/tags/v*') {
+            $channel  = 'stable'
+            $version  = "$env:GITHUB_REF" -replace '^refs/tags/v', ''
+            $tag      = "v$version"
+            $title    = "Sling $version"
+            $pre      = 'false'
+            $draft    = 'true'
+          }
+          elseif ("$env:GITHUB_EVENT_NAME" -eq 'workflow_dispatch') {
+            $channel  = 'stable'
+            $version  = $env:INPUT_VERSION
+            $tag      = "v$version"
+            $title    = "Sling $version"
+            $pre      = 'false'
+            $draft    = 'true'
+          }
+          else {
+            # The rolling build. The run number makes it monotonic so Windows treats a
+            # newer build as an upgrade; the sha makes it traceable back to a commit from
+            # the Apps & features entry alone.
+            $channel  = 'latest'
+            $version  = "$base-dev.$env:GITHUB_RUN_NUMBER"
+            $tag      = 'latest'
+            $title    = "Sling $version (latest build of master)"
+            $pre      = 'true'
+            $draft    = 'false'
+          }
+
+          if (-not $version) { throw 'No version could be determined.' }
+
+          # Validate the WHOLE version, not just the numeric part below.
+          #
+          # $version is interpolated into `run:` script bodies further down, and a
+          # workflow expression is string-pasted before any shell sees it: the exact
+          # hazard the `env: INPUT_VERSION` above exists to avoid, reintroduced by every
+          # downstream use. Checking only the numeric prefix leaves everything after the
+          # first '-' unconstrained, so `1.0.0-x"; <command>; "` passes and reaches pwsh
+          # in a job holding contents:write.
+          #
+          # DO NOT write an empty expression here in order to name the syntax. GitHub
+          # parses expression delimiters everywhere in the file, comments inside a run:
+          # block included, and an empty one is a parse error that rejects the WHOLE
+          # workflow: the run shows up named after the file path, with zero jobs and no
+          # annotation saying why. Etch's copy of this file did exactly that on 0da1296.
+          #
+          # This is the one place the value is decided, so it is the one place worth
+          # guarding. The pattern admits a semver prerelease and build metadata and
+          # nothing else: no quotes, no semicolons, no whitespace and, importantly, no
+          # newline, which would otherwise be a GITHUB_OUTPUT injection in its own right.
+          if ($version -notmatch '^\d+(\.\d+){1,3}(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$') {
+            throw "Refusing to build version '$version': it is not a plain semantic version."
+          }
+
+          # Inno Setup's VersionInfoVersion must be strictly numeric (x.y.z[.w]), and
+          # neither a -dev suffix nor a v1.2.3-rc1 tag qualifies. Derived here for that one
+          # directive; everything else shows the full version.
+          $numeric = if ($channel -eq 'latest') { "$base.$env:GITHUB_RUN_NUMBER" }
+                     else { ($version -split '[-+]')[0] }
+
+          if ($numeric -notmatch '^\d+(\.\d+){1,3}$') {
+            throw "Cannot derive a numeric version from '$version'."
+          }
+
+          "channel=$channel"   >> $env:GITHUB_OUTPUT
+          "version=$version"   >> $env:GITHUB_OUTPUT
+          "numeric=$numeric"   >> $env:GITHUB_OUTPUT
+          "tag=$tag"           >> $env:GITHUB_OUTPUT
+          "title=$title"       >> $env:GITHUB_OUTPUT
+          "prerelease=$pre"    >> $env:GITHUB_OUTPUT
+          "draft=$draft"       >> $env:GITHUB_OUTPUT
+
+          Write-Host "channel=$channel version=$version numeric=$numeric tag=$tag"
+
+      # NuGet.config declares `etch-github` without credentials, because it is a committed
+      # file. They are supplied here instead, into the runner's own throwaway checkout.
+      #
+      # Which token: GITHUB_TOKEN is scoped to this repository, and Etch.Core is published
+      # from the Etch repository, so it only works once that package's "Manage Actions
+      # access" grants this repository Read. If that has not been done, set an
+      # ETCH_PACKAGES_TOKEN secret to a classic PAT with read:packages instead - GitHub
+      # Packages does not accept fine-grained tokens, which is worth knowing before
+      # minting one. This mirrors ci.yml; the two must not drift.
+      - name: Authenticate to the Etch package feed
+        run: >
+          dotnet nuget update source etch-github
+          --configfile NuGet.config
+          --username ${{ github.repository_owner }}
+          --password ${{ secrets.ETCH_PACKAGES_TOKEN || secrets.GITHUB_TOKEN }}
+          --store-password-in-clear-text
+
+      # Explicit, so a restore failure is reported as one rather than folded into a
+      # confusing build error two steps later.
+      - name: Restore
+        run: dotnet restore Sling.slnx
+
+      # The gate. Nothing below this runs if the suite is red, so a failing merge leaves
+      # the existing download in place instead of replacing it.
+      - name: Build and test
+        run: |
+          dotnet build Sling.slnx -c Release --no-restore
+          dotnet test Sling.slnx -c Release --no-build
+
+      # Self-contained, single-file, ReadyToRun. Compression and trimming are off, each
+      # for a reason written down in Sling.App.csproj - compression costs startup time on
+      # every launch, and WPF resolves types by reflection.
+      - name: Publish win-x64
+        run: >
+          dotnet publish src/Sling.App/Sling.App.csproj
+          -c Release -r win-x64 --self-contained true
+          -p:PublishSingleFile=true -p:PublishReadyToRun=true
+          -p:Version=${{ steps.channel.outputs.version }}
+          -o publish/win-x64
+
+      # Cross-publishing R2R for arm64 from an x64 runner is supported: the SDK runs
+      # crossgen2 for the target RID.
+      - name: Publish win-arm64
+        run: >
+          dotnet publish src/Sling.App/Sling.App.csproj
+          -c Release -r win-arm64 --self-contained true
+          -p:PublishSingleFile=true -p:PublishReadyToRun=true
+          -p:Version=${{ steps.channel.outputs.version }}
+          -o publish/win-arm64
+
+      # windows-latest currently ships Inno Setup already (it is in the 2025 image's
+      # toolset). This pins its presence rather than depending on that staying true, which
+      # is cheap insurance against a runner-image change breaking a release.
+      - name: Install Inno Setup
+        run: choco install innosetup -y --no-progress
+
+      - name: Build the installer
+        run: >
+          iscc installer\Sling.iss
+          /DAppVersion=${{ steps.channel.outputs.version }}
+          /DNumericVersion=${{ steps.channel.outputs.numeric }}
+
+      # The rolling build replaces its release outright rather than accumulating assets on
+      # it. gh has no atomic "move a tag and replace its assets", so the old release and
+      # tag are deleted and recreated at this commit - which leaves a few seconds where
+      # the download 404s. Acceptable for a rolling build; it is the reason stable releases
+      # are a separate, permanent tag.
+      - name: Replace the rolling release
+        if: steps.channel.outputs.channel == 'latest'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view latest 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            gh release delete latest --yes --cleanup-tag
+            if ($LASTEXITCODE -ne 0) { throw 'Could not remove the previous latest release.' }
+          }
+
+          $notes = @"
+          The newest build of ``master``, rebuilt on every merge. Unsigned, so SmartScreen
+          will warn; see the README.
+
+          Built from ``$env:GITHUB_SHA``.
+
+          For a fixed, reproducible build, use a versioned release instead.
+          "@
+
+          gh release create latest dist/Sling-Setup.exe `
+            --prerelease `
+            --target "$env:GITHUB_SHA" `
+            --title "${{ steps.channel.outputs.title }}" `
+            --notes "$notes"
+          if ($LASTEXITCODE -ne 0) { throw 'Could not publish the latest release.' }
+
+      - name: Publish the versioned release
+        if: steps.channel.outputs.channel == 'stable'
+        uses: softprops/action-gh-release@v2
+        with:
+          # Explicit, because the action defaults tag_name to github.ref - which on the
+          # workflow_dispatch path is a branch, and would publish a release against a tag
+          # named after the branch while the title claimed a version.
+          tag_name: ${{ steps.channel.outputs.tag }}
+          name: ${{ steps.channel.outputs.title }}
+          draft: ${{ steps.channel.outputs.draft }}
+          prerelease: ${{ steps.channel.outputs.prerelease }}
+          files: dist/Sling-Setup.exe

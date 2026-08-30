@@ -5,6 +5,13 @@ artifacts/
 TestResults/
 *.binlog
 
+## Release output. `publish/` is what the installer packs; `dist/` is where iscc puts
+## Sling-Setup.exe. Both are produced by the release workflow and by the commands in the
+## README, and neither belongs in history - the licence is the reason it matters here and
+## not only tidiness, since a committed build is a redistributed binary.
+publish/
+dist/
+
 ## Visual Studio / Rider / VS Code
 .vs/
 .idea/

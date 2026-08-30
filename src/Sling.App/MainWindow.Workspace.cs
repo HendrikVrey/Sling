@@ -44,6 +44,9 @@ public partial class MainWindow
     /// <summary>The file in the request pane, or null while it is an unsaved buffer.</summary>
     private string? _documentPath;
 
+    /// <summary>The file Sling was launched with, until it has been opened.</summary>
+    private string? _pendingStartupFile;
+
     private bool _dirty;
 
     /// <summary>True while the pane is being filled from disk, so it is not marked dirty.</summary>
@@ -78,6 +81,73 @@ public partial class MainWindow
         Activated += OnWindowActivated;
 
         UpdateTitle();
+
+        // Deferred to Loaded rather than done here. The constructor cannot await, and
+        // reading a file on the way to the first frame would hold the window back for as
+        // long as the disk takes; by Loaded there is a dispatcher running, which is what
+        // RunGuarded needs in order to report a failure into the status bar.
+        _pendingStartupFile = App.StartupFile;
+        if (_pendingStartupFile is not null)
+        {
+            Loaded += OnLoadedOpenStartupDocument;
+        }
+    }
+
+    /// <summary>Opens the command-line file once, on the first load.</summary>
+    private void OnLoadedOpenStartupDocument(object sender, RoutedEventArgs e)
+    {
+        // Unsubscribed first. Loaded fires again whenever the window is re-attached to a
+        // visual tree, and re-opening the file then would discard whatever had been typed
+        // since - silently, because this path deliberately does not ask about unsaved work.
+        Loaded -= OnLoadedOpenStartupDocument;
+
+        if (_pendingStartupFile is not { } path)
+        {
+            return;
+        }
+
+        _pendingStartupFile = null;
+        RunGuarded(() => OpenStartupDocumentAsync(path));
+    }
+
+    /// <summary>
+    /// Opens the file Sling was launched with, and adopts its folder as the workspace.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The folder matters as much as the file. A <c>.http</c> document resolves
+    /// <c>{{variables}}</c> from the environment files beside it and reads
+    /// <c>&lt; ./body.json</c> imports relative to the workspace root, so opening the
+    /// file on its own would give a document that parses and then fails to send.
+    /// Explorer hands over one path; the directory it came from is the rest of the answer.
+    /// </para>
+    /// <para>
+    /// Folder before file, matching <see cref="OpenFolderAsync"/>: setting the workspace
+    /// rebuilds the rail and reloads the environments, so doing it afterwards would clear
+    /// the selection the load had just made.
+    /// </para>
+    /// <para>
+    /// No unsaved-work question, deliberately. This runs on the way to the first frame,
+    /// against a buffer holding either the sample or nothing at all, so there is nothing
+    /// of the user's to discard and a prompt would be a question about their own click.
+    /// </para>
+    /// </remarks>
+    private async Task OpenStartupDocumentAsync(string path)
+    {
+        if (Path.GetDirectoryName(path) is { } directory)
+        {
+            try
+            {
+                SetWorkspace(Workspace.Open(directory));
+            }
+            catch (DirectoryNotFoundException)
+            {
+                // A file whose parent cannot be enumerated - a race, or a link Sling is not
+                // allowed to walk. The document is still worth opening on its own.
+            }
+        }
+
+        await LoadDocumentAsync(path).ConfigureAwait(true);
     }
 
     /// <summary>
