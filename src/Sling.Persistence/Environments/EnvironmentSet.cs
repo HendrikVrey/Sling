@@ -177,6 +177,16 @@ public sealed class EnvironmentValues : IVariableSource
     /// <summary>How many variables are in force.</summary>
     public int Count => _values.Count;
 
+    /// <summary>
+    /// Every name in force, for anything that has to offer them rather than look one up.
+    /// </summary>
+    /// <remarks>
+    /// Names and never values. The one caller is completion in the request pane, which needs
+    /// to say what could be typed and has no business knowing what any of it resolves to -
+    /// half of these come out of the secrets file.
+    /// </remarks>
+    public IReadOnlyList<string> VariableNames => [.. _values.Keys.OrderBy(n => n, StringComparer.OrdinalIgnoreCase)];
+
     public bool TryGet(string name, [NotNullWhen(true)] out string? value)
     {
         ArgumentNullException.ThrowIfNull(name);

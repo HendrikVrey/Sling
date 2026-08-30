@@ -128,6 +128,11 @@ public static class ResponseRenderer
     /// <param name="position">One-based, as shown.</param>
     /// <param name="request">The request as it was sent.</param>
     /// <param name="response">What came back.</param>
+    /// <param name="role">
+    /// Why the exchange happened. Anything Sling did on the user's behalf says so in the
+    /// label, because a tool that makes network calls nobody asked for has to show them as
+    /// calls nobody asked for - a row that reads like every other row is not showing them.
+    /// </param>
     /// <remarks>
     /// The request's <c>@name</c> when it has one, because that is the word the document
     /// itself uses and the word every chain reference is written against - seeing
@@ -139,7 +144,11 @@ public static class ResponseRenderer
     /// answer, and a label built inline in a code-behind is a label nothing can check.
     /// </para>
     /// </remarks>
-    public static string DescribeExchange(int position, ResolvedRequest request, ResponseSnapshot response)
+    public static string DescribeExchange(
+        int position,
+        ResolvedRequest request,
+        ResponseSnapshot response,
+        ExchangeRole role = ExchangeRole.Requested)
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(response);
@@ -147,10 +156,29 @@ public static class ResponseRenderer
         var index = position.ToString(CultureInfo.InvariantCulture);
         var status = response.StatusCode.ToString(CultureInfo.InvariantCulture);
 
-        return request.Name is { Length: > 0 } name
-            ? $"{index}.  {name}  ·  {status}"
-            : $"{index}.  {request.Method} {request.Url}  ·  {status}";
+        var subject = request.Name is { Length: > 0 } name
+            ? name
+            : $"{request.Method} {request.Url}";
+
+        return DescribeRole(role) is { } note
+            ? $"{index}.  {subject}  ({note})  ·  {status}"
+            : $"{index}.  {subject}  ·  {status}";
     }
+
+    /// <summary>
+    /// How a role is said in a picker row, or null for the one that needs no saying.
+    /// </summary>
+    /// <remarks>
+    /// Phrased from the user's side rather than the implementation's. "sent for you" is the
+    /// fact that matters about a chained dependency; "dependency" is what the code calls it.
+    /// </remarks>
+    public static string? DescribeRole(ExchangeRole role) => role switch
+    {
+        ExchangeRole.Dependency => "sent for you",
+        ExchangeRole.TokenRequest => "token request",
+        ExchangeRole.Retry => "retry after refresh",
+        _ => null,
+    };
 
     /// <summary>
     /// The body as the editor should hold it, and nothing else.

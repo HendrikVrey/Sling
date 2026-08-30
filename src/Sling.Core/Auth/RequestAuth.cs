@@ -124,6 +124,20 @@ public static class RequestAuth
     public static IReadOnlyList<string> ApiKeyHeaders { get; } =
         ["X-API-Key", "X-Api-Token", "Api-Key", "ApiKey", "X-Auth-Token"];
 
+    /// <summary>
+    /// Whether a header of this name is one Sling treats as carrying a credential.
+    /// </summary>
+    /// <remarks>
+    /// The same closed list <see cref="Describe"/> reads, asked as a question, so that the
+    /// resolver can mark a missing variable in one of these headers as probably a credential
+    /// without a second copy of the list. A rule written in two places will eventually
+    /// disagree.
+    /// </remarks>
+    public static bool CarriesCredential(string? headerName) =>
+        headerName is { Length: > 0 } name
+            && (name.Equals(AuthorizationHeader, StringComparison.OrdinalIgnoreCase)
+                || ApiKeyHeaders.Contains(name, StringComparer.OrdinalIgnoreCase));
+
     /// <summary>What auth <paramref name="block"/> declares.</summary>
     public static RequestAuthView Describe(RequestBlock block)
     {

@@ -33,6 +33,14 @@ public partial class MainWindow
 
     private readonly List<Exchange> _exchanges = [];
 
+    /// <summary>Which exchange the pane is showing, or -1 when it holds a message.</summary>
+    /// <remarks>
+    /// The picker's own selection cannot answer this: it is collapsed when there is only one
+    /// exchange, which is the overwhelmingly common case and the one anything reading the
+    /// pane cares about most.
+    /// </remarks>
+    private int _boundExchange = -1;
+
     private ResponseSyntax? _syntax;
 
     /// <summary>The find bars, one per pane, kept so the window's keymap can open them.</summary>
@@ -99,7 +107,13 @@ public partial class MainWindow
         _requestFind.MarkerBrush = marker;
 
         InstallResponseContextMenu();
+        InstallRequestContextMenu();
+        InstallChainAffordance();
     }
+
+    /// <summary>The exchange the pane is showing, or null when it holds a message.</summary>
+    private Exchange? SelectedExchange() =>
+        _boundExchange >= 0 && _boundExchange < _exchanges.Count ? _exchanges[_boundExchange] : null;
 
     /// <summary>Opens the find bar over whichever pane the user is working in.</summary>
     /// <remarks>
@@ -220,8 +234,11 @@ public partial class MainWindow
 
             for (var i = 0; i < _exchanges.Count; i++)
             {
-                ExchangePicker.Items.Add(
-                    ResponseRenderer.DescribeExchange(i + 1, _exchanges[i].Request, _exchanges[i].Response));
+                ExchangePicker.Items.Add(ResponseRenderer.DescribeExchange(
+                    i + 1,
+                    _exchanges[i].Request,
+                    _exchanges[i].Response,
+                    _exchanges[i].Role));
             }
 
             ExchangePicker.SelectedIndex = _exchanges.Count - 1;
@@ -253,6 +270,8 @@ public partial class MainWindow
         {
             return;
         }
+
+        _boundExchange = index;
 
         var (request, response) = (_exchanges[index].Request, _exchanges[index].Response);
 
@@ -299,6 +318,7 @@ public partial class MainWindow
         }
 
         _exchanges.Clear();
+        _boundExchange = -1;
         RebuildExchangePicker();
 
         RequestLine.Visibility = Visibility.Collapsed;

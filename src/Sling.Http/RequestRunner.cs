@@ -45,6 +45,9 @@ public sealed class RequestRunner : IDisposable
     /// </summary>
     private const int MaxResolutionPasses = 16;
 
+    /// <summary>The status that means the credential was refused rather than the request.</summary>
+    private const int Unauthorized = 401;
+
     private readonly RequestSender _sender;
     private readonly ResponseStore _responses = new();
     private readonly TokenCache _tokens = new();
@@ -129,6 +132,7 @@ public sealed class RequestRunner : IDisposable
             request,
             context with { Responses = _responses },
             state,
+            ExchangeRole.Requested,
             cancellationToken).ConfigureAwait(false);
 
         return new RunResult(state.Exchanges, state.Errors, state.Notes);
@@ -191,7 +195,8 @@ public sealed class RequestRunner : IDisposable
                 continue;
             }
 
-            await RunOneAsync(document, request, resolved, state, cancellationToken).ConfigureAwait(false);
+            await RunOneAsync(document, request, resolved, state, ExchangeRole.Requested, cancellationToken)
+                .ConfigureAwait(false);
         }
 
         return new RunResult(state.Exchanges, state.Errors, state.Notes);
@@ -222,11 +227,17 @@ public sealed class RequestRunner : IDisposable
         public HashSet<string> Sent { get; } = new(StringComparer.Ordinal);
     }
 
+    /// <param name="role">
+    /// Why this request is being sent. Carried down the chain rather than worked out at the
+    /// bottom, because "the user asked for this one" is something only the caller knows -
+    /// the same request block is the subject at the top and a dependency one level down.
+    /// </param>
     private async Task<bool> RunOneAsync(
         RequestDocument document,
         RequestBlock request,
         ResolutionContext context,
         RunState state,
+        ExchangeRole role,
         CancellationToken cancellationToken)
     {
         // Only a named request can be depended on, so only a named request can close a
@@ -255,7 +266,7 @@ public sealed class RequestRunner : IDisposable
 
                 if (resolution.Request is not null)
                 {
-                    return await SendAsync(resolution.Request, request, state, cancellationToken)
+                    return await SendAsync(resolution.Request, request, state, role, cancellationToken)
                         .ConfigureAwait(false);
                 }
 
@@ -308,8 +319,13 @@ public sealed class RequestRunner : IDisposable
                 return false;
             }
 
-            if (!await RunOneAsync(document, dependency, context, state, cancellationToken)
-                .ConfigureAwait(false))
+            if (!await RunOneAsync(
+                    document,
+                    dependency,
+                    context,
+                    state,
+                    ExchangeRole.Dependency,
+                    cancellationToken).ConfigureAwait(false))
             {
                 return false;
             }
@@ -322,10 +338,13 @@ public sealed class RequestRunner : IDisposable
         ResolvedRequest resolved,
         RequestBlock source,
         RunState state,
+        ExchangeRole role,
         CancellationToken cancellationToken)
     {
         try
         {
+            var reused = false;
+
             // The grant is satisfied first, and inside the same try: a failure fetching a
             // token is a failure of this request, reported against the line that declared
             // the grant, and the request must not go out without the Authorization header
@@ -333,19 +352,26 @@ public sealed class RequestRunner : IDisposable
             // with a message about permissions and no mention of the token.
             if (resolved.Auth is { } grant)
             {
-                var token = await AcquireTokenAsync(grant, state, cancellationToken).ConfigureAwait(false);
-                if (token is null)
+                var acquired = await AcquireTokenAsync(grant, state, cancellationToken).ConfigureAwait(false);
+                if (acquired.Token is null)
                 {
                     return false;
                 }
 
-                resolved = WithBearer(resolved, token);
+                reused = acquired.FromCache;
+                resolved = WithBearer(resolved, acquired.Token);
             }
 
             var outcome = await _sender.SendAsync(resolved, Cookies, cancellationToken).ConfigureAwait(false);
 
-            state.Exchanges.Add(new Exchange(resolved, outcome.Response, DateTimeOffset.UtcNow));
+            state.Exchanges.Add(new Exchange(resolved, outcome.Response, DateTimeOffset.UtcNow, role));
             state.Notes.AddRange(outcome.CookieNotes);
+
+            if (reused && outcome.Response.StatusCode == Unauthorized)
+            {
+                outcome = await RetryWithFreshTokenAsync(resolved, state, cancellationToken)
+                    .ConfigureAwait(false) ?? outcome;
+            }
 
             if (resolved.Name is not null)
             {
@@ -396,6 +422,61 @@ public sealed class RequestRunner : IDisposable
     }
 
     /// <summary>
+    /// Sends a request again with a freshly fetched token, after a 401 on a cached one.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A token refreshes on expiry and not otherwise, and a 401 is reported as a 401. In a
+    /// working session that meant noticing, guessing that the token was the reason, and then
+    /// finding something to poke to make Sling fetch another - most often a restart.
+    /// </para>
+    /// <para>
+    /// <b>Three conditions, and each of them is the boundary of this being acceptable at
+    /// all.</b> Only where Sling owns the token, so a bearer token the user typed is left
+    /// alone and a 401 on it stays news rather than something papered over. Only when the
+    /// token was reused from the cache, so a token minted seconds ago is never re-fetched in
+    /// a loop against a server that is refusing it for some other reason. And only once.
+    /// </para>
+    /// <para>
+    /// <b>The retry is shown, not hidden</b>, which is the answer to the objection that it
+    /// buries the signal: both exchanges are in the picker and the second is labelled as a
+    /// retry, so what the user sees is 401, refreshed, 200 rather than a success they cannot
+    /// account for.
+    /// </para>
+    /// </remarks>
+    /// <returns>The second outcome, or null when nothing was retried.</returns>
+    private async Task<SendOutcome?> RetryWithFreshTokenAsync(
+        ResolvedRequest resolved,
+        RunState state,
+        CancellationToken cancellationToken)
+    {
+        if (resolved.Auth is not { } grant)
+        {
+            return null;
+        }
+
+        _tokens.Invalidate(grant.CacheKey);
+
+        var acquired = await AcquireTokenAsync(grant, state, cancellationToken).ConfigureAwait(false);
+
+        if (acquired.Token is null)
+        {
+            // The diagnostic explaining why is already recorded, and the 401 is already in
+            // the picker. Nothing further to say: the original answer stands.
+            return null;
+        }
+
+        var retried = WithBearer(resolved, acquired.Token);
+        var outcome = await _sender.SendAsync(retried, Cookies, cancellationToken).ConfigureAwait(false);
+
+        state.Exchanges.Add(new Exchange(retried, outcome.Response, DateTimeOffset.UtcNow, ExchangeRole.Retry));
+        state.Notes.AddRange(outcome.CookieNotes);
+        state.Notes.Add("The access token was refused, so Sling fetched a new one and sent again.");
+
+        return outcome;
+    }
+
+    /// <summary>
     /// Gets an access token for <paramref name="grant"/>, from the cache or from the
     /// authorization server.
     /// </summary>
@@ -418,8 +499,12 @@ public sealed class RequestRunner : IDisposable
     /// descriptions of one failure with the less specific one arriving second.
     /// </para>
     /// </remarks>
-    /// <returns>The token, or null with a diagnostic already recorded.</returns>
-    private async Task<OAuth2Token?> AcquireTokenAsync(
+    /// <returns>
+    /// The token, or null with a diagnostic already recorded, and whether it came from the
+    /// cache. The second half is what the 401 retry is gated on: a token fetched seconds ago
+    /// and refused is a token the server is refusing for some reason a refresh will not fix.
+    /// </returns>
+    private async Task<(OAuth2Token? Token, bool FromCache)> AcquireTokenAsync(
         ResolvedOAuth2Grant grant,
         RunState state,
         CancellationToken cancellationToken)
@@ -428,14 +513,14 @@ public sealed class RequestRunner : IDisposable
 
         if (_tokens.Find(key, DateTimeOffset.UtcNow) is { } cached)
         {
-            return cached;
+            return (cached, true);
         }
 
         var request = OAuth2TokenRequest.Build(grant);
         var outcome = await _sender.SendAsync(request, cookies: null, cancellationToken).ConfigureAwait(false);
         var response = outcome.Response;
 
-        state.Exchanges.Add(new Exchange(request, response, DateTimeOffset.UtcNow));
+        state.Exchanges.Add(new Exchange(request, response, DateTimeOffset.UtcNow, ExchangeRole.TokenRequest));
 
         // A redirect is not followed here - see ResolvedRequest.FollowRedirects - so it
         // arrives as the response. Named separately from any other unsuccessful status
@@ -450,7 +535,7 @@ public sealed class RequestRunner : IDisposable
                     + "secret would go wherever it pointed. Put the final URL in '@token-url'.",
                 grant.Line));
 
-            return null;
+            return (null, false);
         }
 
         if (!response.IsSuccess)
@@ -462,17 +547,17 @@ public sealed class RequestRunner : IDisposable
                     + $"{response.ReasonPhrase}. The token exchange is in the response list above.",
                 grant.Line));
 
-            return null;
+            return (null, false);
         }
 
         if (!OAuth2Token.TryParseResponse(response.Body, DateTimeOffset.UtcNow, out var token, out var error))
         {
             state.Errors.Add(ParseDiagnostic.Error($"The token could not be used: {error}.", grant.Line));
-            return null;
+            return (null, false);
         }
 
         _tokens.Record(key, token);
-        return token;
+        return (token, false);
     }
 
     /// <summary>

@@ -94,6 +94,31 @@ internal sealed class TokenCache
         }
     }
 
+    /// <summary>
+    /// Drops the cached token for <paramref name="key"/>, if there is one.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// For the one case the clock cannot cover: a token the authorization server has stopped
+    /// honouring before its stated expiry. A revoked client, a rotated secret, a session
+    /// invalidated at the far end - all of them arrive as a 401 on a token this cache still
+    /// believes in, and re-testing it against the clock forever would keep answering with
+    /// the same dead token.
+    /// </para>
+    /// <para>
+    /// The minted set is deliberately not touched. That is redaction's list, and a token
+    /// that has stopped working is exactly as sensitive as one that still does - forgetting
+    /// it here would let it reach a history entry in clear.
+    /// </para>
+    /// </remarks>
+    public void Invalidate(TokenCacheKey key)
+    {
+        lock (_gate)
+        {
+            _tokens.Remove(key);
+        }
+    }
+
     /// <summary>Every token minted this session, for redaction. Values only - the keys hold secrets too.</summary>
     public IReadOnlyList<string> AccessTokens()
     {

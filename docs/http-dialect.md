@@ -208,9 +208,23 @@ untouched, and under `@client-auth body` the secret *is* the body), and would le
 mint the bearer token attached to your real request. Put the final URL in `@token-url`.
 Ordinary requests follow redirects as before.
 
-**A 401 does not silently retry.** The token is refreshed on expiry and not otherwise; a
-request that comes back unauthorized comes back unauthorized, and the exchange that
-fetched the token is in the picker to look at.
+**A 401 on a cached token refreshes it and sends once more, and shows that it did.** A
+token can stop being honoured before its stated expiry - a rotated secret, a revoked
+client, a session ended at the far end - and the clock cannot see that. So Sling discards
+the cached token, fetches another, and sends the request again.
+
+Three boundaries, and each one is what keeps this from hiding a signal:
+
+- **Only where Sling owns the token.** A bearer token you wrote in the document is yours,
+  and a 401 on it is news rather than something to paper over.
+- **Only on a token that came from the cache.** A token minted seconds ago and refused is
+  one the server is refusing for a reason a refresh will not fix.
+- **Once.** A retry that is also refused is the answer.
+
+**And it is never silent.** Both attempts are in the exchange picker, the second labelled
+`retry after refresh`, so what you see is 401, refreshed, 200 rather than a success you
+cannot account for. Every call Sling makes for you is labelled the same way: a chained
+dependency reads `sent for you`, a token exchange reads `token request`.
 
 **Cookies are stored and replayed per environment.** A `Set-Cookie` on a response goes
 into a jar scoped to the selected environment, and matching cookies are attached to later

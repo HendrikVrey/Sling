@@ -721,6 +721,20 @@
                        DockPanel.Dock="Right"
                        FontSize="12"
                        Opacity="0.5" />
+
+            <!--
+                The one diagnostic that was always a dead end, given somewhere to go. It
+                names a variable, names the three places a value could come from, and used
+                to be able to reach none of them - so the fix was always: read it, leave
+                Sling, guess the shape of the file, come back.
+            -->
+            <ui:HyperlinkButton x:Name="StatusAction"
+                                Margin="12,0,0,0"
+                                Padding="0,2"
+                                Click="OnStatusAction"
+                                DockPanel.Dock="Right"
+                                FontSize="12"
+                                Visibility="Collapsed" />
             <TextBlock x:Name="StatusLeft"
                        FontSize="12"
                        Opacity="0.6"

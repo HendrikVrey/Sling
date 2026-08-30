@@ -305,6 +305,10 @@ public partial class MainWindow : FluentWindow
                 ShowEnvironments();
                 return true;
 
+            case Key.Space:
+                ShowCompletion();
+                return true;
+
             default:
                 return false;
         }
@@ -340,6 +344,13 @@ public partial class MainWindow : FluentWindow
         // The pasting handler is attached to a control rather than to this window, so it
         // is not collected with the window on its own.
         RemoveCurlPaste();
+
+        // A completion window is a Popup, which is not in this window's visual tree and is
+        // not taken down with it.
+        CloseCompletion();
+
+        // Attached to the response editor's TextArea, so it is not collected with the window.
+        RemoveChainAffordance();
 
         base.OnClosed(e);
     }
@@ -380,6 +391,7 @@ public partial class MainWindow : FluentWindow
             ShowMessage(ResponseRenderer.RenderDiagnostics(blocking));
             StatusLeft.Text = "Not sent.";
             StatusRight.Text = string.Empty;
+            OfferMissingVariable(blocking);
             return;
         }
 
@@ -441,11 +453,13 @@ public partial class MainWindow : FluentWindow
 
         if (sendable.Count == 0)
         {
-            ShowMessage(ResponseRenderer.RenderDiagnostics(
-                notes.Where(d => d.Severity == DiagnosticSeverity.Error).ToList()));
+            var blocking = notes.Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
+
+            ShowMessage(ResponseRenderer.RenderDiagnostics(blocking));
 
             StatusLeft.Text = "Nothing in this file can be sent.";
             StatusRight.Text = string.Empty;
+            OfferMissingVariable(blocking);
             return;
         }
 
@@ -485,6 +499,10 @@ public partial class MainWindow : FluentWindow
 
         StatusLeft.Text = sendingMessage;
         StatusRight.Text = string.Empty;
+
+        // Cleared with the pill and for the same reason: an offer left over from the last
+        // send reads as an answer to the one now in flight.
+        OfferMissingVariable([]);
 
         try
         {
@@ -563,6 +581,8 @@ public partial class MainWindow : FluentWindow
         }
 
         var notes = result.Errors.Concat(warnings).ToList();
+
+        OfferMissingVariable(notes);
 
         if (result.Exchanges.Count == 0)
         {

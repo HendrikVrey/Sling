@@ -129,8 +129,8 @@ public static class RequestResolver
         return grant with
         {
             TokenUrl = expander.Expand(grant.TokenUrl, grant.Line, FieldKind.Target),
-            ClientId = expander.Expand(grant.ClientId, grant.Line, FieldKind.Body),
-            ClientSecret = expander.Expand(grant.ClientSecret, grant.Line, FieldKind.Body),
+            ClientId = expander.Expand(grant.ClientId, grant.Line, FieldKind.Body, credential: true),
+            ClientSecret = expander.Expand(grant.ClientSecret, grant.Line, FieldKind.Body, credential: true),
             Scope = grant.Scope is null ? null : expander.Expand(grant.Scope, grant.Line, FieldKind.Body),
             Audience = grant.Audience is null ? null : expander.Expand(grant.Audience, grant.Line, FieldKind.Body),
         };
@@ -392,7 +392,14 @@ public static class RequestResolver
         foreach (var header in request.Headers)
         {
             var name = expander.Expand(header.Name, header.Line, FieldKind.HeaderName);
-            var value = expander.Expand(header.Value, header.Line, FieldKind.HeaderValue);
+
+            // The expanded name, not the written one: a header whose name is itself a
+            // variable is still an Authorization header once it resolves.
+            var value = expander.Expand(
+                header.Value,
+                header.Line,
+                FieldKind.HeaderValue,
+                credential: RequestAuth.CarriesCredential(name));
 
             // The parser lets a header name through if it holds a reference, because it
             // cannot know what the reference will become. This is where that is settled.

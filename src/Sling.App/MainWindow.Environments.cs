@@ -5,6 +5,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using Sling.App.Editor;
 using Sling.App.Environments;
+using Sling.Core.Documents;
 using Sling.Persistence.Environments;
 using Sling.Persistence.Workspaces;
 
@@ -76,7 +77,47 @@ public partial class MainWindow
 
     private bool EnvironmentsAreOpen => EnvironmentsOverlay.Visibility == Visibility.Visible;
 
+    /// <summary>The variable a diagnostic named and could not find, and where it was used.</summary>
+    private (string Name, bool Credential)? _missingVariable;
+
     private void OnEnvironmentsClicked(object sender, RoutedEventArgs e) => ShowEnvironments();
+
+    /// <summary>
+    /// Offers to define the variable a run could not resolve.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// It already knows the name and the line. Naming something it could fix and then not
+    /// offering to is what made this the sharpest dead end in the application: the fix was
+    /// read it, leave Sling, guess the shape of a file nobody has written yet, come back.
+    /// </para>
+    /// <para>
+    /// The first one only. A run can fail on several names and a status bar holds one
+    /// sentence; offering the first is the same choice the summary already makes, and after
+    /// it is defined the next send names the next one.
+    /// </para>
+    /// </remarks>
+    private void OfferMissingVariable(IEnumerable<ParseDiagnostic> diagnostics)
+    {
+        var missing = diagnostics.FirstOrDefault(d => d.MissingVariable is { Length: > 0 });
+
+        _missingVariable = missing?.MissingVariable is { } name
+            ? (name, missing.LooksLikeCredential)
+            : null;
+
+        StatusAction.Content = _missingVariable is { } offer ? $"Define {offer.Name}" : string.Empty;
+        StatusAction.Visibility = _missingVariable is null ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    private void OnStatusAction(object sender, RoutedEventArgs e)
+    {
+        if (_missingVariable is not { } missing)
+        {
+            return;
+        }
+
+        ShowEnvironments(missing.Name, missing.Credential);
+    }
 
     private void OnCloseEnvironments(object sender, RoutedEventArgs e) => CloseEnvironments();
 

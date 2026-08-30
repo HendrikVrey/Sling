@@ -54,6 +54,11 @@ public partial class MainWindow
 
         menu.Items.Clear();
 
+        // First, because it is the only row here that is about the request rather than about
+        // the text - and because pointing at a value in order to chain it is the thing people
+        // come to this menu for once they know it is there.
+        AddChainItem(menu);
+
         menu.Items.Add(Command("Copy", ApplicationCommands.Copy));
         menu.Items.Add(Command("Select all", ApplicationCommands.SelectAll));
         menu.Items.Add(new Separator());
