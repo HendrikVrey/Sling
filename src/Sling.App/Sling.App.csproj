@@ -19,6 +19,25 @@
     <UseWindowsForms>false</UseWindowsForms>
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
     <DebugType>embedded</DebugType>
+
+    <!--
+      The icon is embedded in the executable as a Win32 resource, and that is the only
+      copy of it in the shipped product. A WPF Window with no Icon set falls back to the
+      executable's icon, so this one property covers the taskbar, Alt+Tab, the window and
+      Explorer without loading an image resource during startup.
+
+      Deliberately NOT set on ui:TitleBar. The title bar carries the open file's name and
+      its dirty marker (see MainWindow.xaml), which is the one thing there that has to be
+      readable at a glance; an icon beside it would take width from a label that already
+      trims.
+
+      assets/ holds the .ico, the SVGs and the PNGs — one copy, outside the project. The
+      script that emitted them from the geometry was written as a throwaway and is NOT in
+      this repository, so the icon cannot currently be regenerated: changing it means
+      writing that generator again. Said here rather than left to be discovered, which is
+      how the same gap in Etch went unnoticed.
+    -->
+    <ApplicationIcon>..\..\assets\sling.ico</ApplicationIcon>
   </PropertyGroup>
 
   <PropertyGroup Label="Publish">
