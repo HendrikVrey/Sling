@@ -465,6 +465,7 @@
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
 
                         <TextBlock x:Name="RequestLabel"
@@ -495,6 +496,24 @@
                                   Visibility="Collapsed" />
 
                         <!--
+                            What token is in force. Tokens are cached by grant and dropped on
+                            an environment switch - correct, and until now entirely
+                            unobservable, so a 401 could not distinguish a stale token from a
+                            wrong scope from a token fetched against the other environment.
+
+                            The grant and the clock, never a token value: those are what
+                            answer "why did that 401", and a panel is a place a screenshot
+                            comes from.
+                        -->
+                        <ui:HyperlinkButton x:Name="TokenChip"
+                                            Grid.Column="3"
+                                            Margin="8,0,0,0"
+                                            Padding="6,2"
+                                            Click="OnTokenChipClicked"
+                                            FontSize="11"
+                                            Visibility="Collapsed" />
+
+                        <!--
                             Beside the picker, because the picker is where somebody looks
                             when a {{variable}} did not resolve. Visible whenever a folder is
                             open rather than only when environments exist: the case that
@@ -503,7 +522,7 @@
                             the person who has never had one.
                         -->
                         <ui:Button x:Name="EnvironmentsButton"
-                                   Grid.Column="3"
+                                   Grid.Column="4"
                                    Margin="8,0,0,0"
                                    Padding="8,2"
                                    Click="OnEnvironmentsClicked"
@@ -931,6 +950,14 @@
                                              Unchecked="OnSettingToggled" />
                             <TextBlock Style="{StaticResource SettingsHintStyle}"
                                        Text="One jar per environment, in memory only. Nothing is written to disk." />
+
+                            <TextBlock Style="{StaticResource SettingsLabelStyle}" Text="Access tokens" />
+                            <ui:ToggleSwitch x:Name="RememberTokensToggle"
+                                             Checked="OnSettingToggled"
+                                             Content="Remember them across restarts"
+                                             Unchecked="OnSettingToggled" />
+                            <TextBlock Style="{StaticResource SettingsHintStyle}"
+                                       Text="Encrypted with Windows data protection under your account, scoped per folder and environment, and holding no client secret. Switching this off deletes the ones already stored." />
 
                             <TextBlock Style="{StaticResource SettingsLabelStyle}" Text="History" />
                             <ui:ToggleSwitch x:Name="HistoryToggle"
@@ -1395,6 +1422,91 @@
                             </StackPanel>
                         </StackPanel>
                     </ScrollViewer>
+                </DockPanel>
+            </Border>
+        </Grid>
+
+        <!--
+            Every access token this session, by the grant that produced it.
+
+            Never a token value. The grant identity and the clock are what answer "why did
+            that 401" - a stale token, a wrong scope, and a token fetched against the other
+            environment all produce the same status and are told apart only here.
+        -->
+        <Grid x:Name="TokensOverlay"
+              Grid.Row="0"
+              Grid.RowSpan="4"
+              Background="{StaticResource OverlayScrimBrush}"
+              Visibility="Collapsed">
+            <Border x:Name="TokensCard"
+                    Width="520"
+                    MaxHeight="560"
+                    Padding="24"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Style="{StaticResource DialogCardStyle}">
+                <DockPanel>
+                    <TextBlock Margin="0,0,0,4"
+                               DockPanel.Dock="Top"
+                               FontSize="20"
+                               FontWeight="SemiBold"
+                               Text="Access tokens" />
+                    <TextBlock x:Name="TokensSubtitle"
+                               Margin="0,0,0,12"
+                               DockPanel.Dock="Top"
+                               FontSize="11"
+                               Opacity="0.5"
+                               TextWrapping="Wrap" />
+
+                    <ui:Button Margin="0,20,0,0"
+                               HorizontalAlignment="Right"
+                               Appearance="Primary"
+                               Click="OnCloseTokens"
+                               Content="Close"
+                               DockPanel.Dock="Bottom" />
+
+                    <ui:Button Margin="0,14,0,0"
+                               HorizontalAlignment="Left"
+                               Click="OnForgetTokens"
+                               Content="Forget them"
+                               DockPanel.Dock="Bottom"
+                               ToolTip="Drops every cached token. The next send fetches a new one." />
+
+                    <Border Style="{StaticResource PaneBorderStyle}">
+                        <Grid>
+                            <TextBlock x:Name="TokensEmpty"
+                                       Margin="14,16,14,14"
+                                       VerticalAlignment="Top"
+                                       FontSize="11"
+                                       Opacity="0.45"
+                                       Text="No token has been fetched this session. One appears here the first time a request with a '# @auth oauth2' block is sent."
+                                       TextWrapping="Wrap" />
+
+                            <ScrollViewer Padding="4" VerticalScrollBarVisibility="Auto">
+                                <ItemsControl x:Name="TokensList" Margin="0,0,14,0">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <StackPanel Margin="8,7">
+                                                <TextBlock FontFamily="Cascadia Code, Consolas, Courier New"
+                                                           FontSize="11"
+                                                           Text="{Binding Grant}"
+                                                           TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Margin="0,2,0,0"
+                                                           FontSize="11"
+                                                           Opacity="0.55"
+                                                           Text="{Binding Endpoint}"
+                                                           TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Margin="0,2,0,0"
+                                                           FontSize="11"
+                                                           Opacity="0.45"
+                                                           Text="{Binding Clock}" />
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </Grid>
+                    </Border>
                 </DockPanel>
             </Border>
         </Grid>

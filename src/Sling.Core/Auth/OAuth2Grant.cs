@@ -126,6 +126,20 @@ public readonly record struct TokenCacheKey(
     string? Audience,
     ClientAuthPlacement Placement)
 {
+    /// <summary>
+    /// A hash of every field, and what the cache is actually keyed by.
+    /// </summary>
+    /// <remarks>
+    /// The key has to include the client secret and a dictionary keyed by the key therefore
+    /// keeps one alive for the life of the process - and a token store keyed by it could not
+    /// be written down at all. The fingerprint has the same discriminating power and holds
+    /// none of the secret, so both problems go away at once.
+    /// </remarks>
+    public string Fingerprint => TokenFingerprint.Of(this);
+
+    /// <summary>What the token is for, with the secret left out.</summary>
+    public TokenIdentity Identity => new(TokenUrl, ClientId, Scope, Audience);
+
     /// <inheritdoc cref="ResolvedOAuth2Grant.ToString"/>
     public override string ToString() => $"token for {ClientId} at {TokenUrl}";
 }

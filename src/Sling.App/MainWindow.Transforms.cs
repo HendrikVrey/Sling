@@ -58,6 +58,7 @@ public partial class MainWindow
         // the text - and because pointing at a value in order to chain it is the thing people
         // come to this menu for once they know it is there.
         AddChainItem(menu);
+        AddJwtItem(menu);
 
         menu.Items.Add(Command("Copy", ApplicationCommands.Copy));
         menu.Items.Add(Command("Select all", ApplicationCommands.SelectAll));

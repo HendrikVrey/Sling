@@ -88,6 +88,8 @@ public partial class MainWindow : FluentWindow
         // workspace has just settled.
         InitializeChrome();
 
+        InitializeTokens();
+
         // Last of all, because it reads the buffer every other initialiser above may have
         // filled: the startup file is loaded on the first Loaded, so on a plain launch this
         // is what puts the empty state up.
@@ -173,7 +175,12 @@ public partial class MainWindow : FluentWindow
 
     /// <summary>True while any of the in-window modals is on screen.</summary>
     private bool AnyModalIsOpen =>
-        NamePromptIsOpen || ConfirmIsOpen || SettingsAreOpen || EnvironmentsAreOpen || AuthIsOpen;
+        NamePromptIsOpen
+            || ConfirmIsOpen
+            || SettingsAreOpen
+            || EnvironmentsAreOpen
+            || AuthIsOpen
+            || TokensAreOpen;
 
     /// <summary>
     /// Answers the keys that dismiss whichever modal is up. Returns true when the key was
@@ -253,6 +260,12 @@ public partial class MainWindow : FluentWindow
             }
         }
 
+        if (TokensAreOpen && escape)
+        {
+            CloseTokens();
+            return true;
+        }
+
         return false;
     }
 
@@ -329,6 +342,9 @@ public partial class MainWindow : FluentWindow
         // running keeps the window alive and ticks into controls that are gone.
         _requestRefresh.Stop();
         _requestRefresh.Tick -= OnRequestRefreshTick;
+
+        _tokenClock.Stop();
+        _tokenClock.Tick -= OnTokenClockTick;
 
         // The caret belongs to the editor's TextArea, not to this window, so the handler is
         // not collected with it. Two things listen to it - the rail's highlight and the
@@ -552,6 +568,12 @@ public partial class MainWindow : FluentWindow
         {
             _inFlight = null;
             UpdateToolbar();
+
+            // After the send whatever happened, including a failure: a token fetched for a
+            // request that then failed at the API is still a token, and it is exactly the
+            // one somebody is about to want to look at.
+            RefreshTokenChip();
+            SaveRememberedTokens();
         }
     }
 

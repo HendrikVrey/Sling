@@ -301,6 +301,15 @@ public partial class MainWindow
         _selectedEnvironment = name;
         _runner.ForgetSession();
         ResetCookieJar();
+
+        // A different environment is a different token store, so the tokens that were
+        // dropped a line ago are replaced by that environment's own - never carried over.
+        // The scoping is what stops a staging token reaching production, and it is the same
+        // rule whether the cache is in memory or on disk.
+        RestoreRememberedTokens();
+
+        // The chip said "12 min left" a moment ago about a token that has just been dropped.
+        RefreshTokenChip();
     }
 
     private async Task NewDocumentAsync()
@@ -422,6 +431,7 @@ public partial class MainWindow
         _workspace = workspace;
         _runner.ForgetSession();
         ResetCookieJar();
+        RestoreRememberedTokens();
 
         ShowWorkspaceRail(hasWorkspace: true);
         FilesLabel.Text = Path.GetFileName(workspace.Root.TrimEnd(Path.DirectorySeparatorChar)).ToUpperInvariant();
@@ -489,6 +499,13 @@ public partial class MainWindow
         _dirty = false;
         _runner.ForgetSession();
         ResetCookieJar();
+
+        // The tokens come back, and only the tokens. The reason this path forgets a session
+        // is that request names are per-file, so a response store outliving the file is
+        // keyed by the wrong thing - and that reasoning is about responses. A token is keyed
+        // by its grant, which is not a fact about which file is open, and the store it comes
+        // back from is scoped to the same folder and environment it was fetched under.
+        RestoreRememberedTokens();
 
         // Before the selection, so the rail has this file's requests under it by the time
         // the row is revealed rather than a placeholder that resolves a moment later.

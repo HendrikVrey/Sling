@@ -288,7 +288,7 @@ public static class AuthDocumentEditor
             return true;
         }
 
-        internal TextEdit Delete(IReadOnlyList<int> lines)
+        internal TextEdit Delete(List<int> lines)
         {
             var first = lines[0];
             var last = lines[^1];
@@ -321,7 +321,7 @@ public static class AuthDocumentEditor
         /// Replaces a run of lines, or inserts at <paramref name="fallback"/> when the run is
         /// empty.
         /// </summary>
-        internal TextEdit ReplaceRun(IReadOnlyList<int> lines, string replacement, int fallback)
+        internal TextEdit ReplaceRun(List<int> lines, string replacement, int fallback)
         {
             if (lines.Count == 0)
             {

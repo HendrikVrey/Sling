@@ -110,6 +110,35 @@ public sealed class RequestRunner : IDisposable
     /// </remarks>
     public IReadOnlyList<string> AcquiredTokens() => _tokens.AccessTokens();
 
+    /// <summary>
+    /// What can be shown about the tokens held this session: the grant, the clock, and
+    /// nothing else.
+    /// </summary>
+    /// <remarks>
+    /// Separate from <see cref="AcquiredTokens"/> on purpose. That returns raw values because
+    /// redaction has to recognise them; this returns a projection that carries no token and
+    /// no client secret. One accessor answering both questions is how the wrong one gets
+    /// called from a panel.
+    /// </remarks>
+    public IReadOnlyList<TokenSummary> HeldTokens() => _tokens.Summaries();
+
+    /// <summary>
+    /// Every cached token in the form a store can write down.
+    /// </summary>
+    /// <remarks>
+    /// The one accessor that hands out token values for something other than redaction, and
+    /// it is named so that a call site reads as what it is. Whoever calls it is responsible
+    /// for encrypting the result before it reaches a disk.
+    /// </remarks>
+    public IReadOnlyList<PersistedToken> ExportTokens() => _tokens.Export();
+
+    /// <summary>
+    /// Puts stored tokens back into the cache, dropping the ones that are already spent.
+    /// </summary>
+    /// <returns>How many were usable.</returns>
+    public int RestoreTokens(IEnumerable<PersistedToken> tokens) =>
+        _tokens.Import(tokens, DateTimeOffset.UtcNow);
+
     /// <param name="context">
     /// The selected environment and the files a body may import. Its
     /// <see cref="ResolutionContext.Responses"/> is replaced with this runner's own store
@@ -362,6 +391,8 @@ public sealed class RequestRunner : IDisposable
                 resolved = WithBearer(resolved, acquired.Token);
             }
 
+            NoteExpiredToken(resolved, state);
+
             var outcome = await _sender.SendAsync(resolved, Cookies, cancellationToken).ConfigureAwait(false);
 
             state.Exchanges.Add(new Exchange(resolved, outcome.Response, DateTimeOffset.UtcNow, role));
@@ -418,6 +449,50 @@ public sealed class RequestRunner : IDisposable
             // where it was put, or a method a body is not allowed with.
             state.Errors.Add(ParseDiagnostic.Error($"The request could not be sent: {ex.Message}", source.StartLine));
             return false;
+        }
+    }
+
+    /// <summary>
+    /// Says so when the request is about to send a bearer token that has already expired.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A note and never an error. <see cref="RunResult.Errors"/> is the list whose emptiness
+    /// decides whether a run worked, and an expired token is a thing worth saying rather than
+    /// a reason to refuse to send - the user may well be sending it precisely to see the 401.
+    /// </para>
+    /// <para>
+    /// Only where Sling did not mint the token itself. A token from a grant was checked
+    /// against the clock a few lines ago and refetched if it was spent, so warning about one
+    /// here would be warning about something that cannot happen.
+    /// </para>
+    /// <para>
+    /// It reads the token and says nothing about whether it is trustworthy. There is no
+    /// signature check here and the message says as much: the word "valid" appears nowhere.
+    /// </para>
+    /// </remarks>
+    private static void NoteExpiredToken(ResolvedRequest resolved, RunState state)
+    {
+        if (resolved.Auth is not null)
+        {
+            return;
+        }
+
+        var header = resolved.Headers.FirstOrDefault(
+            h => h.Name.Equals(RequestAuth.AuthorizationHeader, StringComparison.OrdinalIgnoreCase));
+
+        if (header is null)
+        {
+            return;
+        }
+
+        var value = header.Value;
+        var space = value.IndexOf(' ', StringComparison.Ordinal);
+        var credential = space > 0 ? value[(space + 1)..].Trim() : value.Trim();
+
+        if (Jwt.DescribeIfExpired(credential, DateTimeOffset.UtcNow) is { } expired)
+        {
+            state.Notes.Add(expired);
         }
     }
 
@@ -556,7 +631,7 @@ public sealed class RequestRunner : IDisposable
             return (null, false);
         }
 
-        _tokens.Record(key, token);
+        _tokens.Record(key, token, DateTimeOffset.UtcNow);
         return (token, false);
     }
 
