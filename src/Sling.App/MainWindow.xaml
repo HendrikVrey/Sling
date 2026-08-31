@@ -531,83 +531,148 @@
                                    ToolTip="Environments and secrets  (Ctrl+E)" />
                     </Grid>
 
-                    <Border Style="{StaticResource PaneBorderStyle}">
-                        <Grid>
+                    <!--
+                        Two panes, and the lower one exists only while the upper one is
+                        empty.
+
+                        It used to be a card floating over the editor's own canvas, which put
+                        it across the line numbers and made it read as something dropped onto
+                        the page rather than as part of the window. It is a pane of its own
+                        now, under the editor and shorter than it, and it goes the moment the
+                        buffer holds a single character - at which point the editor takes the
+                        whole column back.
+
+                        Both rows are star-sized and the lower one is capped, which is what
+                        keeps this honest at every window size. An Auto row is never
+                        compressed, so an Auto card on a 360 px window took the height it
+                        wanted and was clipped through the middle of a button, leaving the
+                        editor at its floor - and typing is precisely what makes the card go
+                        away, so that state was close to having no way out of itself. A
+                        capped star row shrinks instead, and the card scrolls.
+                    -->
+                    <Grid ClipToBounds="True">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="2*" MinHeight="72" />
+                            <!--
+                                Collapsed from code rather than by the pane's Visibility: a
+                                star row keeps its share whether or not the element in it is
+                                visible, so hiding the card alone left a third of the column
+                                blank. UpdateEmptyState sets both.
+                            -->
+                            <RowDefinition x:Name="GettingStartedRow"
+                                           Height="*"
+                                           MaxHeight="196" />
+                        </Grid.RowDefinitions>
+
+                        <Border Grid.Row="0" Style="{StaticResource PaneBorderStyle}">
                             <avalon:TextEditor x:Name="RequestPane"
                                                ShowLineNumbers="True"
                                                Style="{StaticResource PaneEditorStyle}" />
+                        </Border>
 
-                            <!--
-                                What the pane says before anything is in it.
+                        <!--
+                            What the column says before anything is in it.
 
-                                It replaces the two GitHub requests Sling used to seed on
-                                every launch. Deleting those outright would have repeated
-                                the collapsed-rail mistake one pane over: a panel that is
-                                absent explains less than an empty one, and the sample was
-                                doing real work, because chaining is the one Sling behaviour
-                                that has to be seen rather than described. So the teaching
-                                moves rather than going away - the example is still here,
-                                one quiet click away, and it no longer arrives uninvited in
-                                a window somebody opened to write their own request.
+                            It replaces the two GitHub requests Sling used to seed on every
+                            launch. Deleting those outright would have repeated the
+                            collapsed-rail mistake one pane over: a panel that is absent
+                            explains less than an empty one, and the sample was doing real
+                            work, because chaining is the one Sling behaviour that has to be
+                            seen rather than described. So the teaching moves rather than
+                            going away - the example is still here, one quiet click away, and
+                            it no longer arrives uninvited in a window somebody opened to
+                            write their own request.
+                        -->
+                        <DockPanel x:Name="GettingStarted"
+                                   Grid.Row="1"
+                                   Margin="0,10,0,0">
+                            <TextBlock DockPanel.Dock="Top"
+                                       Margin="2,0,0,6"
+                                       Style="{StaticResource PaneHeaderStyle}"
+                                       Text="GETTING STARTED" />
 
-                                Laid out below the first line so the caret is never behind
-                                it, and hit-testable only on the buttons, so clicking the
-                                pane still puts the caret in the document.
-                            -->
-                            <StackPanel x:Name="EmptyDocument"
-                                        MaxWidth="340"
-                                        Margin="14,44,14,14"
-                                        HorizontalAlignment="Left"
-                                        VerticalAlignment="Top">
-                                <TextBlock FontSize="12"
-                                           IsHitTestVisible="False"
-                                           Opacity="0.75"
-                                           Text="Nothing open"
-                                           TextWrapping="Wrap" />
-                                <TextBlock Margin="0,6,0,0"
-                                           FontSize="11"
-                                           IsHitTestVisible="False"
-                                           Opacity="0.45"
-                                           Text="A request is a document, not a form. Type a method and a URL here, or start from one of these."
-                                           TextWrapping="Wrap" />
-
-                                <ui:Button Margin="0,14,0,0"
-                                           Appearance="Primary"
-                                           Click="OnOpenFolderClicked"
-                                           Content="Open a folder"
-                                           Icon="{ui:SymbolIcon FolderOpen24}"
-                                           Style="{StaticResource RailActionButtonStyle}" />
-                                <ui:Button Margin="0,6,0,0"
-                                           Click="OnNewDocument"
-                                           Content="New request file"
-                                           Icon="{ui:SymbolIcon DocumentAdd24}"
-                                           Style="{StaticResource RailActionButtonStyle}" />
-                                <ui:Button Margin="0,6,0,0"
-                                           Click="OnPasteCurlClicked"
-                                           Content="Paste a curl command"
-                                           Icon="{ui:SymbolIcon ClipboardPaste24}"
-                                           Style="{StaticResource RailActionButtonStyle}" />
-
+                            <Border Style="{StaticResource PaneBorderStyle}">
                                 <!--
-                                    Quieter than the three above, and deliberately so: it is
-                                    the one button here that puts text nobody typed into the
-                                    buffer, which is what the seeded sample did wrong.
+                                    WPF-UI draws a ScrollViewer's bar inside the viewport
+                                    rather than beside it, so the content carries the bar's
+                                    lane as a right margin. The bar is only ever there on a
+                                    window too short for the card, which is the case this
+                                    replaced a clipped button with.
                                 -->
-                                <TextBlock Margin="0,16,0,0"
-                                           FontSize="11"
-                                           Opacity="0.45"
-                                           Text="Chaining is easier seen than described."
-                                           TextWrapping="Wrap" />
-                                <ui:HyperlinkButton x:Name="LoadExampleButton"
-                                                    Margin="0,2,0,0"
-                                                    Padding="0,2"
-                                                    HorizontalAlignment="Left"
-                                                    Click="OnLoadExampleClicked"
-                                                    Content="Load the example"
-                                                    FontSize="11" />
-                            </StackPanel>
-                        </Grid>
-                    </Border>
+                                <ScrollViewer Padding="14,12,8,14"
+                                              HorizontalScrollBarVisibility="Disabled"
+                                              VerticalScrollBarVisibility="Auto">
+                                    <StackPanel Margin="0,0,6,0">
+                                        <TextBlock FontSize="12"
+                                                   Opacity="0.75"
+                                                   Text="Nothing open"
+                                                   TextWrapping="Wrap" />
+                                        <TextBlock Margin="0,4,0,0"
+                                                   FontSize="11"
+                                                   Opacity="0.45"
+                                                   Text="A request is a document, not a form. Type a method and a URL above, or start from one of these."
+                                                   TextWrapping="Wrap" />
+
+                                        <!--
+                                            Across rather than stacked: this pane is as wide
+                                            as the document is, and a column of full-width
+                                            buttons in a short pane reads as a list of
+                                            settings.
+
+                                            A WrapPanel rather than a UniformGrid, which gave
+                                            all three the same width and clipped the longest
+                                            label at the default window size. Here each is as
+                                            wide as its own label and they fold onto a second
+                                            line when the column is too narrow for three,
+                                            which is the behaviour that has no width at which
+                                            it is wrong.
+                                        -->
+                                        <WrapPanel Margin="0,12,0,-6">
+                                            <ui:Button Margin="0,0,6,6"
+                                                       Appearance="Primary"
+                                                       Click="OnOpenFolderClicked"
+                                                       Content="Open a folder"
+                                                       Icon="{ui:SymbolIcon FolderOpen24}"
+                                                       Style="{StaticResource RailActionButtonStyle}" />
+                                            <ui:Button Margin="0,0,6,6"
+                                                       Click="OnNewDocument"
+                                                       Content="New request file"
+                                                       Icon="{ui:SymbolIcon DocumentAdd24}"
+                                                       Style="{StaticResource RailActionButtonStyle}" />
+                                            <ui:Button Margin="0,0,0,6"
+                                                       Click="OnPasteCurlClicked"
+                                                       Content="Paste a curl command"
+                                                       Icon="{ui:SymbolIcon ClipboardPaste24}"
+                                                       Style="{StaticResource RailActionButtonStyle}" />
+                                        </WrapPanel>
+
+                                        <!--
+                                            Quieter than the three above, and deliberately so:
+                                            it is the one button here that puts text nobody
+                                            typed into the buffer, which is what the seeded
+                                            sample did wrong. Under the sentence rather than
+                                            beside it, because a horizontal StackPanel
+                                            measures its children with infinite width and
+                                            would clip the link at a narrow column instead of
+                                            wrapping it.
+                                        -->
+                                        <TextBlock Margin="0,12,0,0"
+                                                   FontSize="11"
+                                                   Opacity="0.45"
+                                                   Text="Chaining is easier seen than described."
+                                                   TextWrapping="Wrap" />
+                                        <ui:HyperlinkButton x:Name="LoadExampleButton"
+                                                            Margin="0,2,0,0"
+                                                            Padding="0,2"
+                                                            HorizontalAlignment="Left"
+                                                            Click="OnLoadExampleClicked"
+                                                            Content="Load the example"
+                                                            FontSize="11" />
+                                    </StackPanel>
+                                </ScrollViewer>
+                            </Border>
+                        </DockPanel>
+                    </Grid>
                 </DockPanel>
 
                 <GridSplitter Grid.Column="1"

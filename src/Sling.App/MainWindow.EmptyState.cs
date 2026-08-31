@@ -5,7 +5,7 @@ using Sling.Import.Curl;
 namespace Sling.App;
 
 /// <summary>
-/// What the request pane shows before there is a document in it.
+/// The pane under the editor, and the only thing that decides whether it is there.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -20,36 +20,42 @@ namespace Sling.App;
 /// consent: nothing arrives in the buffer unless it was asked for, which is what made the
 /// sample wrong rather than merely unnecessary.
 /// </para>
+/// <para>
+/// It was a card floating over the editor's canvas until Hendrik reported how it looked
+/// (2026-08-31). It is now a pane of its own below the editor, which is what makes its
+/// visibility a layout question rather than a decoration one.
+/// </para>
 /// </remarks>
 public partial class MainWindow
 {
     /// <summary>
-    /// How much of a buffer is read to decide whether it is blank.
+    /// Shows or hides the getting-started pane, which is purely a function of whether the
+    /// buffer holds anything.
     /// </summary>
     /// <remarks>
-    /// This runs on every keystroke, and reading a document's whole text allocates a copy
-    /// of it. A file longer than this that holds nothing but whitespace is not a case worth
-    /// paying for on every character typed into a large one.
-    /// </remarks>
-    private const int BlankProbeLimit = 512;
-
-    /// <summary>
-    /// Shows or hides the empty state, which is purely a function of whether the buffer
-    /// holds anything.
-    /// </summary>
-    /// <remarks>
-    /// Whitespace counts as nothing. A buffer holding a stray newline is still a pane with
-    /// no request in it, and an empty state that vanishes on a keystroke that produced no
-    /// content would look like a glitch rather than a rule.
+    /// <para>
+    /// One character is enough to take it down, whitespace included, and it comes straight
+    /// back if that character is deleted. Hendrik asked for exactly that, and the layout
+    /// agrees with him: the pane takes real height off the editor now rather than floating
+    /// over it, so a document somebody has started typing into must not still be sharing
+    /// the column with a panel headed "Nothing open".
+    /// </para>
+    /// <para>
+    /// That is a change from the floating card, which treated a buffer of pure whitespace as
+    /// still empty. A card that hid on a stray space would have looked like a glitch; a pane
+    /// that gives the editor its space back does not.
+    /// </para>
     /// </remarks>
     private void UpdateEmptyState()
     {
-        var document = RequestPane.Document;
+        var empty = RequestPane.Document.TextLength == 0;
 
-        var blank = document.TextLength == 0
-            || (document.TextLength <= BlankProbeLimit && document.Text.AsSpan().IsWhiteSpace());
+        GettingStarted.Visibility = empty ? Visibility.Visible : Visibility.Collapsed;
 
-        EmptyDocument.Visibility = blank ? Visibility.Visible : Visibility.Collapsed;
+        // The row as well as the element in it. A star-sized row keeps its share of the
+        // column whether or not its child is visible, so hiding the card on its own left
+        // the editor stopping two thirds of the way down over a band of nothing.
+        GettingStartedRow.Height = empty ? new GridLength(1, GridUnitType.Star) : new GridLength(0);
     }
 
     /// <summary>
