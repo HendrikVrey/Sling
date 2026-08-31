@@ -8,7 +8,16 @@ namespace Sling.Http;
 /// When the exchange completed. Recorded here rather than stamped by whatever writes the
 /// history, so a run of several requests keeps the order they actually happened in.
 /// </param>
-public sealed record Exchange(ResolvedRequest Request, ResponseSnapshot Response, DateTimeOffset SentUtc);
+/// <param name="Role">
+/// Why this exchange happened. Defaulted so that the many places constructing a plain
+/// requested exchange do not have to say so, and so that a new one cannot silently be
+/// mislabelled as something Sling did on its own.
+/// </param>
+public sealed record Exchange(
+    ResolvedRequest Request,
+    ResponseSnapshot Response,
+    DateTimeOffset SentUtc,
+    ExchangeRole Role = ExchangeRole.Requested);
 
 /// <summary>
 /// The outcome of pressing send: every exchange that happened, in the order it happened,

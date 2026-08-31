@@ -128,8 +128,8 @@ public partial class MainWindow
     /// </para>
     /// <para>
     /// No unsaved-work question, deliberately. This runs on the way to the first frame,
-    /// against a buffer holding either the sample or nothing at all, so there is nothing
-    /// of the user's to discard and a prompt would be a question about their own click.
+    /// against an empty buffer, so there is nothing of the user's to discard and a prompt
+    /// would be a question about their own click.
     /// </para>
     /// </remarks>
     private async Task OpenStartupDocumentAsync(string path)
@@ -244,6 +244,11 @@ public partial class MainWindow
         // rail is meant to notice.
         QueueRequestRefresh();
 
+        // Above the short-circuit for the same reason, and one sharper: emptying a document
+        // that was already dirty has to bring the empty state back, and that is a keystroke
+        // the early return would swallow.
+        UpdateEmptyState();
+
         if (_loadingDocument || _dirty)
         {
             return;
@@ -296,6 +301,15 @@ public partial class MainWindow
         _selectedEnvironment = name;
         _runner.ForgetSession();
         ResetCookieJar();
+
+        // A different environment is a different token store, so the tokens that were
+        // dropped a line ago are replaced by that environment's own - never carried over.
+        // The scoping is what stops a staging token reaching production, and it is the same
+        // rule whether the cache is in memory or on disk.
+        RestoreRememberedTokens();
+
+        // The chip said "12 min left" a moment ago about a token that has just been dropped.
+        RefreshTokenChip();
     }
 
     private async Task NewDocumentAsync()
@@ -360,6 +374,50 @@ public partial class MainWindow
         }
     }
 
+    /// <summary>
+    /// Makes sure there is a workspace, asking for a folder when there is not.
+    /// </summary>
+    /// <returns>
+    /// The workspace, or null when the user backed out or the folder could not be opened.
+    /// Returned rather than left for the caller to read off the field, so the compiler
+    /// carries the "there is one now" through the rest of the method.
+    /// </returns>
+    /// <remarks>
+    /// A creation command that answers "open a folder first" is a dead end wearing the
+    /// clothes of a message: the user has said what they want, and the tool knows the one
+    /// thing missing and can ask for it. The same shape as the missing-variable diagnostic
+    /// offering to define the variable rather than naming the three files it could go in.
+    /// </remarks>
+    private Workspace? EnsureWorkspace(string title)
+    {
+        if (_workspace is not null)
+        {
+            return _workspace;
+        }
+
+        var dialog = new OpenFolderDialog { Title = title };
+
+        if (dialog.ShowDialog(this) != true)
+        {
+            return null;
+        }
+
+        try
+        {
+            SetWorkspace(Workspace.Open(dialog.FolderName));
+        }
+        catch (DirectoryNotFoundException ex)
+        {
+            StatusLeft.Text = ex.Message;
+            return null;
+        }
+
+        // Deliberately without the single-document convenience OpenFolderAsync applies. The
+        // user asked to create something, and opening some other file underneath them on
+        // the way there would replace the buffer they are about to write into.
+        return _workspace;
+    }
+
     /// <summary>Opens a folder, and drops everything that belonged to the last one.</summary>
     /// <remarks>
     /// A different folder is a different set of APIs. Leaving this to
@@ -373,6 +431,7 @@ public partial class MainWindow
         _workspace = workspace;
         _runner.ForgetSession();
         ResetCookieJar();
+        RestoreRememberedTokens();
 
         ShowWorkspaceRail(hasWorkspace: true);
         FilesLabel.Text = Path.GetFileName(workspace.Root.TrimEnd(Path.DirectorySeparatorChar)).ToUpperInvariant();
@@ -440,6 +499,13 @@ public partial class MainWindow
         _dirty = false;
         _runner.ForgetSession();
         ResetCookieJar();
+
+        // The tokens come back, and only the tokens. The reason this path forgets a session
+        // is that request names are per-file, so a response store outliving the file is
+        // keyed by the wrong thing - and that reasoning is about responses. A token is keyed
+        // by its grant, which is not a fact about which file is open, and the store it comes
+        // back from is scoped to the same folder and environment it was fetched under.
+        RestoreRememberedTokens();
 
         // Before the selection, so the rail has this file's requests under it by the time
         // the row is revealed rather than a placeholder that resolves a moment later.

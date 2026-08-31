@@ -54,6 +54,30 @@ public sealed record SlingSettings
     /// </remarks>
     public bool CookiesEnabled { get; init; } = true;
 
+    /// <summary>
+    /// Whether access tokens survive a restart.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// On by default, because losing every token on every restart is a daily irritation with
+    /// a real fix: the store is encrypted with DPAPI under the current user, scoped per
+    /// workspace and environment, and holds no client secret.
+    /// </para>
+    /// <para>
+    /// <b>A setting rather than a decision made for everybody</b>, because a machine that is
+    /// shared, or a policy that says no credential is written to disk, is a real situation
+    /// and one Sling has no way to detect. Switching it off deletes what was already stored:
+    /// a setting that stops adding to a pile of credentials without removing the pile is not
+    /// what anybody switching it off is asking for.
+    /// </para>
+    /// <para>
+    /// It cannot weaken the scoping. A stored token is bound to its environment by the
+    /// encryption rather than by a file name, so the staging-token-reaching-production hazard
+    /// is handled by the same rule as before, one layer down.
+    /// </para>
+    /// </remarks>
+    public bool RememberTokens { get; init; } = true;
+
     /// <summary>Whether completed exchanges are recorded to disk.</summary>
     public bool HistoryEnabled { get; init; } = true;
 
@@ -74,6 +98,7 @@ public sealed record SlingSettings
         MaxResponseBodyMegabytes = Math.Clamp(MaxResponseBodyMegabytes, 1, 512),
         MaxRedirects = Math.Clamp(MaxRedirects, 0, 20),
         CookiesEnabled = CookiesEnabled,
+        RememberTokens = RememberTokens,
         HistoryEnabled = HistoryEnabled,
         HistoryMaxEntries = Math.Clamp(HistoryMaxEntries, 10, 10_000),
     };

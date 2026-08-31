@@ -14,6 +14,33 @@ Both names are the convention **Rider and Visual Studio 2022 already use**, for 
 reason the `.http` format itself was chosen: someone arriving from either tool keeps the
 environments they already have, and someone leaving takes them along.
 
+## Editing them from inside Sling
+
+`Ctrl+E`, or **Edit** beside the environment picker, opens a card listing every variable in
+the selected environment: its name, its value, and which of the two files it is written in.
+Type a name and a value, decide whether it is a secret, and Save.
+
+The **secret** toggle is the whole of it. On, the value goes to
+`http-client.private.env.json` and the `.gitignore` entry is written before the file is; off,
+it goes to `http-client.env.json`, and nothing is added to your `.gitignore` at all. If there
+is no secrets file yet, saving a secret creates one.
+
+Three things the card deliberately will not do:
+
+- **It never rewrites your file.** Only the value being changed is replaced, or a single new
+  entry is inserted, so your comments, your ordering and your formatting all survive. These
+  files allow comments precisely because they are hand-written, and a serialiser round trip
+  would delete every one of them silently.
+- **There is no delete.** Removing a variable means taking a line out of a file in your
+  repository, which belongs in a text editor where there is undo.
+- **It will not move a value between the two files**, for the same reason: the move is a
+  deletion at the far end. A variable's secret flag is settled once it exists, and the toggle
+  goes dead and says so.
+
+Secret values are shown as dots until you turn on **Show secrets**. The people who open this
+card are the people who put a live token in it, and a panel is a place a screenshot comes
+from.
+
 ## The format
 
 ```json
@@ -107,5 +134,7 @@ token is *the* known failure mode of `.http` files in the wild:
   followed by a `POST` would be the shortest route to your credentials there is, so both
   environment files are refused as body imports even though they sit inside the workspace.
 - The check runs whenever Sling re-reads the files, not only when the folder is opened,
-  nothing in Sling creates the secrets file, so the only way you get one is by writing it
-  yourself, after the folder is already open.
+  because a secrets file can appear at any point after it.
+- When **Sling** creates the secrets file, the `.gitignore` entry is written **first**. The
+  other order would leave a window, short but a `git add -A` wide, in which a file full of
+  credentials sat in a repository that had never heard of it.

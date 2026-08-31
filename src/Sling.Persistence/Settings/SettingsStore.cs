@@ -121,6 +121,7 @@ public sealed class SettingsStore
                 MaxResponseBodyMegabytes = ReadInt(root, "maxResponseBodyMegabytes", defaults.MaxResponseBodyMegabytes),
                 MaxRedirects = ReadInt(root, "maxRedirects", defaults.MaxRedirects),
                 CookiesEnabled = ReadBool(root, "cookiesEnabled", defaults.CookiesEnabled),
+                RememberTokens = ReadBool(root, "rememberTokens", defaults.RememberTokens),
                 HistoryEnabled = ReadBool(root, "historyEnabled", defaults.HistoryEnabled),
                 HistoryMaxEntries = ReadInt(root, "historyMaxEntries", defaults.HistoryMaxEntries),
             }.Clamped();
@@ -167,6 +168,7 @@ public sealed class SettingsStore
                 writer.WriteNumber("maxResponseBodyMegabytes", clamped.MaxResponseBodyMegabytes);
                 writer.WriteNumber("maxRedirects", clamped.MaxRedirects);
                 writer.WriteBoolean("cookiesEnabled", clamped.CookiesEnabled);
+                writer.WriteBoolean("rememberTokens", clamped.RememberTokens);
                 writer.WriteBoolean("historyEnabled", clamped.HistoryEnabled);
                 writer.WriteNumber("historyMaxEntries", clamped.HistoryMaxEntries);
                 writer.WriteEndObject();

@@ -7,6 +7,7 @@ using Sling.Http;
 using Sling.Persistence;
 using Sling.Persistence.History;
 using Sling.Persistence.Settings;
+using Sling.Persistence.Tokens;
 
 namespace Sling.App;
 
@@ -38,6 +39,8 @@ public partial class MainWindow
     private readonly SettingsStore _settingsStore = new(LocalData.DefaultFolder);
 
     private readonly HistoryStore _historyStore = new(LocalData.DefaultFolder);
+
+    private readonly TokenStore _tokenStore = new(LocalData.DefaultFolder);
 
     private SlingSettings _settings = SlingSettings.Default;
 
@@ -111,6 +114,7 @@ public partial class MainWindow
             BodyCapBox.Value = _settings.MaxResponseBodyMegabytes;
             RedirectsBox.Value = _settings.MaxRedirects;
             CookiesToggle.IsChecked = _settings.CookiesEnabled;
+            RememberTokensToggle.IsChecked = _settings.RememberTokens;
             HistoryToggle.IsChecked = _settings.HistoryEnabled;
             HistoryEntriesBox.Value = _settings.HistoryMaxEntries;
         }
@@ -156,6 +160,7 @@ public partial class MainWindow
         }
 
         var previousCookies = _settings.CookiesEnabled;
+        var previousTokens = _settings.RememberTokens;
 
         _settings = new SlingSettings
         {
@@ -163,6 +168,7 @@ public partial class MainWindow
             MaxResponseBodyMegabytes = ReadNumber(BodyCapBox.Value, _settings.MaxResponseBodyMegabytes),
             MaxRedirects = ReadNumber(RedirectsBox.Value, _settings.MaxRedirects),
             CookiesEnabled = CookiesToggle.IsChecked == true,
+            RememberTokens = RememberTokensToggle.IsChecked == true,
             HistoryEnabled = HistoryToggle.IsChecked == true,
             HistoryMaxEntries = ReadNumber(HistoryEntriesBox.Value, _settings.HistoryMaxEntries),
         }.Clamped();
@@ -175,6 +181,19 @@ public partial class MainWindow
         if (previousCookies != _settings.CookiesEnabled)
         {
             ResetCookieJar();
+        }
+
+        // Switching remembering off has to take the tokens already remembered with it. A
+        // setting that stops adding to a pile of credentials without removing the pile is
+        // not what anybody switching it off is asking for.
+        if (previousTokens && !_settings.RememberTokens)
+        {
+            _tokenStore.ClearAll();
+            StatusLeft.Text = "Stopped remembering tokens, and deleted the ones already stored.";
+        }
+        else if (!previousTokens && _settings.RememberTokens)
+        {
+            SaveRememberedTokens();
         }
 
         if (_settingsStore.Save(_settings) is { } problem)

@@ -36,6 +36,15 @@
     <PackageVersion Include="Etch.Core" Version="1.0.1" />
   </ItemGroup>
 
+  <ItemGroup Label="Security">
+    <!--
+      DPAPI for the token store in Sling.Persistence. Windows-only and not in the shared
+      framework, so it comes as a package; Microsoft's own, which is the only sensible source
+      for a wrapper over CryptProtectData.
+    -->
+    <PackageVersion Include="System.Security.Cryptography.ProtectedData" Version="10.0.0" />
+  </ItemGroup>
+
   <ItemGroup Label="Testing">
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.5.1" />
     <PackageVersion Include="xunit.v3" Version="3.2.2" />

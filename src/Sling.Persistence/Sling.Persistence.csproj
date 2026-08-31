@@ -27,6 +27,19 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!--
+      DPAPI, for the token store. Windows' own data protection rather than a key Sling
+      invents and then has to keep somewhere: the encryption is bound to the user's account
+      by the operating system, which is the one thing an application cannot do for itself.
+
+      A package rather than the shared framework, because System.Security.Cryptography.
+      ProtectedData is Windows-only and .NET does not carry it in the box. This project
+      targets net10.0 rather than net10.0-windows, so the package is what supplies it.
+    -->
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" />
+  </ItemGroup>
+
+  <ItemGroup>
     <InternalsVisibleTo Include="Sling.Persistence.Tests" />
   </ItemGroup>
 

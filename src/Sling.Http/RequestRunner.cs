@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Net;
 using Sling.Core.Auth;
 using Sling.Core.Cookies;
 using Sling.Core.Documents;
@@ -45,6 +46,21 @@ public sealed class RequestRunner : IDisposable
     /// </summary>
     private const int MaxResolutionPasses = 16;
 
+    /// <summary>The status that means the credential was refused rather than the request.</summary>
+    private const int Unauthorized = 401;
+
+    /// <summary>
+    /// How long the authorization-code flow waits for somebody to finish in the browser.
+    /// </summary>
+    /// <remarks>
+    /// Separate from, and far longer than, the request timeout, because it is not measuring a
+    /// server: it is measuring a person reading a consent screen, and possibly a second factor
+    /// on a phone. It exists at all so that a sign-in nobody completes releases the listener
+    /// rather than holding a port for the life of the process; Escape cancels it long before
+    /// this does.
+    /// </remarks>
+    private static readonly TimeSpan BrowserTimeout = TimeSpan.FromMinutes(5);
+
     private readonly RequestSender _sender;
     private readonly ResponseStore _responses = new();
     private readonly TokenCache _tokens = new();
@@ -77,6 +93,25 @@ public sealed class RequestRunner : IDisposable
     public CookieJar? Cookies { get; set; }
 
     /// <summary>
+    /// How the authorization-code flow opens a URL in the user's browser.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A property rather than a call to <see cref="System.Diagnostics.Process"/> buried in the
+    /// flow, for two reasons. Handing a URL to the shell is the one thing this project does
+    /// that leaves the process entirely, and it should be visible and replaceable rather than
+    /// hidden; and a test cannot open a browser, so a flow with no seam here is a flow no test
+    /// can drive end to end.
+    /// </para>
+    /// <para>
+    /// The default is the system browser, which is what RFC 8252 §4 asks for: the user's own
+    /// browser, with their session and their password manager, rather than a control embedded
+    /// in this application where neither is available and the address bar cannot be seen.
+    /// </para>
+    /// </remarks>
+    public Action<Uri> OpenBrowser { get; set; } = LaunchSystemBrowser;
+
+    /// <summary>
     /// Forgets everything this session has accumulated about the document: stored
     /// responses and cached access tokens alike.
     /// </summary>
@@ -107,6 +142,35 @@ public sealed class RequestRunner : IDisposable
     /// </remarks>
     public IReadOnlyList<string> AcquiredTokens() => _tokens.AccessTokens();
 
+    /// <summary>
+    /// What can be shown about the tokens held this session: the grant, the clock, and
+    /// nothing else.
+    /// </summary>
+    /// <remarks>
+    /// Separate from <see cref="AcquiredTokens"/> on purpose. That returns raw values because
+    /// redaction has to recognise them; this returns a projection that carries no token and
+    /// no client secret. One accessor answering both questions is how the wrong one gets
+    /// called from a panel.
+    /// </remarks>
+    public IReadOnlyList<TokenSummary> HeldTokens() => _tokens.Summaries();
+
+    /// <summary>
+    /// Every cached token in the form a store can write down.
+    /// </summary>
+    /// <remarks>
+    /// The one accessor that hands out token values for something other than redaction, and
+    /// it is named so that a call site reads as what it is. Whoever calls it is responsible
+    /// for encrypting the result before it reaches a disk.
+    /// </remarks>
+    public IReadOnlyList<PersistedToken> ExportTokens() => _tokens.Export();
+
+    /// <summary>
+    /// Puts stored tokens back into the cache, dropping the ones that are already spent.
+    /// </summary>
+    /// <returns>How many were usable.</returns>
+    public int RestoreTokens(IEnumerable<PersistedToken> tokens) =>
+        _tokens.Import(tokens, DateTimeOffset.UtcNow);
+
     /// <param name="context">
     /// The selected environment and the files a body may import. Its
     /// <see cref="ResolutionContext.Responses"/> is replaced with this runner's own store
@@ -129,6 +193,7 @@ public sealed class RequestRunner : IDisposable
             request,
             context with { Responses = _responses },
             state,
+            ExchangeRole.Requested,
             cancellationToken).ConfigureAwait(false);
 
         return new RunResult(state.Exchanges, state.Errors, state.Notes);
@@ -191,7 +256,8 @@ public sealed class RequestRunner : IDisposable
                 continue;
             }
 
-            await RunOneAsync(document, request, resolved, state, cancellationToken).ConfigureAwait(false);
+            await RunOneAsync(document, request, resolved, state, ExchangeRole.Requested, cancellationToken)
+                .ConfigureAwait(false);
         }
 
         return new RunResult(state.Exchanges, state.Errors, state.Notes);
@@ -222,11 +288,17 @@ public sealed class RequestRunner : IDisposable
         public HashSet<string> Sent { get; } = new(StringComparer.Ordinal);
     }
 
+    /// <param name="role">
+    /// Why this request is being sent. Carried down the chain rather than worked out at the
+    /// bottom, because "the user asked for this one" is something only the caller knows -
+    /// the same request block is the subject at the top and a dependency one level down.
+    /// </param>
     private async Task<bool> RunOneAsync(
         RequestDocument document,
         RequestBlock request,
         ResolutionContext context,
         RunState state,
+        ExchangeRole role,
         CancellationToken cancellationToken)
     {
         // Only a named request can be depended on, so only a named request can close a
@@ -255,7 +327,7 @@ public sealed class RequestRunner : IDisposable
 
                 if (resolution.Request is not null)
                 {
-                    return await SendAsync(resolution.Request, request, state, cancellationToken)
+                    return await SendAsync(resolution.Request, request, state, role, cancellationToken)
                         .ConfigureAwait(false);
                 }
 
@@ -308,8 +380,13 @@ public sealed class RequestRunner : IDisposable
                 return false;
             }
 
-            if (!await RunOneAsync(document, dependency, context, state, cancellationToken)
-                .ConfigureAwait(false))
+            if (!await RunOneAsync(
+                    document,
+                    dependency,
+                    context,
+                    state,
+                    ExchangeRole.Dependency,
+                    cancellationToken).ConfigureAwait(false))
             {
                 return false;
             }
@@ -322,10 +399,13 @@ public sealed class RequestRunner : IDisposable
         ResolvedRequest resolved,
         RequestBlock source,
         RunState state,
+        ExchangeRole role,
         CancellationToken cancellationToken)
     {
         try
         {
+            var reused = false;
+
             // The grant is satisfied first, and inside the same try: a failure fetching a
             // token is a failure of this request, reported against the line that declared
             // the grant, and the request must not go out without the Authorization header
@@ -333,19 +413,29 @@ public sealed class RequestRunner : IDisposable
             // with a message about permissions and no mention of the token.
             if (resolved.Auth is { } grant)
             {
-                var token = await AcquireTokenAsync(grant, state, cancellationToken).ConfigureAwait(false);
-                if (token is null)
+                var acquired = await AcquireTokenAsync(grant, state, cancellationToken)
+                    .ConfigureAwait(false);
+                if (acquired.Token is null)
                 {
                     return false;
                 }
 
-                resolved = WithBearer(resolved, token);
+                reused = acquired.FromCache;
+                resolved = WithBearer(resolved, acquired.Token);
             }
+
+            NoteExpiredToken(resolved, state);
 
             var outcome = await _sender.SendAsync(resolved, Cookies, cancellationToken).ConfigureAwait(false);
 
-            state.Exchanges.Add(new Exchange(resolved, outcome.Response, DateTimeOffset.UtcNow));
+            state.Exchanges.Add(new Exchange(resolved, outcome.Response, DateTimeOffset.UtcNow, role));
             state.Notes.AddRange(outcome.CookieNotes);
+
+            if (reused && outcome.Response.StatusCode == Unauthorized)
+            {
+                outcome = await RetryWithFreshTokenAsync(resolved, state, cancellationToken)
+                    .ConfigureAwait(false) ?? outcome;
+            }
 
             if (resolved.Name is not null)
             {
@@ -396,6 +486,119 @@ public sealed class RequestRunner : IDisposable
     }
 
     /// <summary>
+    /// Says so when the request is about to send a bearer token that has already expired.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A note and never an error. <see cref="RunResult.Errors"/> is the list whose emptiness
+    /// decides whether a run worked, and an expired token is a thing worth saying rather than
+    /// a reason to refuse to send - the user may well be sending it precisely to see the 401.
+    /// </para>
+    /// <para>
+    /// Only where Sling did not mint the token itself. A token from a grant was checked
+    /// against the clock a few lines ago and refetched if it was spent, so warning about one
+    /// here would be warning about something that cannot happen.
+    /// </para>
+    /// <para>
+    /// It reads the token and says nothing about whether it is trustworthy. There is no
+    /// signature check here and the message says as much: the word "valid" appears nowhere.
+    /// </para>
+    /// </remarks>
+    private static void NoteExpiredToken(ResolvedRequest resolved, RunState state)
+    {
+        if (resolved.Auth is not null)
+        {
+            return;
+        }
+
+        var header = resolved.Headers.FirstOrDefault(
+            h => h.Name.Equals(RequestAuth.AuthorizationHeader, StringComparison.OrdinalIgnoreCase));
+
+        if (header is null)
+        {
+            return;
+        }
+
+        var value = header.Value;
+        var space = value.IndexOf(' ', StringComparison.Ordinal);
+        var credential = space > 0 ? value[(space + 1)..].Trim() : value.Trim();
+
+        if (Jwt.DescribeIfExpired(credential, DateTimeOffset.UtcNow) is { } expired)
+        {
+            state.Notes.Add(expired);
+        }
+    }
+
+    /// <summary>
+    /// Sends a request again with a freshly fetched token, after a 401 on a cached one.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A token refreshes on expiry and not otherwise, and a 401 is reported as a 401. In a
+    /// working session that meant noticing, guessing that the token was the reason, and then
+    /// finding something to poke to make Sling fetch another - most often a restart.
+    /// </para>
+    /// <para>
+    /// <b>Three conditions, and each of them is the boundary of this being acceptable at
+    /// all.</b> Only where Sling owns the token, so a bearer token the user typed is left
+    /// alone and a 401 on it stays news rather than something papered over. Only when the
+    /// token was reused from the cache, so a token minted seconds ago is never re-fetched in
+    /// a loop against a server that is refusing it for some other reason. And only once.
+    /// </para>
+    /// <para>
+    /// <b>The retry is shown, not hidden</b>, which is the answer to the objection that it
+    /// buries the signal: both exchanges are in the picker and the second is labelled as a
+    /// retry, so what the user sees is 401, refreshed, 200 rather than a success they cannot
+    /// account for.
+    /// </para>
+    /// </remarks>
+    /// <returns>The second outcome, or null when nothing was retried.</returns>
+    private async Task<SendOutcome?> RetryWithFreshTokenAsync(
+        ResolvedRequest resolved,
+        RunState state,
+        CancellationToken cancellationToken)
+    {
+        if (resolved.Auth is not { } grant)
+        {
+            return null;
+        }
+
+        // Not the code flow. Refreshing that one means opening a browser, and a tool that
+        // pops a consent screen up because a request came back 401 is a tool that does
+        // something startling in response to something ordinary. The note says what to do
+        // instead, which is to send it again on purpose.
+        if (grant.Flow == OAuth2Flow.AuthorizationCode)
+        {
+            state.Notes.Add(
+                "The access token was refused. Signing in again means a browser, so Sling did "
+                    + "not do it on its own - send the request again to start it.");
+
+            _tokens.Invalidate(grant.CacheKey);
+            return null;
+        }
+
+        _tokens.Invalidate(grant.CacheKey);
+
+        var acquired = await AcquireTokenAsync(grant, state, cancellationToken).ConfigureAwait(false);
+
+        if (acquired.Token is null)
+        {
+            // The diagnostic explaining why is already recorded, and the 401 is already in
+            // the picker. Nothing further to say: the original answer stands.
+            return null;
+        }
+
+        var retried = WithBearer(resolved, acquired.Token);
+        var outcome = await _sender.SendAsync(retried, Cookies, cancellationToken).ConfigureAwait(false);
+
+        state.Exchanges.Add(new Exchange(retried, outcome.Response, DateTimeOffset.UtcNow, ExchangeRole.Retry));
+        state.Notes.AddRange(outcome.CookieNotes);
+        state.Notes.Add("The access token was refused, so Sling fetched a new one and sent again.");
+
+        return outcome;
+    }
+
+    /// <summary>
     /// Gets an access token for <paramref name="grant"/>, from the cache or from the
     /// authorization server.
     /// </summary>
@@ -418,8 +621,12 @@ public sealed class RequestRunner : IDisposable
     /// descriptions of one failure with the less specific one arriving second.
     /// </para>
     /// </remarks>
-    /// <returns>The token, or null with a diagnostic already recorded.</returns>
-    private async Task<OAuth2Token?> AcquireTokenAsync(
+    /// <returns>
+    /// The token, or null with a diagnostic already recorded, and whether it came from the
+    /// cache. The second half is what the 401 retry is gated on: a token fetched seconds ago
+    /// and refused is a token the server is refusing for some reason a refresh will not fix.
+    /// </returns>
+    private async Task<(OAuth2Token? Token, bool FromCache)> AcquireTokenAsync(
         ResolvedOAuth2Grant grant,
         RunState state,
         CancellationToken cancellationToken)
@@ -428,14 +635,32 @@ public sealed class RequestRunner : IDisposable
 
         if (_tokens.Find(key, DateTimeOffset.UtcNow) is { } cached)
         {
-            return cached;
+            return (cached, true);
         }
 
-        var request = OAuth2TokenRequest.Build(grant);
+        ResolvedRequest request;
+
+        if (grant.Flow == OAuth2Flow.AuthorizationCode)
+        {
+            var authorized = await AuthorizeInBrowserAsync(grant, state, cancellationToken)
+                .ConfigureAwait(false);
+
+            if (authorized is not { } exchange)
+            {
+                return (null, false);
+            }
+
+            request = exchange;
+        }
+        else
+        {
+            request = OAuth2TokenRequest.Build(grant);
+        }
+
         var outcome = await _sender.SendAsync(request, cookies: null, cancellationToken).ConfigureAwait(false);
         var response = outcome.Response;
 
-        state.Exchanges.Add(new Exchange(request, response, DateTimeOffset.UtcNow));
+        state.Exchanges.Add(new Exchange(request, response, DateTimeOffset.UtcNow, ExchangeRole.TokenRequest));
 
         // A redirect is not followed here - see ResolvedRequest.FollowRedirects - so it
         // arrives as the response. Named separately from any other unsuccessful status
@@ -450,7 +675,7 @@ public sealed class RequestRunner : IDisposable
                     + "secret would go wherever it pointed. Put the final URL in '@token-url'.",
                 grant.Line));
 
-            return null;
+            return (null, false);
         }
 
         if (!response.IsSuccess)
@@ -462,18 +687,147 @@ public sealed class RequestRunner : IDisposable
                     + $"{response.ReasonPhrase}. The token exchange is in the response list above.",
                 grant.Line));
 
-            return null;
+            return (null, false);
         }
 
         if (!OAuth2Token.TryParseResponse(response.Body, DateTimeOffset.UtcNow, out var token, out var error))
         {
             state.Errors.Add(ParseDiagnostic.Error($"The token could not be used: {error}.", grant.Line));
+            return (null, false);
+        }
+
+        _tokens.Record(key, token, DateTimeOffset.UtcNow);
+        return (token, false);
+    }
+
+    /// <summary>
+    /// Runs the browser half of the authorization-code flow, and builds the exchange it earns.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The order matters and it is not the obvious one.</b> The listener is started before
+    /// the browser is opened, because the redirect can arrive the moment the user is already
+    /// signed in - a provider with a live session answers immediately, and a listener started
+    /// afterwards would miss it and then wait five minutes for a callback that has already
+    /// been refused by a closed port.
+    /// </para>
+    /// <para>
+    /// Nothing about this exchange reaches <see cref="RunResult.Exchanges"/>. The browser round
+    /// trip is not an HTTP request Sling made - it is one the user made, in their own browser,
+    /// with their own session - and the token request it produces does appear there like any
+    /// other.
+    /// </para>
+    /// <para>
+    /// The verifier is created here and used once, in the request built at the end. It is never
+    /// stored, so there is nothing to reuse across attempts and nothing to leak between them.
+    /// </para>
+    /// </remarks>
+    /// <returns>The token request to send, or null with a diagnostic already recorded.</returns>
+    private async Task<ResolvedRequest?> AuthorizeInBrowserAsync(
+        ResolvedOAuth2Grant grant,
+        RunState state,
+        CancellationToken cancellationToken)
+    {
+        if (grant.RedirectUri is not { } redirect)
+        {
+            state.Errors.Add(ParseDiagnostic.Error(
+                "This '@auth oauth2-code' block has no '@redirect-uri'.",
+                grant.Line));
+
             return null;
         }
 
-        _tokens.Record(key, token);
-        return token;
+        var pkce = Pkce.Create();
+        var expected = Pkce.State();
+
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        deadline.CancelAfter(BrowserTimeout);
+
+        Task<CallbackResult> callback;
+
+        try
+        {
+            callback = LoopbackCallback.WaitAsync(redirect, expected, deadline.Token);
+        }
+        catch (HttpListenerException ex)
+        {
+            // Almost always the port: something else has it, or an access-control entry
+            // reserves it. Naming the address is what makes that actionable.
+            state.Errors.Add(ParseDiagnostic.Error(
+                $"Sling could not listen on '{redirect.AbsoluteUri}' for the sign-in to come "
+                    + $"back: {ex.Message}",
+                grant.Line));
+
+            return null;
+        }
+
+        try
+        {
+            OpenBrowser(OAuth2AuthorizeRequest.Build(grant, pkce.Challenge, expected));
+        }
+#pragma warning disable CA1031 // Do not catch general exception types
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            // Deliberately broad: what a shell does with a URL is the operating system's
+            // business and its failures are not a documented set. The listener has to be
+            // released either way, and a machine with no browser association is a real
+            // configuration rather than an impossible one.
+            await deadline.CancelAsync().ConfigureAwait(false);
+
+            state.Errors.Add(ParseDiagnostic.Error(
+                $"Sling could not open a browser to sign in: {ex.Message}",
+                grant.Line));
+
+            return null;
+        }
+
+        state.Notes.Add("Waiting for the sign-in to finish in your browser. Escape cancels it.");
+
+        CallbackResult result;
+
+        try
+        {
+            result = await callback.ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // The user pressed Escape. Their instruction, not a failure.
+            throw;
+        }
+        catch (OperationCanceledException)
+        {
+            state.Errors.Add(ParseDiagnostic.Error(
+                "The sign-in was not finished in time, so Sling stopped waiting for it.",
+                grant.Line));
+
+            return null;
+        }
+
+        if (result.Code is not { } code)
+        {
+            state.Errors.Add(ParseDiagnostic.Error(
+                $"The sign-in did not produce an authorization code: {result.Error}",
+                grant.Line));
+
+            return null;
+        }
+
+        return OAuth2TokenRequest.BuildCodeExchange(grant, code, pkce.Verifier);
     }
+
+    /// <summary>
+    /// Hands a URL to the shell, which opens it in whatever the user's browser is.
+    /// </summary>
+    /// <remarks>
+    /// <c>UseShellExecute</c> is what makes this the browser rather than an attempt to run the
+    /// URL as a program. It is also the only way to reach the browser the user actually uses,
+    /// which is the whole point: their session is in it and an embedded control's is not.
+    /// </remarks>
+    private static void LaunchSystemBrowser(Uri url) =>
+        System.Diagnostics.Process.Start(
+            new System.Diagnostics.ProcessStartInfo(url.AbsoluteUri) { UseShellExecute = true })
+            ?.Dispose();
 
     /// <summary>
     /// Attaches the token as an <c>Authorization</c> header.

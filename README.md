@@ -175,8 +175,13 @@ GET {{base}}/orders
 ```
 
 Sling fetches the token, attaches it, caches it until it expires, and shows the token
-exchange in the response pane like any other call it makes on your behalf. Tokens are
-never written to disk. The authorization-code flow is not supported and is not planned.
+exchange in the response pane like any other call it makes on your behalf.
+
+`# @auth oauth2-code` does the authorization-code flow instead: your own browser, a loopback
+redirect Sling listens on, PKCE with `S256` and a checked `state`. `@client-secret` is
+optional there, because a desktop client has none to keep and PKCE is what replaces it. The
+one part Sling cannot do for you is registering the loopback address with your identity
+provider.
 
 `Ctrl+Shift+Enter` sends every request in the file in one run - shared chain responses, so
 a dependency already satisfied is not sent twice, and a failure does not stop the rest.
@@ -226,6 +231,23 @@ express becomes a comment saying what was dropped;
 [docs/curl-import.md](docs/curl-import.md) has the rules, including the two flags it
 deliberately refuses.
 
+**Auth you can see and set up by clicking.** `Ctrl+Alt+A` says what credential the request
+under the caret is sending and where it is declared, with its line - which used to mean
+reading the document and both environment files. Editing a field rewrites the header or the
+`# @auth` directives in your own document, so closing the panel leaves a `.http` file a
+colleague can review.
+
+`Ctrl+E` creates and changes environment values, including the gitignored secrets file that
+until now nothing in Sling would write - so a bearer token no longer means alt-tabbing to
+another editor to hand-write JSON. A credential typed into the auth panel goes there and the
+request gets a `{{reference}}`; a literal one is never written into a `.http` file.
+
+Beside the picker, a chip says what token is in force and how long it has left. Tokens are
+remembered across restarts, encrypted under your account and scoped per folder and
+environment, and a 401 on one Sling fetched refreshes it and sends again - showing both
+attempts rather than a mystery success. [docs/auth.md](docs/auth.md) has all of it, including
+the three things it deliberately will not do.
+
 **M5 - the release.** `Sling-Setup.exe` is built by CI on every merge to `master` and on
 every `v*` tag, and neither channel publishes unless the suite is green. See
 [Download](#download).
@@ -252,6 +274,9 @@ beside them.
 | `Ctrl+Shift+N` | Add a request to the open file |
 | `Ctrl+B` | Show or hide the collections rail |
 | `Ctrl+F` | Find, in either pane |
+| `Ctrl+Space` | Complete a directive, a header or a variable |
+| `Ctrl+Alt+A` | The auth this request is sending |
+| `Ctrl+E` | Environments and secrets |
 | `Ctrl+H` | Show the local history |
 | `Ctrl+,` | Settings |
 
@@ -268,12 +293,13 @@ files you can review in a pull request* - not *a drop-in replacement*.
 ### Planned for v1
 
 Postman collection import · paste-a-curl-command · environments (dev/staging/prod) ·
-cookie jar · OAuth2 client-credentials · request chaining · file and multipart bodies
+cookie jar · OAuth2 client-credentials · OAuth2 authorization code with PKCE · request
+chaining · file and multipart bodies
 
 ### Deliberately not in v1
 
-OAuth2 authorization-code flow · test assertions · mock servers · team sync · gRPC ·
-WebSocket · proxy capture
+Test assertions · mock servers · team sync · gRPC · WebSocket · proxy capture · a
+response-handler scripting runtime · JWT signature verification
 
 ## Security
 
@@ -288,6 +314,11 @@ later:
 - **Cookies are scoped per environment** - a staging cookie never reaches production,
   because the two do not share a jar.
 - **Response bodies render as text**, never into a browser control.
+- **A stored access token is encrypted** with Windows data protection under your account and
+  scoped per folder and environment, so a staging token cannot be read back under production.
+  No client secret is ever written to disk.
+- **Nothing tells you a token is valid.** Sling decodes a JWT and reads its clock; it verifies
+  no signature and says so.
 - **History stores no bodies, and credentials are redacted before anything is written.**
 - **Access tokens and cookies never touch the disk.**
 - No telemetry, no update ping, no crash upload.

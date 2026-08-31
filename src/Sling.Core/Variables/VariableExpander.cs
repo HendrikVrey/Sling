@@ -117,9 +117,17 @@ internal sealed class VariableExpander
     /// <summary>Named requests that must be sent before this one can be resolved.</summary>
     public IReadOnlyList<string> MissingResponses => _missing;
 
-    public string Expand(string template, int line, FieldKind field) => Expand(template, line, field, depth: 0);
+    /// <param name="credential">
+    /// True when this field carries a credential - an <c>Authorization</c> header, or one of
+    /// the secrets a grant is built from. It changes nothing about how a value is resolved
+    /// and only marks the diagnostic when one is missing, so that an editor offering to
+    /// define the name can put it in the gitignored file by default. A name missing from one
+    /// of these places is a credential far more often than not.
+    /// </param>
+    public string Expand(string template, int line, FieldKind field, bool credential = false) =>
+        Expand(template, line, field, credential, depth: 0);
 
-    private string Expand(string template, int line, FieldKind field, int depth)
+    private string Expand(string template, int line, FieldKind field, bool credential, int depth)
     {
         var opening = template.IndexOf("{{", StringComparison.Ordinal);
         if (opening < 0)
@@ -142,7 +150,7 @@ internal sealed class VariableExpander
             result.Append(template, position, opening - position);
 
             var reference = template[(opening + 2)..closing].Trim();
-            if (TryResolve(reference, line, field, depth, out var value))
+            if (TryResolve(reference, line, field, credential, depth, out var value))
             {
                 result.Append(value);
             }
@@ -182,7 +190,13 @@ internal sealed class VariableExpander
             line));
     }
 
-    private bool TryResolve(string reference, int line, FieldKind field, int depth, out string value)
+    private bool TryResolve(
+        string reference,
+        int line,
+        FieldKind field,
+        bool credential,
+        int depth,
+        out string value)
     {
         value = string.Empty;
 
@@ -219,20 +233,44 @@ internal sealed class VariableExpander
         // a deliberate divergence in docs/http-dialect.md.
         if (_environment.TryGet(reference, out var fromEnvironment))
         {
-            return TryExpandDefinition(reference, fromEnvironment, line, line, field, depth, out value);
+            return TryExpandDefinition(
+                reference,
+                fromEnvironment,
+                line,
+                line,
+                field,
+                credential,
+                depth,
+                out value);
         }
 
         if (!_variables.TryGetValue(reference, out var definition))
         {
+            // The name is carried on the diagnostic as well as named in the message. The
+            // message is for the reader; the name is what lets the editor offer to define it
+            // rather than list the three places the value could have come from and stop.
             _errors.Add(ParseDiagnostic.Error(
                 $"There is no variable named '{reference}'. Define it with '@{reference} = ...', "
                     + "put it in the selected environment, or reference an earlier request as "
                     + "'{{name.response.body.$.field}}'.",
-                line));
+                line) with
+            {
+                MissingVariable = reference,
+                LooksLikeCredential = credential,
+            });
+
             return false;
         }
 
-        return TryExpandDefinition(reference, definition.Value, definition.Line, line, field, depth, out value);
+        return TryExpandDefinition(
+            reference,
+            definition.Value,
+            definition.Line,
+            line,
+            field,
+            credential,
+            depth,
+            out value);
     }
 
     /// <summary>
@@ -249,6 +287,7 @@ internal sealed class VariableExpander
         int definitionLine,
         int line,
         FieldKind field,
+        bool credential,
         int depth,
         out string value)
     {
@@ -270,7 +309,7 @@ internal sealed class VariableExpander
             // is where its value is about to land. Any response value inside it was
             // already encoded by the recursive call, so this level only re-checks
             // characters - encoding here as well would double-encode it.
-            var expanded = Expand(definitionText, definitionLine, field, depth + 1);
+            var expanded = Expand(definitionText, definitionLine, field, credential, depth + 1);
             return Accept(expanded, reference, line, field, encode: false, out value);
         }
         finally

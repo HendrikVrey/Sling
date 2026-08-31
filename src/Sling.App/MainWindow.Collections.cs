@@ -693,9 +693,8 @@ public partial class MainWindow
 
     private async Task NewCollectionAsync()
     {
-        if (_workspace is null)
+        if (EnsureWorkspace("Choose the folder the collection goes in") is not { } workspace)
         {
-            StatusLeft.Text = "Open a folder first with Ctrl+Shift+O. A collection is a folder in it.";
             return;
         }
 
@@ -703,7 +702,7 @@ public partial class MainWindow
 
         var name = await PromptForNameAsync(
             "New collection",
-            $"A folder in {parent ?? Path.GetFileName(_workspace.Root.TrimEnd(Path.DirectorySeparatorChar))}, "
+            $"A folder in {parent ?? Path.GetFileName(workspace.Root.TrimEnd(Path.DirectorySeparatorChar))}, "
                 + "with a request file already in it.",
             ValidateSegment).ConfigureAwait(true);
 
@@ -717,7 +716,7 @@ public partial class MainWindow
         try
         {
             relative = await WorkspaceEditor
-                .CreateCollectionAsync(_workspace, parent, name, CancellationToken.None)
+                .CreateCollectionAsync(workspace, parent, name, CancellationToken.None)
                 .ConfigureAwait(true);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
@@ -731,9 +730,8 @@ public partial class MainWindow
 
     private async Task NewDocumentFileAsync()
     {
-        if (_workspace is null)
+        if (EnsureWorkspace("Choose the folder the request file goes in") is not { } workspace)
         {
-            StatusLeft.Text = "Open a folder first with Ctrl+Shift+O.";
             return;
         }
 
@@ -741,7 +739,7 @@ public partial class MainWindow
 
         var name = await PromptForNameAsync(
             "New request file",
-            $"A .http file in {parent ?? Path.GetFileName(_workspace.Root.TrimEnd(Path.DirectorySeparatorChar))}.",
+            $"A .http file in {parent ?? Path.GetFileName(workspace.Root.TrimEnd(Path.DirectorySeparatorChar))}.",
             ValidateStem).ConfigureAwait(true);
 
         if (name is null)
@@ -754,7 +752,7 @@ public partial class MainWindow
         try
         {
             relative = await WorkspaceEditor
-                .CreateDocumentAsync(_workspace, parent, name, CancellationToken.None)
+                .CreateDocumentAsync(workspace, parent, name, CancellationToken.None)
                 .ConfigureAwait(true);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
@@ -802,9 +800,7 @@ public partial class MainWindow
     private async Task NewRequestAsync()
     {
         // A file, not a buffer. An untitled document has nowhere for the request to be
-        // saved, and on first run the buffer holds the seeded sample - which the constructor
-        // deliberately left unmarked, so appending to it would ask the user to save text they
-        // never wrote.
+        // saved, so appending to one produces work with no home for it.
         if (_documentPath is null)
         {
             StatusLeft.Text = _workspace is null

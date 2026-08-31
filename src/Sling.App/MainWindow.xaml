@@ -463,6 +463,9 @@
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
 
                         <TextBlock x:Name="RequestLabel"
@@ -470,19 +473,140 @@
                                    Style="{StaticResource PaneHeaderStyle}"
                                    Text="REQUEST" />
 
+                        <!--
+                            What credential this request is actually sending, and where it
+                            came from. Answering that used to mean reading three files: the
+                            document, one environment file and the other one.
+                        -->
+                        <ui:Button x:Name="AuthButton"
+                                   Grid.Column="1"
+                                   Margin="12,0,0,0"
+                                   Padding="8,2"
+                                   Click="OnAuthClicked"
+                                   Content="Auth"
+                                   FontSize="11"
+                                   ToolTip="The auth this request is sending  (Ctrl+Alt+A)" />
+
                         <ComboBox x:Name="EnvironmentPicker"
-                                  Grid.Column="1"
-                                  Margin="12,0,0,0"
+                                  Grid.Column="2"
+                                  Margin="8,0,0,0"
                                   Padding="8,2"
                                   FontSize="12"
                                   SelectionChanged="OnEnvironmentSelected"
                                   Visibility="Collapsed" />
+
+                        <!--
+                            What token is in force. Tokens are cached by grant and dropped on
+                            an environment switch - correct, and until now entirely
+                            unobservable, so a 401 could not distinguish a stale token from a
+                            wrong scope from a token fetched against the other environment.
+
+                            The grant and the clock, never a token value: those are what
+                            answer "why did that 401", and a panel is a place a screenshot
+                            comes from.
+                        -->
+                        <ui:HyperlinkButton x:Name="TokenChip"
+                                            Grid.Column="3"
+                                            Margin="8,0,0,0"
+                                            Padding="6,2"
+                                            Click="OnTokenChipClicked"
+                                            FontSize="11"
+                                            Visibility="Collapsed" />
+
+                        <!--
+                            Beside the picker, because the picker is where somebody looks
+                            when a {{variable}} did not resolve. Visible whenever a folder is
+                            open rather than only when environments exist: the case that
+                            matters most is the one where there are none yet, and a button
+                            that appears only after the file it creates exists is no use to
+                            the person who has never had one.
+                        -->
+                        <ui:Button x:Name="EnvironmentsButton"
+                                   Grid.Column="4"
+                                   Margin="8,0,0,0"
+                                   Padding="8,2"
+                                   Click="OnEnvironmentsClicked"
+                                   Content="Edit"
+                                   FontSize="11"
+                                   ToolTip="Environments and secrets  (Ctrl+E)" />
                     </Grid>
 
                     <Border Style="{StaticResource PaneBorderStyle}">
-                        <avalon:TextEditor x:Name="RequestPane"
-                                           ShowLineNumbers="True"
-                                           Style="{StaticResource PaneEditorStyle}" />
+                        <Grid>
+                            <avalon:TextEditor x:Name="RequestPane"
+                                               ShowLineNumbers="True"
+                                               Style="{StaticResource PaneEditorStyle}" />
+
+                            <!--
+                                What the pane says before anything is in it.
+
+                                It replaces the two GitHub requests Sling used to seed on
+                                every launch. Deleting those outright would have repeated
+                                the collapsed-rail mistake one pane over: a panel that is
+                                absent explains less than an empty one, and the sample was
+                                doing real work, because chaining is the one Sling behaviour
+                                that has to be seen rather than described. So the teaching
+                                moves rather than going away - the example is still here,
+                                one quiet click away, and it no longer arrives uninvited in
+                                a window somebody opened to write their own request.
+
+                                Laid out below the first line so the caret is never behind
+                                it, and hit-testable only on the buttons, so clicking the
+                                pane still puts the caret in the document.
+                            -->
+                            <StackPanel x:Name="EmptyDocument"
+                                        MaxWidth="340"
+                                        Margin="14,44,14,14"
+                                        HorizontalAlignment="Left"
+                                        VerticalAlignment="Top">
+                                <TextBlock FontSize="12"
+                                           IsHitTestVisible="False"
+                                           Opacity="0.75"
+                                           Text="Nothing open"
+                                           TextWrapping="Wrap" />
+                                <TextBlock Margin="0,6,0,0"
+                                           FontSize="11"
+                                           IsHitTestVisible="False"
+                                           Opacity="0.45"
+                                           Text="A request is a document, not a form. Type a method and a URL here, or start from one of these."
+                                           TextWrapping="Wrap" />
+
+                                <ui:Button Margin="0,14,0,0"
+                                           Appearance="Primary"
+                                           Click="OnOpenFolderClicked"
+                                           Content="Open a folder"
+                                           Icon="{ui:SymbolIcon FolderOpen24}"
+                                           Style="{StaticResource RailActionButtonStyle}" />
+                                <ui:Button Margin="0,6,0,0"
+                                           Click="OnNewDocument"
+                                           Content="New request file"
+                                           Icon="{ui:SymbolIcon DocumentAdd24}"
+                                           Style="{StaticResource RailActionButtonStyle}" />
+                                <ui:Button Margin="0,6,0,0"
+                                           Click="OnPasteCurlClicked"
+                                           Content="Paste a curl command"
+                                           Icon="{ui:SymbolIcon ClipboardPaste24}"
+                                           Style="{StaticResource RailActionButtonStyle}" />
+
+                                <!--
+                                    Quieter than the three above, and deliberately so: it is
+                                    the one button here that puts text nobody typed into the
+                                    buffer, which is what the seeded sample did wrong.
+                                -->
+                                <TextBlock Margin="0,16,0,0"
+                                           FontSize="11"
+                                           Opacity="0.45"
+                                           Text="Chaining is easier seen than described."
+                                           TextWrapping="Wrap" />
+                                <ui:HyperlinkButton x:Name="LoadExampleButton"
+                                                    Margin="0,2,0,0"
+                                                    Padding="0,2"
+                                                    HorizontalAlignment="Left"
+                                                    Click="OnLoadExampleClicked"
+                                                    Content="Load the example"
+                                                    FontSize="11" />
+                            </StackPanel>
+                        </Grid>
                     </Border>
                 </DockPanel>
 
@@ -618,6 +742,20 @@
                        DockPanel.Dock="Right"
                        FontSize="12"
                        Opacity="0.5" />
+
+            <!--
+                The one diagnostic that was always a dead end, given somewhere to go. It
+                names a variable, names the three places a value could come from, and used
+                to be able to reach none of them - so the fix was always: read it, leave
+                Sling, guess the shape of the file, come back.
+            -->
+            <ui:HyperlinkButton x:Name="StatusAction"
+                                Margin="12,0,0,0"
+                                Padding="0,2"
+                                Click="OnStatusAction"
+                                DockPanel.Dock="Right"
+                                FontSize="12"
+                                Visibility="Collapsed" />
             <TextBlock x:Name="StatusLeft"
                        FontSize="12"
                        Opacity="0.6"
@@ -815,6 +953,14 @@
                             <TextBlock Style="{StaticResource SettingsHintStyle}"
                                        Text="One jar per environment, in memory only. Nothing is written to disk." />
 
+                            <TextBlock Style="{StaticResource SettingsLabelStyle}" Text="Access tokens" />
+                            <ui:ToggleSwitch x:Name="RememberTokensToggle"
+                                             Checked="OnSettingToggled"
+                                             Content="Remember them across restarts"
+                                             Unchecked="OnSettingToggled" />
+                            <TextBlock Style="{StaticResource SettingsHintStyle}"
+                                       Text="Encrypted with Windows data protection under your account, scoped per folder and environment, and holding no client secret. Switching this off deletes the ones already stored." />
+
                             <TextBlock Style="{StaticResource SettingsLabelStyle}" Text="History" />
                             <ui:ToggleSwitch x:Name="HistoryToggle"
                                              Checked="OnSettingToggled"
@@ -853,6 +999,536 @@
                                        TextWrapping="Wrap" />
                         </StackPanel>
                     </ScrollViewer>
+                </DockPanel>
+            </Border>
+        </Grid>
+
+        <!--
+            Environments and secrets, as a card.
+
+            Until this existed a credential could not be created from inside Sling at all:
+            docs/environments.md said in plain words that nothing here wrote the secrets
+            file, so the only way to get a bearer token into a request was to leave the
+            application and hand-write JSON whose environment names had to match another
+            file that had also been hand-written.
+
+            The files stay the truth. This writes a value into one of them and then has no
+            further role - there is no store and nothing Sling remembers. The toggle is the
+            whole security design: it decides which of the two files the value lands in, and
+            turning it on creates the gitignored one together with its .gitignore entry.
+        -->
+        <Grid x:Name="EnvironmentsOverlay"
+              Grid.Row="0"
+              Grid.RowSpan="4"
+              Background="{StaticResource OverlayScrimBrush}"
+              Visibility="Collapsed">
+            <Border x:Name="EnvironmentsCard"
+                    Width="520"
+                    MaxHeight="660"
+                    Padding="24"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Style="{StaticResource DialogCardStyle}">
+                <!--
+                    DockPanel so the heading and the Close button stay outside the scroll
+                    region, for the reason the settings card learned the hard way: inside it
+                    they go below the fold on a short window, and the only way out of a modal
+                    becomes a chord.
+                -->
+                <DockPanel>
+                    <TextBlock Margin="0,0,0,4"
+                               DockPanel.Dock="Top"
+                               FontSize="20"
+                               FontWeight="SemiBold"
+                               Text="Environments" />
+                    <TextBlock x:Name="EnvironmentsPath"
+                               Margin="0,0,0,12"
+                               DockPanel.Dock="Top"
+                               FontSize="11"
+                               Opacity="0.5"
+                               TextTrimming="CharacterEllipsis" />
+
+                    <ui:Button Margin="0,20,0,0"
+                               HorizontalAlignment="Right"
+                               Appearance="Primary"
+                               Click="OnCloseEnvironments"
+                               Content="Close"
+                               DockPanel.Dock="Bottom" />
+
+                    <Grid DockPanel.Dock="Top" Margin="0,0,0,10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <ComboBox x:Name="EnvironmentsPicker"
+                                  Grid.Column="0"
+                                  Padding="8,4"
+                                  FontSize="12"
+                                  SelectionChanged="OnEnvironmentsEnvironmentChanged" />
+
+                        <ui:Button Grid.Column="1"
+                                   Margin="8,0,0,0"
+                                   Click="OnNewEnvironment"
+                                   Content="New environment"
+                                   FontSize="12" />
+                    </Grid>
+
+                    <!--
+                        Stated once, above the list, rather than repeated as a tooltip per
+                        row. Which file a value lives in is the only thing about these two
+                        files that has to be understood, and it is the thing a screenshot of
+                        this card should carry.
+                    -->
+                    <DockPanel DockPanel.Dock="Top" LastChildFill="True">
+                        <!--
+                            Off by default, and that is the point of it. The people who open
+                            this card are the people who put a live token in it, and a panel
+                            is a place a screenshot comes from - so a secret is a row of dots
+                            until somebody says otherwise.
+                        -->
+                        <ui:ToggleSwitch x:Name="EnvironmentsReveal"
+                                         Margin="12,0,0,0"
+                                         VerticalAlignment="Top"
+                                         Checked="OnEnvironmentsRevealToggled"
+                                         Content="Show secrets"
+                                         DockPanel.Dock="Right"
+                                         Unchecked="OnEnvironmentsRevealToggled" />
+
+                        <TextBlock Style="{StaticResource SettingsHintStyle}"
+                                   Text="Values marked secret go to http-client.private.env.json, which is gitignored. Everything else goes to http-client.env.json, which is meant to be committed." />
+                    </DockPanel>
+
+                    <Grid DockPanel.Dock="Bottom" Margin="0,14,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Grid.Row="0"
+                                   Grid.ColumnSpan="2"
+                                   Margin="0,0,0,6"
+                                   FontSize="11"
+                                   FontWeight="SemiBold"
+                                   Opacity="0.7"
+                                   Text="ADD OR CHANGE A VALUE" />
+
+                        <ui:TextBox x:Name="EnvironmentsName"
+                                    Grid.Row="1"
+                                    Grid.Column="0"
+                                    Margin="0,0,8,0"
+                                    MaxLength="128"
+                                    PlaceholderText="name"
+                                    TextChanged="OnEnvironmentsFormChanged" />
+
+                        <!--
+                            The toggle sits beside the name rather than under the value,
+                            because it is a question about the name: it decides which file
+                            this variable belongs in, and for a variable that already exists
+                            the answer is settled and the control is disabled.
+                        -->
+                        <ui:ToggleSwitch x:Name="EnvironmentsSecret"
+                                         Grid.Row="1"
+                                         Grid.Column="1"
+                                         VerticalAlignment="Center"
+                                         Checked="OnEnvironmentsSecretToggled"
+                                         Content="Secret"
+                                         Unchecked="OnEnvironmentsSecretToggled" />
+
+                        <ui:TextBox x:Name="EnvironmentsValue"
+                                    Grid.Row="2"
+                                    Grid.Column="0"
+                                    Margin="0,8,8,0"
+                                    KeyDown="OnEnvironmentsValueKey"
+                                    PlaceholderText="value"
+                                    TextChanged="OnEnvironmentsFormChanged" />
+
+                        <ui:Button x:Name="EnvironmentsSaveButton"
+                                   Grid.Row="2"
+                                   Grid.Column="1"
+                                   Margin="0,8,0,0"
+                                   MinWidth="92"
+                                   Appearance="Primary"
+                                   Click="OnEnvironmentsSave"
+                                   Content="Save" />
+
+                        <TextBlock x:Name="EnvironmentsError"
+                                   Grid.Row="3"
+                                   Grid.ColumnSpan="2"
+                                   Margin="0,8,0,0"
+                                   FontSize="11"
+                                   Foreground="#F48771"
+                                   TextWrapping="Wrap"
+                                   Visibility="Collapsed" />
+                    </Grid>
+
+                    <Border Margin="0,10,0,0" Style="{StaticResource PaneBorderStyle}">
+                        <Grid>
+                            <TextBlock x:Name="EnvironmentsEmpty"
+                                       Margin="14,16,14,14"
+                                       FontSize="11"
+                                       Opacity="0.45"
+                                       Text="This environment has no variables yet. Add one below - a base URL, a client id, a token."
+                                       TextWrapping="Wrap"
+                                       VerticalAlignment="Top" />
+
+                            <ScrollViewer Padding="4" VerticalScrollBarVisibility="Auto">
+                                <ItemsControl x:Name="EnvironmentsList" Margin="0,0,14,0">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <!--
+                                                A row is a button, because the one thing to do
+                                                with an existing value is edit it, and making
+                                                the row itself the affordance saves an Edit
+                                                control per row that would say the same.
+                                            -->
+                                            <ui:Button Margin="0,1"
+                                                       Padding="8,5"
+                                                       HorizontalAlignment="Stretch"
+                                                       HorizontalContentAlignment="Left"
+                                                       Appearance="Transparent"
+                                                       Click="OnEnvironmentsRowClicked"
+                                                       Tag="{Binding}"
+                                                       ToolTip="{Binding Hint}">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto" MinWidth="130" />
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+
+                                                    <TextBlock Grid.Column="0"
+                                                               Margin="0,0,10,0"
+                                                               VerticalAlignment="Center"
+                                                               FontFamily="Cascadia Code, Consolas, Courier New"
+                                                               FontSize="11"
+                                                               Text="{Binding Name}"
+                                                               TextTrimming="CharacterEllipsis" />
+
+                                                    <TextBlock Grid.Column="1"
+                                                               VerticalAlignment="Center"
+                                                               FontFamily="Cascadia Code, Consolas, Courier New"
+                                                               FontSize="11"
+                                                               Opacity="0.6"
+                                                               Text="{Binding Display}"
+                                                               TextTrimming="CharacterEllipsis" />
+
+                                                    <TextBlock Grid.Column="2"
+                                                               Margin="10,0,0,0"
+                                                               VerticalAlignment="Center"
+                                                               FontSize="10"
+                                                               Opacity="0.5"
+                                                               Text="{Binding FileLabel}" />
+                                                </Grid>
+                                            </ui:Button>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </Grid>
+                    </Border>
+                </DockPanel>
+            </Border>
+        </Grid>
+
+        <!--
+            The auth panel, and it is the item that changes how Sling feels.
+
+            Postman's Auth tab is the most used screen in that product, and there is no
+            reason a text-first tool cannot have one - as long as what it edits is the text.
+            Every field here writes directives and headers into the open .http document and
+            then gets out of the way. Close the panel and what is left is a file a colleague
+            can review, which is the whole difference from the version that writes into a
+            database.
+
+            A credential typed into it never lands in the document. It goes to
+            http-client.private.env.json and the document gets a {{reference}} - the
+            importer's rule, applied to hand-authoring.
+        -->
+        <Grid x:Name="AuthOverlay"
+              Grid.Row="0"
+              Grid.RowSpan="4"
+              Background="{StaticResource OverlayScrimBrush}"
+              Visibility="Collapsed">
+            <Border x:Name="AuthCard"
+                    Width="520"
+                    MaxHeight="680"
+                    Padding="24"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Style="{StaticResource DialogCardStyle}">
+                <DockPanel>
+                    <TextBlock Margin="0,0,0,4"
+                               DockPanel.Dock="Top"
+                               FontSize="20"
+                               FontWeight="SemiBold"
+                               Text="Auth" />
+                    <TextBlock x:Name="AuthRequestLabel"
+                               Margin="0,0,0,2"
+                               DockPanel.Dock="Top"
+                               FontFamily="Cascadia Code, Consolas, Courier New"
+                               FontSize="11"
+                               Opacity="0.6"
+                               TextTrimming="CharacterEllipsis" />
+
+                    <!--
+                        Where the credential comes from, named with its line. This is the
+                        sentence the panel exists for: it used to take reading the document,
+                        one environment file and the other one to arrive at.
+                    -->
+                    <TextBlock x:Name="AuthOriginLabel"
+                               Margin="0,8,0,0"
+                               DockPanel.Dock="Top"
+                               FontSize="12"
+                               Opacity="0.85"
+                               TextWrapping="Wrap" />
+
+                    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal">
+                        <TextBlock x:Name="AuthResolution"
+                                   MaxWidth="380"
+                                   Margin="0,4,0,0"
+                                   FontSize="11"
+                                   Opacity="0.55"
+                                   TextWrapping="Wrap" />
+                        <ui:HyperlinkButton x:Name="AuthDefineButton"
+                                            Margin="6,2,0,0"
+                                            Padding="0,2"
+                                            Click="OnAuthDefineVariable"
+                                            Content="Define it"
+                                            FontSize="11"
+                                            Visibility="Collapsed" />
+                    </StackPanel>
+
+                    <StackPanel Margin="0,20,0,0"
+                                HorizontalAlignment="Right"
+                                DockPanel.Dock="Bottom"
+                                Orientation="Horizontal">
+                        <ui:Button Margin="0,0,8,0"
+                                   Click="OnCloseAuth"
+                                   Content="Close" />
+                        <ui:Button x:Name="AuthApplyButton"
+                                   MinWidth="92"
+                                   Appearance="Primary"
+                                   Click="OnAuthApply"
+                                   Content="Apply" />
+                    </StackPanel>
+
+                    <TextBlock x:Name="AuthError"
+                               Margin="0,10,0,0"
+                               DockPanel.Dock="Bottom"
+                               FontSize="11"
+                               Foreground="#F48771"
+                               TextWrapping="Wrap"
+                               Visibility="Collapsed" />
+
+                    <ScrollViewer Margin="0,16,0,0" VerticalScrollBarVisibility="Auto">
+                        <!-- The right margin is the scrollbar's lane, as on the settings card. -->
+                        <StackPanel Margin="0,0,14,0">
+                            <TextBlock Style="{StaticResource SettingsLabelStyle}" Text="Kind" />
+                            <ComboBox x:Name="AuthSchemePicker"
+                                      Padding="8,4"
+                                      FontSize="12"
+                                      SelectionChanged="OnAuthSchemeChanged" />
+
+                            <StackPanel x:Name="AuthNoneFields" Visibility="Collapsed">
+                                <TextBlock Style="{StaticResource SettingsHintStyle}"
+                                           Text="Applying this removes the Authorization header or the @auth block from this request. Nothing else in it is touched." />
+                            </StackPanel>
+
+                            <StackPanel x:Name="AuthUnrecognizedFields" Visibility="Collapsed">
+                                <TextBlock x:Name="AuthUnrecognizedNote"
+                                           Style="{StaticResource SettingsHintStyle}"
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+
+                            <StackPanel x:Name="AuthBearerFields" Visibility="Collapsed">
+                                <TextBlock Style="{StaticResource SettingsLabelStyle}" Text="Token" />
+                                <ui:TextBox x:Name="AuthBearerValue"
+                                            PlaceholderText="{}{{token}}, or paste the token itself"
+                                            TextChanged="OnAuthFieldChanged" />
+                            </StackPanel>
+
+                            <StackPanel x:Name="AuthBasicFields" Visibility="Collapsed">
+                                <TextBlock Style="{StaticResource SettingsLabelStyle}" Text="User" />
+                                <ui:TextBox x:Name="AuthBasicUser" TextChanged="OnAuthFieldChanged" />
+
+                                <TextBlock Style="{StaticResource SettingsLabelStyle}" Text="Password" />
+                                <ui:PasswordBox x:Name="AuthBasicPassword" PasswordChanged="OnAuthPasswordChanged" />
+
+                                <TextBlock Style="{StaticResource SettingsHintStyle}"
+                                           Text="A Basic header carries base64 of user:password. Sling encodes it, puts the encoded value in the secrets file, and writes the reference." />
+                            </StackPanel>
+
+                            <StackPanel x:Name="AuthApiKeyFields" Visibility="Collapsed">
+                                <TextBlock Style="{StaticResource SettingsLabelStyle}" Text="Header" />
+                                <ui:TextBox x:Name="AuthApiKeyHeader"
+                                            PlaceholderText="X-API-Key"
+                                            TextChanged="OnAuthFieldChanged" />
+
+                                <TextBlock Style="{StaticResource SettingsLabelStyle}" Text="Key" />
+                                <ui:TextBox x:Name="AuthApiKeyValue"
+                                            PlaceholderText="{}{{api_key}}, or paste the key itself"
+                                            TextChanged="OnAuthFieldChanged" />
+                            </StackPanel>
+
+                            <!--
+                                The two directives the browser flow adds. Shown above the
+                                token URL because that is the order the flow happens in: the
+                                browser goes to one and comes back to the other, and only
+                                then is there a code to exchange.
+                            -->
+                            <StackPanel x:Name="AuthBrowserFields" Visibility="Collapsed">
+                                <TextBlock Style="{StaticResource SettingsLabelStyle}" Text="Authorize URL" />
+                                <ui:TextBox x:Name="AuthAuthorizeUrl"
+                                            PlaceholderText="{}{{auth_base}}/authorize"
+                                            TextChanged="OnAuthFieldChanged" />
+
+                                <TextBlock Style="{StaticResource SettingsLabelStyle}" Text="Redirect back to" />
+                                <ui:TextBox x:Name="AuthRedirectUri" TextChanged="OnAuthFieldChanged" />
+                                <TextBlock Style="{StaticResource SettingsHintStyle}"
+                                           Text="A loopback address on this machine, which Sling listens on for the moment the browser comes back. It has to be registered with your identity provider exactly as written, and that is the one part Sling cannot do for you." />
+                            </StackPanel>
+
+                            <StackPanel x:Name="AuthGrantFields" Visibility="Collapsed">
+                                <TextBlock Style="{StaticResource SettingsLabelStyle}" Text="Token URL" />
+                                <ui:TextBox x:Name="AuthTokenUrl"
+                                            PlaceholderText="{}{{auth_base}}/oauth2/token"
+                                            TextChanged="OnAuthFieldChanged" />
+
+                                <TextBlock Style="{StaticResource SettingsLabelStyle}" Text="Client id" />
+                                <ui:TextBox x:Name="AuthClientId" TextChanged="OnAuthFieldChanged" />
+
+                                <TextBlock x:Name="AuthClientSecretLabel"
+                                           Style="{StaticResource SettingsLabelStyle}"
+                                           Text="Client secret" />
+                                <ui:TextBox x:Name="AuthClientSecret"
+                                            PlaceholderText="{}{{client_secret}}, or paste the secret itself"
+                                            TextChanged="OnAuthFieldChanged" />
+
+                                <TextBlock Style="{StaticResource SettingsLabelStyle}" Text="Scope" />
+                                <ui:TextBox x:Name="AuthScope"
+                                            PlaceholderText="space separated, or leave empty"
+                                            TextChanged="OnAuthFieldChanged" />
+
+                                <TextBlock Style="{StaticResource SettingsLabelStyle}" Text="Audience" />
+                                <ui:TextBox x:Name="AuthAudience"
+                                            PlaceholderText="only if your provider asks for one"
+                                            TextChanged="OnAuthFieldChanged" />
+
+                                <TextBlock Style="{StaticResource SettingsLabelStyle}" Text="Client credentials go in" />
+                                <ComboBox x:Name="AuthPlacement"
+                                          Padding="8,4"
+                                          FontSize="12" />
+                            </StackPanel>
+
+                            <!--
+                                Shown only when what was typed is a credential rather than a
+                                reference. It is the one place the panel writes somewhere
+                                other than the document, so it says where, by name, before it
+                                does it.
+                            -->
+                            <StackPanel x:Name="AuthStoreFields" Visibility="Collapsed">
+                                <TextBlock Style="{StaticResource SettingsLabelStyle}" Text="Store it as" />
+                                <ui:TextBox x:Name="AuthStoreName"
+                                            MaxLength="128"
+                                            TextChanged="OnAuthFieldChanged" />
+                                <TextBlock x:Name="AuthStoreHint"
+                                           Style="{StaticResource SettingsHintStyle}"
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+                        </StackPanel>
+                    </ScrollViewer>
+                </DockPanel>
+            </Border>
+        </Grid>
+
+        <!--
+            Every access token this session, by the grant that produced it.
+
+            Never a token value. The grant identity and the clock are what answer "why did
+            that 401" - a stale token, a wrong scope, and a token fetched against the other
+            environment all produce the same status and are told apart only here.
+        -->
+        <Grid x:Name="TokensOverlay"
+              Grid.Row="0"
+              Grid.RowSpan="4"
+              Background="{StaticResource OverlayScrimBrush}"
+              Visibility="Collapsed">
+            <Border x:Name="TokensCard"
+                    Width="520"
+                    MaxHeight="560"
+                    Padding="24"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Style="{StaticResource DialogCardStyle}">
+                <DockPanel>
+                    <TextBlock Margin="0,0,0,4"
+                               DockPanel.Dock="Top"
+                               FontSize="20"
+                               FontWeight="SemiBold"
+                               Text="Access tokens" />
+                    <TextBlock x:Name="TokensSubtitle"
+                               Margin="0,0,0,12"
+                               DockPanel.Dock="Top"
+                               FontSize="11"
+                               Opacity="0.5"
+                               TextWrapping="Wrap" />
+
+                    <ui:Button Margin="0,20,0,0"
+                               HorizontalAlignment="Right"
+                               Appearance="Primary"
+                               Click="OnCloseTokens"
+                               Content="Close"
+                               DockPanel.Dock="Bottom" />
+
+                    <ui:Button Margin="0,14,0,0"
+                               HorizontalAlignment="Left"
+                               Click="OnForgetTokens"
+                               Content="Forget them"
+                               DockPanel.Dock="Bottom"
+                               ToolTip="Drops every cached token. The next send fetches a new one." />
+
+                    <Border Style="{StaticResource PaneBorderStyle}">
+                        <Grid>
+                            <TextBlock x:Name="TokensEmpty"
+                                       Margin="14,16,14,14"
+                                       VerticalAlignment="Top"
+                                       FontSize="11"
+                                       Opacity="0.45"
+                                       Text="No token has been fetched this session. One appears here the first time a request with a '# @auth' block is sent."
+                                       TextWrapping="Wrap" />
+
+                            <ScrollViewer Padding="4" VerticalScrollBarVisibility="Auto">
+                                <ItemsControl x:Name="TokensList" Margin="0,0,14,0">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <StackPanel Margin="8,7">
+                                                <TextBlock FontFamily="Cascadia Code, Consolas, Courier New"
+                                                           FontSize="11"
+                                                           Text="{Binding Grant}"
+                                                           TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Margin="0,2,0,0"
+                                                           FontSize="11"
+                                                           Opacity="0.55"
+                                                           Text="{Binding Endpoint}"
+                                                           TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Margin="0,2,0,0"
+                                                           FontSize="11"
+                                                           Opacity="0.45"
+                                                           Text="{Binding Clock}" />
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </Grid>
+                    </Border>
                 </DockPanel>
             </Border>
         </Grid>

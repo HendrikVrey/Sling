@@ -22,6 +22,31 @@ public enum DiagnosticSeverity
 /// <param name="Line">1-based line number in the source document.</param>
 public sealed record ParseDiagnostic(DiagnosticSeverity Severity, string Message, int Line)
 {
+    /// <summary>
+    /// The variable this is about, when it is about one that does not resolve.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The message already names it, and a message is not a thing an editor can act on
+    /// without parsing its own prose back out again. Carrying the name means the editor can
+    /// offer to define it, which turns the one diagnostic that was always a dead end - it
+    /// names the three places a value could come from and can reach none of them - into the
+    /// one place where the fix is a click.
+    /// </para>
+    /// <para>
+    /// A name and never a value, like everything else on this type.
+    /// </para>
+    /// </remarks>
+    public string? MissingVariable { get; init; }
+
+    /// <summary>True when a credential is the likeliest thing the missing name stands for.</summary>
+    /// <remarks>
+    /// Set when the reference was written in an <c>Authorization</c> header or an auth
+    /// directive, because a name missing from one of those is a credential far more often
+    /// than not - which decides whether the editor offers to put it in the gitignored file.
+    /// </remarks>
+    public bool LooksLikeCredential { get; init; }
+
     public static ParseDiagnostic Error(string message, int line) =>
         new(DiagnosticSeverity.Error, message, line);
 
