@@ -74,6 +74,9 @@ public partial class MainWindow : FluentWindow
         StatusLeft.Text = ReadyHint;
         StatusRight.Text = string.Empty;
 
+        // Only wires the clock's tick; nothing here depends on the panes existing.
+        InitializeBusyView();
+
         InitializeResponseView();
         InstallCurlPaste();
 
@@ -337,6 +340,7 @@ public partial class MainWindow : FluentWindow
         _inFlight?.Cancel();
         _runner.Dispose();
         _syntax?.Dispose();
+        _requestSyntax?.Dispose();
 
         // A DispatcherTimer is rooted by the dispatcher, not by this window, so one left
         // running keeps the window alive and ticks into controls that are gone.
@@ -345,6 +349,8 @@ public partial class MainWindow : FluentWindow
 
         _tokenClock.Stop();
         _tokenClock.Tick -= OnTokenClockTick;
+
+        RemoveBusyHandlers();
 
         // The caret belongs to the editor's TextArea, not to this window, so the handler is
         // not collected with it. Two things listen to it - the rail's highlight and the
@@ -413,7 +419,8 @@ public partial class MainWindow : FluentWindow
 
         await RunAsync(
             $"Sending {block.Method} …",
-            (context, token) => _runner.RunAsync(document, block, context, token),
+            "Waiting for a response",
+            (context, progress, token) => _runner.RunAsync(document, block, context, token, progress),
             mine).ConfigureAwait(true);
     }
 
@@ -480,23 +487,32 @@ public partial class MainWindow : FluentWindow
         }
 
         var count = sendable.Count.ToString(CultureInfo.InvariantCulture);
+        var plural = sendable.Count == 1 ? string.Empty : "s";
 
         await RunAsync(
-            $"Sending {count} request{(sendable.Count == 1 ? string.Empty : "s")} …",
-            (context, token) => _runner.RunAllAsync(document, sendable, context, token),
+            $"Sending {count} request{plural} …",
+            $"Sending {count} request{plural}",
+            (context, progress, token) => _runner.RunAllAsync(document, sendable, context, token, progress),
             notes).ConfigureAwait(true);
     }
 
+    /// <param name="sendingMessage">The status bar's line for the duration.</param>
+    /// <param name="headline">
+    /// The busy card's own first line. Separate from <paramref name="sendingMessage"/>
+    /// because the two are read differently: the status bar is a running commentary in the
+    /// corner of the eye, and the card is the only thing in the middle of the window.
+    /// </param>
     /// <param name="run">
-    /// What to run, given the resolution context and the run's token. A delegate rather
-    /// than two overloads of this method, because everything around the call - the
-    /// in-flight token, the status text, the five catch clauses and the history write - is
-    /// identical for one request and for all of them, and a second copy of it is a second
-    /// place for the last-resort catch to go missing.
+    /// What to run, given the resolution context, somewhere to report progress, and the
+    /// run's token. A delegate rather than two overloads of this method, because everything
+    /// around the call - the in-flight token, the status text, the five catch clauses and
+    /// the history write - is identical for one request and for all of them, and a second
+    /// copy of it is a second place for the last-resort catch to go missing.
     /// </param>
     private async Task RunAsync(
         string sendingMessage,
-        Func<ResolutionContext, CancellationToken, Task<RunResult>> run,
+        string headline,
+        Func<ResolutionContext, IProgress<RunProgress>, CancellationToken, Task<RunResult>> run,
         IReadOnlyList<ParseDiagnostic> warnings)
     {
         using var cancellation = new CancellationTokenSource();
@@ -520,6 +536,22 @@ public partial class MainWindow : FluentWindow
         // send reads as an answer to the one now in flight.
         OfferMissingVariable([]);
 
+        BeginBusy(headline);
+
+        // Constructed on the dispatcher, which is what makes Progress<T> marshal its
+        // callbacks back onto it - the runner reports from a pool thread.
+        var progress = new Progress<RunProgress>(report =>
+        {
+            // A posted report can arrive after the run that made it has ended, and even
+            // after the next one has begun. Both would put a card back up describing a run
+            // nobody is waiting for, so the report is only acted on while its own run is
+            // still the one in flight.
+            if (!_closed && ReferenceEquals(_inFlight, cancellation))
+            {
+                ShowBusyRequest(report);
+            }
+        });
+
         try
         {
             // Snapshotted here rather than read from fields on the pool thread, and inside
@@ -534,8 +566,14 @@ public partial class MainWindow : FluentWindow
             // megabytes, and doing that on the dispatcher thread freezes the window
             // rather than merely being slow.
             var result = await Task
-                .Run(() => run(context, cancellation.Token), cancellation.Token)
+                .Run(() => run(context, progress, cancellation.Token), cancellation.Token)
                 .ConfigureAwait(true);
+
+            // Before the response goes up rather than in the finally below, so the pane is
+            // never briefly showing a spinner over a body that has already arrived. The
+            // finally still calls it, for the paths that do not reach here; it is
+            // idempotent.
+            EndBusy();
 
             Show(result, warnings);
 
@@ -566,7 +604,12 @@ public partial class MainWindow : FluentWindow
         }
         finally
         {
+            // Cleared before the card comes down, because the guard in the progress
+            // callback above reads it: after this line a late report belongs to a run that
+            // is over, and is dropped.
             _inFlight = null;
+
+            EndBusy();
             UpdateToolbar();
 
             // After the send whatever happened, including a failure: a token fetched for a

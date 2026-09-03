@@ -176,17 +176,24 @@ public sealed class RequestRunner : IDisposable
     /// <see cref="ResolutionContext.Responses"/> is replaced with this runner's own store
     /// - the caller has no business supplying one, and the chain would not work if it did.
     /// </param>
+    /// <param name="progress">
+    /// Told about each request as it goes out, or null when nobody is watching. One request
+    /// still reports, because one request can pull a whole chain in behind it - and a login
+    /// Sling decided to send on the user's behalf is the exchange most worth naming while it
+    /// is happening rather than afterwards.
+    /// </param>
     public async Task<RunResult> RunAsync(
         RequestDocument document,
         RequestBlock request,
         ResolutionContext context,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IProgress<RunProgress>? progress = null)
     {
         ArgumentNullException.ThrowIfNull(document);
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(context);
 
-        var state = new RunState([], [], [], new HashSet<string>(StringComparer.Ordinal));
+        var state = new RunState([], [], [], new HashSet<string>(StringComparer.Ordinal), progress, Total: 1);
 
         await RunOneAsync(
             document,
@@ -225,17 +232,29 @@ public sealed class RequestRunner : IDisposable
     /// out the ones whose own lines hold errors.
     /// </para>
     /// </remarks>
+    /// <param name="progress">
+    /// Told about each request as it goes out, or null when nobody is watching. This is the
+    /// run where it matters most: without it, sending a file of twenty requests is one
+    /// unchanging window for as long as the slowest API takes.
+    /// </param>
     public async Task<RunResult> RunAllAsync(
         RequestDocument document,
         IReadOnlyList<RequestBlock> requests,
         ResolutionContext context,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IProgress<RunProgress>? progress = null)
     {
         ArgumentNullException.ThrowIfNull(document);
         ArgumentNullException.ThrowIfNull(requests);
         ArgumentNullException.ThrowIfNull(context);
 
-        var state = new RunState([], [], [], new HashSet<string>(StringComparer.Ordinal));
+        var state = new RunState(
+            [],
+            [],
+            [],
+            new HashSet<string>(StringComparer.Ordinal),
+            progress,
+            requests.Count);
         var resolved = context with { Responses = _responses };
 
         foreach (var request in requests)
@@ -279,13 +298,26 @@ public sealed class RequestRunner : IDisposable
     /// dependency. Distinct from <paramref name="InProgress"/>, which empties as the stack
     /// unwinds; this one only grows.
     /// </param>
+    /// <param name="Progress">
+    /// Where each request is announced as it goes out, or null when nobody is watching.
+    /// </param>
+    /// <param name="Total">How many requests the caller asked for.</param>
     private sealed record RunState(
         List<Exchange> Exchanges,
         List<ParseDiagnostic> Errors,
         List<string> Notes,
-        HashSet<string> InProgress)
+        HashSet<string> InProgress,
+        IProgress<RunProgress>? Progress,
+        int Total)
     {
         public HashSet<string> Sent { get; } = new(StringComparer.Ordinal);
+
+        /// <summary>How many requests this run has put on the wire, including dependencies.</summary>
+        /// <remarks>
+        /// Counted rather than derived from <see cref="Exchanges"/>, which is written after a
+        /// send completes: the number wanted here is the one for the request now in flight.
+        /// </remarks>
+        public int Started { get; set; }
     }
 
     /// <param name="role">
@@ -402,6 +434,12 @@ public sealed class RequestRunner : IDisposable
         ExchangeRole role,
         CancellationToken cancellationToken)
     {
+        // Announced here rather than at the top of RunOneAsync, because that is entered
+        // again for every resolution pass and once more for every dependency it discovers -
+        // a counter driven from there would race ahead of what is being sent. This is the
+        // last point before the request reaches the network.
+        Report(state, source, role);
+
         try
         {
             var reused = false;
@@ -413,7 +451,7 @@ public sealed class RequestRunner : IDisposable
             // with a message about permissions and no mention of the token.
             if (resolved.Auth is { } grant)
             {
-                var acquired = await AcquireTokenAsync(grant, state, cancellationToken)
+                var acquired = await AcquireTokenAsync(grant, source, state, cancellationToken)
                     .ConfigureAwait(false);
                 if (acquired.Token is null)
                 {
@@ -433,7 +471,7 @@ public sealed class RequestRunner : IDisposable
 
             if (reused && outcome.Response.StatusCode == Unauthorized)
             {
-                outcome = await RetryWithFreshTokenAsync(resolved, state, cancellationToken)
+                outcome = await RetryWithFreshTokenAsync(resolved, source, state, cancellationToken)
                     .ConfigureAwait(false) ?? outcome;
             }
 
@@ -555,6 +593,7 @@ public sealed class RequestRunner : IDisposable
     /// <returns>The second outcome, or null when nothing was retried.</returns>
     private async Task<SendOutcome?> RetryWithFreshTokenAsync(
         ResolvedRequest resolved,
+        RequestBlock source,
         RunState state,
         CancellationToken cancellationToken)
     {
@@ -579,7 +618,7 @@ public sealed class RequestRunner : IDisposable
 
         _tokens.Invalidate(grant.CacheKey);
 
-        var acquired = await AcquireTokenAsync(grant, state, cancellationToken).ConfigureAwait(false);
+        var acquired = await AcquireTokenAsync(grant, source, state, cancellationToken).ConfigureAwait(false);
 
         if (acquired.Token is null)
         {
@@ -589,6 +628,9 @@ public sealed class RequestRunner : IDisposable
         }
 
         var retried = WithBearer(resolved, acquired.Token);
+
+        Report(state, source, ExchangeRole.Retry);
+
         var outcome = await _sender.SendAsync(retried, Cookies, cancellationToken).ConfigureAwait(false);
 
         state.Exchanges.Add(new Exchange(retried, outcome.Response, DateTimeOffset.UtcNow, ExchangeRole.Retry));
@@ -596,6 +638,34 @@ public sealed class RequestRunner : IDisposable
         state.Notes.Add("The access token was refused, so Sling fetched a new one and sent again.");
 
         return outcome;
+    }
+
+    /// <summary>
+    /// Tells whoever is watching that a request is about to go on the wire.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A token exchange and a retry do not advance the counter.</b> They are things that
+    /// happen <em>to</em> a request rather than requests of their own, and counting them would
+    /// make "Request 3 of 12" mean something other than a position in the file. They still
+    /// report, because the wait they cause is real and is otherwise attributed to the request
+    /// they are being done for - which on a slow identity provider means the window naming a
+    /// GET while a POST to another host is what is actually taking the time.
+    /// </para>
+    /// <para>
+    /// Every call this runner makes on the user's behalf is announced, which is the live
+    /// counterpart of the rule <c>Show</c> already follows for the exchange list: a tool that
+    /// makes network calls nobody asked for has to show them.
+    /// </para>
+    /// </remarks>
+    private static void Report(RunState state, RequestBlock source, ExchangeRole role)
+    {
+        if (role is ExchangeRole.Requested or ExchangeRole.Dependency)
+        {
+            state.Started++;
+        }
+
+        state.Progress?.Report(new RunProgress(source, state.Started, state.Total, role));
     }
 
     /// <summary>
@@ -628,6 +698,7 @@ public sealed class RequestRunner : IDisposable
     /// </returns>
     private async Task<(OAuth2Token? Token, bool FromCache)> AcquireTokenAsync(
         ResolvedOAuth2Grant grant,
+        RequestBlock source,
         RunState state,
         CancellationToken cancellationToken)
     {
@@ -637,6 +708,12 @@ public sealed class RequestRunner : IDisposable
         {
             return (cached, true);
         }
+
+        // Past the cache, so this is going to the network - and on the code flow it is about
+        // to open a browser and wait for a person. Announced against the request that needs
+        // the token rather than against the token endpoint: the window is showing what the
+        // user asked for, and the role says what is happening to it.
+        Report(state, source, ExchangeRole.TokenRequest);
 
         ResolvedRequest request;
 

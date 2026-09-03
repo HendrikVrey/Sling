@@ -734,61 +734,141 @@
                     </Grid>
 
                     <Border Style="{StaticResource PaneBorderStyle}">
-                        <DockPanel>
-                            <!--
-                                What was actually sent, and where it ended up if a redirect
-                                moved it. A read-only TextBox rather than a TextBlock because
-                                a URL in a debugging tool exists to be copied.
-                            -->
-                            <TextBox x:Name="RequestLine"
-                                     Margin="10,10,10,0"
-                                     Padding="0"
-                                     Background="Transparent"
-                                     BorderThickness="0"
-                                     DockPanel.Dock="Top"
-                                     FontFamily="Cascadia Code, Consolas, Courier New"
-                                     FontSize="12"
-                                     Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                     IsReadOnly="True"
-                                     TextWrapping="Wrap"
-                                     Visibility="Collapsed" />
-
-                            <!--
-                                Headers, collapsed. They matter often enough to keep one click
-                                away and rarely enough that opening on them would push the body
-                                below the fold on every send.
-                            -->
-                            <Expander x:Name="HeadersExpander"
-                                      Margin="10,8,10,0"
-                                      DockPanel.Dock="Top"
-                                      FontSize="12"
-                                      Visibility="Collapsed">
-                                <TextBox x:Name="HeadersText"
-                                         MaxHeight="180"
-                                         Margin="0,6,0,0"
+                        <Grid>
+                            <DockPanel x:Name="ResponseContent">
+                                <!--
+                                    What was actually sent, and where it ended up if a redirect
+                                    moved it. A read-only TextBox rather than a TextBlock because
+                                    a URL in a debugging tool exists to be copied.
+                                -->
+                                <TextBox x:Name="RequestLine"
+                                         Margin="10,10,10,0"
                                          Padding="0"
                                          Background="Transparent"
                                          BorderThickness="0"
+                                         DockPanel.Dock="Top"
                                          FontFamily="Cascadia Code, Consolas, Courier New"
                                          FontSize="12"
                                          Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                         HorizontalScrollBarVisibility="Auto"
                                          IsReadOnly="True"
-                                         TextWrapping="NoWrap"
-                                         VerticalScrollBarVisibility="Auto" />
-                            </Expander>
+                                         TextWrapping="Wrap"
+                                         Visibility="Collapsed" />
+
+                                <!--
+                                    Headers, collapsed. They matter often enough to keep one click
+                                    away and rarely enough that opening on them would push the body
+                                    below the fold on every send.
+                                -->
+                                <Expander x:Name="HeadersExpander"
+                                          Margin="10,8,10,0"
+                                          DockPanel.Dock="Top"
+                                          FontSize="12"
+                                          Visibility="Collapsed">
+                                    <TextBox x:Name="HeadersText"
+                                             MaxHeight="180"
+                                             Margin="0,6,0,0"
+                                             Padding="0"
+                                             Background="Transparent"
+                                             BorderThickness="0"
+                                             FontFamily="Cascadia Code, Consolas, Courier New"
+                                             FontSize="12"
+                                             Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                             HorizontalScrollBarVisibility="Auto"
+                                             IsReadOnly="True"
+                                             TextWrapping="NoWrap"
+                                             VerticalScrollBarVisibility="Auto" />
+                                </Expander>
+
+                                <!--
+                                    The body, and only the body. Everything above this is the
+                                    reason: until M2 the pane held one rendered transcript, which
+                                    cannot be highlighted, folded or transformed without the
+                                    grammar colouring the headers and the transform being handed a
+                                    document that is mostly not the thing being transformed.
+                                -->
+                                <avalon:TextEditor x:Name="ResponsePane"
+                                                   IsReadOnly="True"
+                                                   Style="{StaticResource PaneEditorStyle}" />
+                            </DockPanel>
 
                             <!--
-                                The body, and only the body. Everything above this is the
-                                reason: until M2 the pane held one rendered transcript, which
-                                cannot be highlighted, folded or transformed without the
-                                grammar colouring the headers and the transform being handed a
-                                document that is mostly not the thing being transformed.
+                                What the pane says while a request is in flight, and it replaces
+                                the previous response rather than sitting on top of it.
+
+                                Until this existed, pressing Send changed a button label and one
+                                line of 12 px text at the very bottom of the window; the pane in
+                                the middle - the one being looked at - still held the last
+                                response, headers, request line and all. On a slow API that reads
+                                as an application that ignored the click, and worse, the body on
+                                screen reads as the answer to the question just asked. The same
+                                argument the status pill already makes for itself.
+
+                                Hidden for the first fraction of a second (see BusyRevealDelay):
+                                a request that answers in 40 ms would otherwise flash this card,
+                                and a flash is a defect rather than feedback.
                             -->
-                            <avalon:TextEditor x:Name="ResponsePane"
-                                               IsReadOnly="True"
-                                               Style="{StaticResource PaneEditorStyle}" />
-                        </DockPanel>
+                            <StackPanel x:Name="ResponseBusy"
+                                        MaxWidth="380"
+                                        Margin="16"
+                                        VerticalAlignment="Center"
+                                        AutomationProperties.LiveSetting="Polite"
+                                        Visibility="Collapsed">
+                                <ui:ProgressRing x:Name="BusyRing"
+                                                 Width="40"
+                                                 Height="40"
+                                                 HorizontalAlignment="Center"
+                                                 AutomationProperties.Name="Waiting for the server"
+                                                 IsIndeterminate="False" />
+
+                                <TextBlock x:Name="BusyHeadline"
+                                           Margin="0,18,0,0"
+                                           FontSize="13"
+                                           FontWeight="SemiBold"
+                                           TextAlignment="Center"
+                                           TextWrapping="Wrap" />
+
+                                <!--
+                                    The request itself, in the pane's own monospace and with the
+                                    verb in the colour the collections rail uses for it.
+
+                                    Two Runs in one TextBlock rather than two TextBlocks in a
+                                    horizontal StackPanel, and it is the trap the collections
+                                    rail's labels were already cut by: a horizontal StackPanel
+                                    measures its children with infinite width, so TextTrimming
+                                    can never fire and a long label is clipped mid-word instead.
+                                    One TextBlock trims, and centres, at every width.
+                                -->
+                                <TextBlock x:Name="BusyRequest"
+                                           Margin="0,8,0,0"
+                                           FontFamily="Cascadia Code, Consolas, Courier New"
+                                           FontSize="12"
+                                           TextAlignment="Center"
+                                           TextTrimming="CharacterEllipsis"
+                                           Visibility="Collapsed"><Run x:Name="BusyMethod" FontWeight="Bold" /><Run x:Name="BusyTarget" Foreground="{DynamicResource TextFillColorSecondaryBrush}" /></TextBlock>
+
+                                <!-- 'Request 3 of 12', or why Sling is sending something nobody asked for. -->
+                                <TextBlock x:Name="BusyDetail"
+                                           Margin="0,8,0,0"
+                                           FontSize="11"
+                                           Opacity="0.55"
+                                           TextAlignment="Center"
+                                           TextWrapping="Wrap"
+                                           Visibility="Collapsed" />
+
+                                <!--
+                                    The clock. It is the part that actually answers "is anything
+                                    happening" - a number that keeps moving says so even when
+                                    nothing else can, and it says how long you have been waiting,
+                                    which is the next question.
+                                -->
+                                <TextBlock x:Name="BusyElapsed"
+                                           Margin="0,14,0,0"
+                                           FontFamily="Cascadia Code, Consolas, Courier New"
+                                           FontSize="11"
+                                           Opacity="0.45"
+                                           TextAlignment="Center" />
+                            </StackPanel>
+                        </Grid>
                     </Border>
                 </DockPanel>
             </Grid>

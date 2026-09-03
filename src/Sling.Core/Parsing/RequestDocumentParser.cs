@@ -1,7 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Text;
-using System.Text.RegularExpressions;
 using Sling.Core.Auth;
 using Sling.Core.Documents;
 
@@ -24,16 +23,8 @@ namespace Sling.Core.Parsing;
 /// mean the editor could not describe what is wrong.
 /// </para>
 /// </remarks>
-public static partial class RequestDocumentParser
+public static class RequestDocumentParser
 {
-    /// <summary>
-    /// Verbs that identify a request line on sight. An unrecognised all-caps token in
-    /// the same position is still treated as a method - extension verbs exist (WebDAV,
-    /// and every API that invented one) - but it earns a warning.
-    /// </summary>
-    private static readonly string[] KnownMethods =
-        ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS", "TRACE", "CONNECT"];
-
     /// <summary>
     /// The directives that configure a <c># @auth oauth2</c> block. Recognised only after
     /// <c># @auth</c>, so that one of them written on its own is an error rather than a
@@ -66,35 +57,9 @@ public static partial class RequestDocumentParser
     /// </remarks>
     /// <param name="line">One line, without its terminator.</param>
     public static string? MetadataDirective(string line) =>
-        MetadataPattern.Match(line ?? string.Empty) is { Success: true } match
+        HttpGrammar.Metadata.Match(line ?? string.Empty) is { Success: true } match
             ? match.Groups[1].Value
             : null;
-
-    [GeneratedRegex(@"^\s*@([A-Za-z_][A-Za-z0-9_.\-]*)\s*=\s*(.*)$")]
-    private static partial Regex VariableDefinitionPattern { get; }
-
-    [GeneratedRegex(@"^\s*(?:#+|//)\s*@([A-Za-z][A-Za-z0-9\-]*)(?:\s*[=\s]\s*(.*))?$")]
-    private static partial Regex MetadataPattern { get; }
-
-    [GeneratedRegex(@"^([^:\s]+)\s*:\s*(.*)$")]
-    private static partial Regex HeaderPattern { get; }
-
-    [GeneratedRegex(@"^\s*(?:HTTP/)?(\d)(?:\.(\d))?\s*$")]
-    private static partial Regex HttpVersionPattern { get; }
-
-    /// <summary>
-    /// A <c>&lt; ./body.json</c> body import, in all three forms the reference dialect
-    /// spells it: raw bytes, <c>&lt;@</c> to substitute variables inside the file, and
-    /// <c>&lt;@utf16</c> to say which encoding to read it as first.
-    /// </summary>
-    /// <remarks>
-    /// The whitespace after the marker is what makes this safe to apply to every body
-    /// line. Without it the pattern would claim <c>&lt;?xml version="1.0"?&gt;</c> and
-    /// <c>&lt;html&gt;</c> - the opening line of two body formats people actually send,
-    /// and turn them into imports of files that do not exist.
-    /// </remarks>
-    [GeneratedRegex(@"^<(?:@([A-Za-z0-9._\-]+)?)?[ \t]+(\S.*)$")]
-    private static partial Regex BodyImportPattern { get; }
 
     /// <summary>
     /// One physical line and the terminator that ended it.
@@ -178,7 +143,7 @@ public static partial class RequestDocumentParser
             {
                 var line = lines[_index].Text;
 
-                if (IsSeparator(line))
+                if (HttpGrammar.IsSeparator(line))
                 {
                     // A separator both ends the previous request and titles the next one.
                     _pendingTitle = TitleOf(line);
@@ -195,11 +160,11 @@ public static partial class RequestDocumentParser
                 {
                     _index++;
                 }
-                else if (IsComment(line))
+                else if (HttpGrammar.IsComment(line))
                 {
                     _index++;
                 }
-                else if (VariableDefinitionPattern.Match(line) is { Success: true } variable)
+                else if (HttpGrammar.VariableDefinition.Match(line) is { Success: true } variable)
                 {
                     _variables.Add(new VariableDefinition(
                         variable.Groups[1].Value,
@@ -353,7 +318,7 @@ public static partial class RequestDocumentParser
             var method = firstToken.ToUpperInvariant();
             var looksLikeMethod = space > 0
                 && firstToken.All(char.IsAsciiLetter)
-                && (KnownMethods.Contains(method, StringComparer.Ordinal)
+                && (HttpGrammar.IsKnownMethod(method)
                     || firstToken.Equals(method, StringComparison.Ordinal));
 
             if (!looksLikeMethod)
@@ -361,7 +326,7 @@ public static partial class RequestDocumentParser
                 // A line holding nothing but a verb reaches here, because the verb test
                 // needs a space. Without this it became the request target - surfacing
                 // much later, and much less usefully, as "'GET' is not an absolute URL".
-                if (space < 0 && KnownMethods.Contains(method, StringComparer.Ordinal))
+                if (space < 0 && HttpGrammar.IsKnownMethod(method))
                 {
                     _diagnostics.Add(ParseDiagnostic.Error(
                         $"'{method}' has no request target. Write the method, a space, then the URL.",
@@ -371,7 +336,7 @@ public static partial class RequestDocumentParser
                 return ("GET", StripVersion(trimmed, out var bareVersion), bareVersion);
             }
 
-            if (!KnownMethods.Contains(method, StringComparer.Ordinal))
+            if (!HttpGrammar.IsKnownMethod(method))
             {
                 _diagnostics.Add(ParseDiagnostic.Warning(
                     $"'{method}' is not a standard HTTP method. It will be sent as written.",
@@ -408,7 +373,7 @@ public static partial class RequestDocumentParser
             }
 
             var tail = target[(lastSpace + 1)..];
-            if (!tail.StartsWith("HTTP/", StringComparison.Ordinal) || !HttpVersionPattern.IsMatch(tail))
+            if (!tail.StartsWith("HTTP/", StringComparison.Ordinal) || !HttpGrammar.HttpVersion.IsMatch(tail))
             {
                 return target;
             }
@@ -429,17 +394,13 @@ public static partial class RequestDocumentParser
             while (!AtEnd)
             {
                 var line = lines[_index].Text;
-                var trimmed = line.TrimStart();
 
-                var isContinuation = line.Length > trimmed.Length
-                    && (trimmed.StartsWith('?') || trimmed.StartsWith('&'));
-
-                if (!isContinuation)
+                if (!HttpGrammar.IsTargetContinuation(line))
                 {
                     break;
                 }
 
-                appended += trimmed.TrimEnd();
+                appended += line.Trim();
                 _index++;
             }
 
@@ -458,18 +419,18 @@ public static partial class RequestDocumentParser
             {
                 var line = lines[_index].Text;
 
-                if (string.IsNullOrWhiteSpace(line) || IsSeparator(line))
+                if (string.IsNullOrWhiteSpace(line) || HttpGrammar.IsSeparator(line))
                 {
                     break;
                 }
 
-                if (TryReadMetadata(line) || IsComment(line))
+                if (TryReadMetadata(line) || HttpGrammar.IsComment(line))
                 {
                     _index++;
                     continue;
                 }
 
-                var match = HeaderPattern.Match(line);
+                var match = HttpGrammar.Header.Match(line);
                 if (!match.Success)
                 {
                     _diagnostics.Add(ParseDiagnostic.Error(
@@ -521,7 +482,7 @@ public static partial class RequestDocumentParser
         /// </remarks>
         private List<BodySegment>? ReadBody()
         {
-            if (AtEnd || IsSeparator(lines[_index].Text))
+            if (AtEnd || HttpGrammar.IsSeparator(lines[_index].Text))
             {
                 return null;
             }
@@ -531,7 +492,7 @@ public static partial class RequestDocumentParser
             _index++;
 
             var first = _index;
-            while (!AtEnd && !IsSeparator(lines[_index].Text))
+            while (!AtEnd && !HttpGrammar.IsSeparator(lines[_index].Text))
             {
                 _index++;
             }
@@ -602,13 +563,13 @@ public static partial class RequestDocumentParser
         /// An encoding can only ever accompany the <c>&lt;@</c> form, because the pattern
         /// reaches it through the <c>@</c>. That is the invariant the resolver relies on
         /// when it ignores <see cref="BodyFile.Encoding"/> for a raw import: there is no
-        /// input that sets one.
+        /// input that sets one. The pattern itself is <see cref="HttpGrammar.BodyImport"/>.
         /// </remarks>
         private static bool TryReadBodyImport(string line, int lineNumber, [NotNullWhen(true)] out BodyFile? import)
         {
             import = null;
 
-            var match = BodyImportPattern.Match(line);
+            var match = HttpGrammar.BodyImport.Match(line);
             if (!match.Success)
             {
                 return false;
@@ -630,7 +591,7 @@ public static partial class RequestDocumentParser
         /// </summary>
         private bool TryReadMetadata(string line)
         {
-            var match = MetadataPattern.Match(line);
+            var match = HttpGrammar.Metadata.Match(line);
             if (!match.Success)
             {
                 return false;
@@ -968,14 +929,6 @@ public static partial class RequestDocumentParser
             public string? Audience { get; set; }
 
             public ClientAuthPlacement Placement { get; set; } = ClientAuthPlacement.BasicHeader;
-        }
-
-        private static bool IsSeparator(string line) => line.StartsWith("###", StringComparison.Ordinal);
-
-        private static bool IsComment(string line)
-        {
-            var trimmed = line.TrimStart();
-            return trimmed.StartsWith('#') || trimmed.StartsWith("//", StringComparison.Ordinal);
         }
 
         private static string? TitleOf(string separator)

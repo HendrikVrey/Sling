@@ -43,6 +43,8 @@ public partial class MainWindow
 
     private ResponseSyntax? _syntax;
 
+    private RequestSyntax? _requestSyntax;
+
     /// <summary>The find bars, one per pane, kept so the window's keymap can open them.</summary>
     private SearchPanel? _requestFind;
 
@@ -105,6 +107,20 @@ public partial class MainWindow
 
         _responseFind.MarkerBrush = marker;
         _requestFind.MarkerBrush = marker;
+
+        // The request pane's own colours. Not a grammar, because this format cannot be
+        // read by one: whether a line is a header or body text depends on a blank line
+        // arbitrarily far above it. See RequestSyntax.
+        //
+        // It shares the rail's verb brushes rather than building a second set, so a DELETE
+        // is the same red in the tree and in the document.
+        _requestSyntax = new RequestSyntax(
+            RequestPane,
+            Application.Current?.Resources,
+            MethodBrushes,
+            RequestSyntax.DefaultMaximumLength);
+
+        _requestSyntax.Install();
 
         InstallResponseContextMenu();
         InstallRequestContextMenu();

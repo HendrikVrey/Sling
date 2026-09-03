@@ -118,6 +118,27 @@ No account, no cloud, no sync, no save dialog.
 
 ## Status
 
+**A coloured request pane, and a window that says it is working.**
+
+The document you write is highlighted now: `###` separators and `#` comments in green with
+the title after a separator in bold, verbs in the same colours the collections rail uses,
+header names apart from their values, and every `{{reference}}` in a colour nothing else
+uses, because a reference is the thing most often got wrong and it can hide anywhere in a
+request. A body is left in plain text on purpose - it is JSON, or a form, or a binary part,
+and Sling does not know which until it is sent.
+
+This is not a grammar file, and it could not have been one. Whether a line is a header or
+body text depends on a blank line that may be far above it, which no set of regular
+expressions can see - so the pane is coloured by the same walk over the document that the
+parser does, and the picture cannot disagree with what gets sent.
+
+And pressing **Send** or **Run all** now visibly does something. The response pane shows
+what is in flight rather than the previous response: the request going out, an elapsed clock
+that keeps moving, and for `Ctrl+Shift+Enter` which of the run it has reached. A request
+sent to satisfy a chain says so, so does a token exchange, and so does a retry after a 401.
+`Esc` still cancels, and a request that answers quickly shows nothing at all - the card
+waits a fifth of a second before appearing, so a fast API does not flash it.
+
 **The command bar.** Send, Run all, a File menu, Save, History and Settings are buttons
 above the panes, with the collections rail on a toggle beside them. Every chord Sling has
 is now something you can see, and every button names its own chord - the keyboard is still
