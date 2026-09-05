@@ -417,6 +417,56 @@
                                                             <Setter Property="Opacity" Value="0.4" />
                                                             <Setter Property="FontStyle" Value="Italic" />
                                                         </DataTrigger>
+
+                                                        <!--
+                                                            Not a placeholder: it is a
+                                                            command, and the one row under a
+                                                            file that is not an endpoint.
+                                                            Weighted like a heading and set
+                                                            back a little, so it reads as the
+                                                            lid on the list rather than as
+                                                            another request in it.
+                                                        -->
+                                                        <DataTrigger Binding="{Binding IsAll}" Value="True">
+                                                            <Setter Property="FontWeight" Value="SemiBold" />
+                                                            <Setter Property="Opacity" Value="0.75" />
+                                                        </DataTrigger>
+
+                                                        <!--
+                                                            What the request pane is showing,
+                                                            which is a different question
+                                                            from what is selected.
+
+                                                            The selection follows the caret
+                                                            and means "this is what
+                                                            Ctrl+Enter would send"; this
+                                                            means "this is what is on
+                                                            screen". They land on the same
+                                                            row nearly always, and the case
+                                                            where they part - a caret up in
+                                                            the file's @variables, which a
+                                                            narrowed pane still shows - is
+                                                            exactly the case where one mark
+                                                            standing for both would be wrong
+                                                            about one of them.
+
+                                                            Colour and weight rather than a
+                                                            bar down the left, because
+                                                            WPF-UI's TreeViewItem already
+                                                            draws one of those for the
+                                                            selection: two thin accent bars a
+                                                            few pixels apart meaning
+                                                            different things is worse than
+                                                            one mark in a different language.
+
+                                                            Last, so it wins whatever kind of
+                                                            row it lands on.
+                                                        -->
+                                                        <DataTrigger Binding="{Binding IsShown}" Value="True">
+                                                            <Setter Property="Foreground" Value="{DynamicResource AccentTextFillColorPrimaryBrush}" />
+                                                            <Setter Property="FontWeight" Value="SemiBold" />
+                                                            <Setter Property="Opacity" Value="1" />
+                                                        </DataTrigger>
                                                     </Style.Triggers>
                                                 </Style>
                                             </TextBlock.Style>
@@ -466,6 +516,7 @@
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
 
                         <TextBlock x:Name="RequestLabel"
@@ -474,12 +525,30 @@
                                    Text="REQUEST" />
 
                         <!--
+                            Says so when the pane is showing one request instead of the file.
+
+                            Hiding most of a document is the kind of state that has to
+                            announce itself: without this the file simply looks shorter than
+                            it is, and the only clue is a jump in the line numbers - which is
+                            evidence, not a message. It carries the way out as well as the
+                            fact, because the gesture that got you here was a click in the
+                            rail and the reverse of it should not have to be looked for.
+                        -->
+                        <ui:HyperlinkButton x:Name="FocusChip"
+                                            Grid.Column="1"
+                                            Margin="8,0,0,0"
+                                            Padding="6,2"
+                                            Click="OnShowWholeFileClicked"
+                                            FontSize="11"
+                                            Visibility="Collapsed" />
+
+                        <!--
                             What credential this request is actually sending, and where it
                             came from. Answering that used to mean reading three files: the
                             document, one environment file and the other one.
                         -->
                         <ui:Button x:Name="AuthButton"
-                                   Grid.Column="1"
+                                   Grid.Column="2"
                                    Margin="12,0,0,0"
                                    Padding="8,2"
                                    Click="OnAuthClicked"
@@ -488,7 +557,7 @@
                                    ToolTip="The auth this request is sending  (Ctrl+Alt+A)" />
 
                         <ComboBox x:Name="EnvironmentPicker"
-                                  Grid.Column="2"
+                                  Grid.Column="3"
                                   Margin="8,0,0,0"
                                   Padding="8,2"
                                   FontSize="12"
@@ -506,7 +575,7 @@
                             comes from.
                         -->
                         <ui:HyperlinkButton x:Name="TokenChip"
-                                            Grid.Column="3"
+                                            Grid.Column="4"
                                             Margin="8,0,0,0"
                                             Padding="6,2"
                                             Click="OnTokenChipClicked"
@@ -522,7 +591,7 @@
                             the person who has never had one.
                         -->
                         <ui:Button x:Name="EnvironmentsButton"
-                                   Grid.Column="4"
+                                   Grid.Column="5"
                                    Margin="8,0,0,0"
                                    Padding="8,2"
                                    Click="OnEnvironmentsClicked"

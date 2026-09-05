@@ -483,6 +483,12 @@ public partial class MainWindow
         // to be replaced - including, on a discarded edit, by text that was never on disk.
         ResetRailDocument(_documentPath);
 
+        // Before the text goes, not after. A collapsed run holds the document lines it was
+        // made from, and replacing the text deletes them - the same reason a FoldingManager
+        // has to come off a document before the document is swapped underneath it. A new
+        // file also starts showing all of itself: narrowing is something you ask for.
+        ShowWholeFile();
+
         _loadingDocument = true;
 
         try
@@ -510,6 +516,9 @@ public partial class MainWindow
         // Before the selection, so the rail has this file's requests under it by the time
         // the row is revealed rather than a placeholder that resolves a moment later.
         RefreshOpenDocumentRequests();
+
+        // After the rows exist, because the mark it puts back belongs to one of them.
+        RefreshRequestFocus();
 
         SelectOpenDocumentInTree();
         UpdateTitle();

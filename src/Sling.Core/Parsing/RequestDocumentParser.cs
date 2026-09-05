@@ -123,6 +123,7 @@ public static class RequestDocumentParser
         private string? _pendingName;
         private int _pendingNameLine;
         private string? _pendingTitle;
+        private int _pendingTitleLine;
         private PendingAuth? _pendingAuth;
 
         /// <summary>
@@ -147,6 +148,7 @@ public static class RequestDocumentParser
                 {
                     // A separator both ends the previous request and titles the next one.
                     _pendingTitle = TitleOf(line);
+                    _pendingTitleLine = LineNumber;
                     _pendingName = null;
                     _pendingAuth = null;
                     _index++;
@@ -214,15 +216,19 @@ public static class RequestDocumentParser
                 BuildAuth(),
                 Math.Min(_segmentStart, startLine),
                 startLine,
-                Math.Max(startLine, _index)));
+                Math.Max(startLine, _index))
+            {
+                TitleLine = _pendingTitleLine,
+            });
 
-            // All four belong to the request just built. Leaving any of them set would
+            // All five belong to the request just built. Leaving any of them set would
             // silently attach this request's name to the next one, and a chain reference
             // that resolves to the wrong request is worse than one that fails to resolve.
             // The auth block is the sharper case of the same thing: it would send the next
             // request a bearer token it never asked for.
             _pendingName = null;
             _pendingTitle = null;
+            _pendingTitleLine = 0;
             _pendingAuth = null;
             _segmentStart = Math.Max(startLine, _index) + 1;
         }

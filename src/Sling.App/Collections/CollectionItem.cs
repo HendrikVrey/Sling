@@ -17,6 +17,18 @@ internal enum CollectionItemKind
     Request,
 
     /// <summary>
+    /// The row above a document's requests that puts the whole file back on screen.
+    /// </summary>
+    /// <remarks>
+    /// Clicking a request narrows the pane to that request, so there has to be a row that
+    /// means "all of it" - and it has to be a row rather than a corner of the header,
+    /// because it is the opposite of the click that got you here and belongs beside it.
+    /// The document row means the same thing; this one is the one you can see while you
+    /// are looking at the requests.
+    /// </remarks>
+    All,
+
+    /// <summary>
     /// The stand-in under an unexpanded document, so the chevron is there to click.
     /// </summary>
     /// <remarks>
@@ -50,6 +62,7 @@ internal sealed class CollectionItem : INotifyPropertyChanged
 {
     private bool _isExpanded;
     private bool _isSelected;
+    private bool _isShown;
 
     public CollectionItem(CollectionItemKind kind, string label, string? path)
     {
@@ -103,6 +116,9 @@ internal sealed class CollectionItem : INotifyPropertyChanged
     /// <inheritdoc cref="IsFolder"/>
     public bool IsPlaceholder => Kind == CollectionItemKind.Placeholder;
 
+    /// <inheritdoc cref="IsFolder"/>
+    public bool IsAll => Kind == CollectionItemKind.All;
+
     public ObservableCollection<CollectionItem> Children { get; } = [];
 
     /// <summary>
@@ -138,6 +154,32 @@ internal sealed class CollectionItem : INotifyPropertyChanged
 
             _isSelected = value;
             Raise(nameof(IsSelected));
+        }
+    }
+
+    /// <summary>
+    /// True on the one row that says what the request pane is currently showing.
+    /// </summary>
+    /// <remarks>
+    /// <b>Not the same thing as <see cref="IsSelected"/>, and drawn differently on
+    /// purpose.</b> The selection follows the caret, so it answers "what would
+    /// <c>Ctrl+Enter</c> send"; this answers "what is on screen". They sit on the same row
+    /// nearly always, and the case where they do not - a caret up in the file's
+    /// <c>@variables</c>, which a narrowed pane still shows - is exactly the case where one
+    /// indicator standing for both would be lying about one of them.
+    /// </remarks>
+    public bool IsShown
+    {
+        get => _isShown;
+        set
+        {
+            if (_isShown == value)
+            {
+                return;
+            }
+
+            _isShown = value;
+            Raise(nameof(IsShown));
         }
     }
 
