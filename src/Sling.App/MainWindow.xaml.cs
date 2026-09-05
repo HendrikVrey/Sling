@@ -87,6 +87,13 @@ public partial class MainWindow : FluentWindow
 
         InitializeWorkspace();
 
+        // After the workspace, because it subscribes to the same caret the rail does and the
+        // order they run in is the order they were wired. The rail moves its highlight onto
+        // the request the caret is in; only then does this ask whether the caret has left
+        // what the pane is showing. The other way round would widen the pane out from under
+        // a highlight in the same event that had just placed it.
+        InitializeRequestFocus();
+
         // Last: the command bar reads the document and the dirty flag, both of which the
         // workspace has just settled.
         InitializeChrome();
@@ -385,7 +392,7 @@ public partial class MainWindow : FluentWindow
         }
 
         var document = RequestDocumentParser.Parse(RequestPane.Text);
-        var block = document.BlockAtLine(RequestPane.TextArea.Caret.Line);
+        var block = BlockUnderCaret(document);
 
         if (block is null)
         {

@@ -48,6 +48,27 @@ public sealed record RequestBlock(
     int EndLine)
 {
     /// <summary>
+    /// 1-based line of the <c>###</c> separator that introduced this request, or 0 when
+    /// nothing above it did.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Deliberately outside <see cref="FirstLine"/>, which begins below the separator. The
+    /// separator ends the request above and titles the one below, so as far as parsing goes
+    /// it belongs to neither - a diagnostic about it is not a diagnostic about either
+    /// request, which is the distinction <see cref="FirstLine"/> exists to draw.
+    /// </para>
+    /// <para>
+    /// It matters anyway, because a <em>reader</em> does not see it that way: the line below
+    /// the <c>###</c> is where the request's text starts, and the <c>###</c> is where the
+    /// request starts. Anything showing one request on its own needs the second answer, and
+    /// deriving it by looking one line up would be a second copy of
+    /// <see cref="Sling.Core.Parsing.HttpGrammar"/>'s separator rule.
+    /// </para>
+    /// </remarks>
+    public int TitleLine { get; init; }
+
+    /// <summary>
     /// The body's literal text, with every <c>&lt; ./file</c> import left out.
     /// </summary>
     /// <remarks>

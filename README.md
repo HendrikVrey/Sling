@@ -147,9 +147,13 @@ buttons is the request Send would send; beside RESPONSE is the status, coloured 
 
 **Collections.** The rail is a tree: collections (folders), the request files in them, and
 the requests inside each file with their verbs colour-coded. Clicking a request opens its
-file and puts the caret on it, so `Ctrl+Enter` sends it; moving around a file highlights
-the request that would go. **+ Collection**, **+ File** and **+ Request** sit above the
-tree and land inside whatever is selected.
+file, puts the caret on it so `Ctrl+Enter` sends it, and **shows that request on its own** -
+the file's `@variables` stay on screen above it, and **All requests** brings the rest back.
+That is a view and nothing more: the buffer still holds the whole file, so Save writes the
+whole file and Run all runs it, and anything that takes you out of the request - the caret,
+a selection, a `Ctrl+F` match further down - puts the file back first. Moving around a file
+highlights the request that would go. **+ Collection**, **+ File** and **+ Request** sit
+above the tree and land inside whatever is selected.
 
 Nothing is stored to make this work - no manifest, no index, no ordering - so a collection
 is still just a directory and Sling can be deleted without taking your requests with it.

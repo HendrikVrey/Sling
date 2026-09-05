@@ -147,6 +147,11 @@ public partial class MainWindow
         // choosing "New request file" created it in a different one.
         CollectionsTree.PreviewMouseRightButtonDown += OnTreeRightButtonDown;
 
+        // And a left-click on the row that is ALREADY selected, which the tree reports to
+        // nobody: see OnTreeLeftButtonDown. The rail selects a row whenever the caret moves,
+        // so that is the state most requests are in when they are clicked.
+        CollectionsTree.PreviewMouseLeftButtonDown += OnTreeLeftButtonDown;
+
         // Any real interaction invalidates a selection this code made but the tree has not
         // applied yet. See _selectedFromCode.
         CollectionsTree.PreviewMouseDown += OnTreeInteracted;
@@ -301,7 +306,21 @@ public partial class MainWindow
 
     private List<CollectionItem> BuildRequestRows(CollectionItem document, RequestDocument parsed)
     {
-        var rows = new List<CollectionItem>(Math.Min(parsed.Requests.Count, MaxRequestRows) + 1);
+        var rows = new List<CollectionItem>(Math.Min(parsed.Requests.Count, MaxRequestRows) + 2);
+
+        // First, and only where there is something to be narrowed away from. A file with
+        // no requests in it has nothing to hide, so a row offering to show all of it would
+        // be a control with one state.
+        if (parsed.Requests.Count > 0)
+        {
+            rows.Add(new CollectionItem(
+                CollectionItemKind.All,
+                "All requests",
+                document.Path)
+            {
+                Hint = "Show the whole file",
+            });
+        }
 
         foreach (var request in parsed.Requests.Take(MaxRequestRows))
         {
@@ -437,23 +456,105 @@ public partial class MainWindow
     {
         ArgumentNullException.ThrowIfNull(e);
 
-        // Walked up from whatever was hit, because the hit is a TextBlock inside the row's
-        // template rather than the container.
-        for (var source = e.OriginalSource as DependencyObject;
-             source is not null;
-             source = VisualTreeHelper.GetParent(source))
+        if (RowUnder(e.OriginalSource) is { } row)
         {
-            if (source is TreeViewItem row)
+            // Selected so the context menu acts on the right node, and marked as a selection
+            // this code made so OnCollectionSelected leaves it alone. Without that, a
+            // right-click on a request row runs the whole open-and-narrow path: the editor
+            // changes what it is showing because somebody asked for a menu.
+            if (row.DataContext is CollectionItem item)
             {
-                row.IsSelected = true;
-                return;
+                _selectedFromCode = item;
             }
+
+            row.IsSelected = true;
+            return;
         }
 
         // Right-clicked the empty space below the rows. The selection is cleared rather than
         // left behind, so "New collection" lands at the workspace root - which is what the
         // gesture means, and better than silently using whatever was clicked last.
         ClearTreeSelection();
+    }
+
+    /// <summary>
+    /// Acts on a left-click that lands on the row already selected.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A <c>TreeView</c> raises <c>SelectedItemChanged</c> only when the selection
+    /// actually changes</b>, so clicking the selected row does nothing at all - and this
+    /// rail moves its own selection onto whichever request the caret is in, which makes
+    /// "already selected" the ordinary state of the request somebody is about to click.
+    /// Without this, opening a file and clicking the request the caret happens to be on is a
+    /// click that produces no result, which reads as a broken feature rather than as a
+    /// framework rule.
+    /// </para>
+    /// <para>
+    /// On the button going <em>down</em>, before <c>TreeViewItem</c> takes the selection: by
+    /// the time the button comes up the selection has already moved, and this would fire a
+    /// second time on top of the change event for every ordinary click.
+    /// </para>
+    /// </remarks>
+    private void OnTreeLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        ArgumentNullException.ThrowIfNull(e);
+
+        if (_rebuildingLists
+            || _workspace is null
+            || HitTheExpander(e.OriginalSource)
+            || RowUnder(e.OriginalSource) is not { IsSelected: true, DataContext: CollectionItem item })
+        {
+            return;
+        }
+
+        OpenFromRail(item);
+    }
+
+    /// <summary>Whether a hit landed on a row's expander chevron rather than on the row.</summary>
+    /// <remarks>
+    /// The chevron is inside the <c>TreeViewItem</c>, so the walk below cannot tell the two
+    /// apart on its own - and "open or close this branch" is not "show me this". The tree
+    /// answers the chevron itself, so all that is needed here is to keep out of its way.
+    /// </remarks>
+    private static bool HitTheExpander(object? hit)
+    {
+        for (var source = hit as DependencyObject;
+             source is not null;
+             source = VisualTreeHelper.GetParent(source))
+        {
+            if (source is System.Windows.Controls.Primitives.ToggleButton)
+            {
+                return true;
+            }
+
+            if (source is TreeViewItem)
+            {
+                return false;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>The row container under a hit element, or null for the empty space.</summary>
+    /// <remarks>
+    /// Walked up from whatever was hit, because the hit is a <c>TextBlock</c> inside the
+    /// row's template rather than the container itself.
+    /// </remarks>
+    private static TreeViewItem? RowUnder(object? hit)
+    {
+        for (var source = hit as DependencyObject;
+             source is not null;
+             source = VisualTreeHelper.GetParent(source))
+        {
+            if (source is TreeViewItem row)
+            {
+                return row;
+            }
+        }
+
+        return null;
     }
 
     private void OnTreeInteracted(object sender, RoutedEventArgs e) => _selectedFromCode = null;
@@ -484,13 +585,20 @@ public partial class MainWindow
     }
 
     /// <summary>
-    /// Opens what was clicked: a file, or the request inside one.
+    /// Opens what was clicked: a file, one request inside one, or all of them again.
     /// </summary>
     /// <remarks>
-    /// A request row puts the caret on its request line, which is the only thing it needs to
-    /// do - <c>Ctrl+Enter</c> already sends the request under the caret, so selecting an
-    /// endpoint and sending it is two keystrokes without the rail knowing anything about
-    /// sending.
+    /// <para>
+    /// A request row puts the caret on its request line and narrows the pane to it;
+    /// <c>All requests</c> and the file's own row put the whole file back. The caret is the
+    /// half that has always been here and is still the half that matters most -
+    /// <c>Ctrl+Enter</c> sends the request under the caret, so picking an endpoint and
+    /// sending it is two keystrokes and the rail knows nothing about sending.
+    /// </para>
+    /// <para>
+    /// The narrowing is a view over the same buffer and is described in
+    /// <c>MainWindow.Focus.cs</c>. Nothing about what the file <em>is</em> changes here.
+    /// </para>
     /// </remarks>
     private void OnCollectionSelected(object sender, RoutedPropertyChangedEventArgs<object> e)
     {
@@ -509,17 +617,35 @@ public partial class MainWindow
             return;
         }
 
+        OpenFromRail(item);
+    }
+
+    /// <summary>
+    /// Acts on one row: opens its file if it is not open, then shows what the row means.
+    /// </summary>
+    /// <remarks>
+    /// Reached from the selection changing and from a click on the row that was already
+    /// selected. One method rather than one per entry point, because a rail with two ways in
+    /// and two copies of what they do is a rail where one of them eventually stops confirming
+    /// unsaved changes.
+    /// </remarks>
+    private void OpenFromRail(CollectionItem item)
+    {
         if (item.Kind is CollectionItemKind.Folder or CollectionItemKind.Placeholder || item.Path is null)
         {
             return;
         }
 
         var path = item.Path;
+
+        // A line rather than the row, because loading the document rebuilds every row under
+        // it - the object clicked is gone by the time the second half of this runs, and a
+        // line number survives the rebuild.
         var line = item.Kind == CollectionItemKind.Request ? item.Line : 0;
 
         if (IsOpenDocument(path))
         {
-            GoToLine(line);
+            ShowRailChoice(line);
             return;
         }
 
@@ -534,8 +660,28 @@ public partial class MainWindow
             }
 
             await LoadDocumentAsync(path).ConfigureAwait(true);
-            GoToLine(line);
+            ShowRailChoice(line);
         });
+    }
+
+    /// <summary>
+    /// Narrows the pane to the request on <paramref name="line"/>, or shows the whole file
+    /// when there is no line.
+    /// </summary>
+    /// <remarks>
+    /// Zero is what a file row and an <c>All requests</c> row both resolve to, and they mean
+    /// the same thing - so the two gestures share one branch rather than each carrying their
+    /// own copy of it.
+    /// </remarks>
+    private void ShowRailChoice(int line)
+    {
+        if (line <= 0)
+        {
+            ShowWholeFile();
+            return;
+        }
+
+        ShowOnlyRequest(line);
     }
 
     /// <summary>Puts the caret on a 1-based line and shows it.</summary>
@@ -1028,7 +1174,13 @@ public partial class MainWindow
     /// </remarks>
     private void HighlightCaretRow(CollectionItem node)
     {
-        var caret = RequestPane.TextArea.Caret.Line;
+        // Never above the request being shown. A caret in the file's @variables is above
+        // every request, so on its own it would highlight the first one while Send and the
+        // auth panel both act on the one on screen - see BlockUnderCaret, which this has to
+        // agree with or the rail is telling the user the wrong thing about what would go.
+        var caret = IsNarrowed
+            ? Math.Max(RequestPane.TextArea.Caret.Line, _focusAnchor!.Line)
+            : RequestPane.TextArea.Caret.Line;
 
         var current = node.Children
             .Where(c => c.Kind == CollectionItemKind.Request && c.Line <= caret)
@@ -1097,8 +1249,23 @@ public partial class MainWindow
     /// </remarks>
     private void QueueRequestRefresh()
     {
-        if (_loadingDocument || RequestPane.Document.TextLength > MaxLiveRefreshLength)
+        if (_loadingDocument)
         {
+            return;
+        }
+
+        if (RequestPane.Document.TextLength > MaxLiveRefreshLength)
+        {
+            // Past the ceiling nothing recomputes again, so a narrowing left in place would
+            // stop tracking the requests it is made of - and it is this method that decides
+            // the ceiling, so this is the one place that can say so. A paste is how a buffer
+            // crosses it.
+            if (IsNarrowed)
+            {
+                ShowWholeFile();
+                StatusLeft.Text = "This file is now too large to show one request at a time.";
+            }
+
             return;
         }
 
@@ -1116,6 +1283,12 @@ public partial class MainWindow
         }
 
         RefreshOpenDocumentRequests();
+
+        // After the rows, because a rebuild takes the "this is on screen" mark with it - and
+        // because the request being shown may have grown, moved or stopped existing since
+        // the last keystroke, which is what this recomputes.
+        RefreshRequestFocus();
+
         UpdateSendTarget(reparse: true);
     }
 }

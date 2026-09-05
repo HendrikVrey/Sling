@@ -97,7 +97,7 @@ public partial class MainWindow
     {
         var text = RequestPane.Text;
         var document = RequestDocumentParser.Parse(text);
-        var block = document.BlockAtLine(RequestPane.TextArea.Caret.Line);
+        var block = BlockUnderCaret(document);
 
         if (block is null)
         {

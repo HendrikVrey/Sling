@@ -8,6 +8,7 @@ the panel you already know. What is underneath it is not.
 COLLECTIONS
   billing/                    ← a collection is a folder
     invoices.http             ← a request file
+      All requests            ← the whole file
       GET    list invoices    ← a request is a "###" block
       POST   raise an invoice
       DELETE scrap one
@@ -48,18 +49,68 @@ narrow window is the case it exists for.
 | Click | What happens |
 |---|---|
 | A collection | Opens or closes it. |
-| A request file | Opens it in the request pane. |
-| A request | Opens its file and puts the caret on the request line. |
+| A request file | Opens it, showing all of it. |
+| **All requests** | Shows the whole file again. |
+| A request | Opens its file and shows **only that request**. |
 
-The last one is the useful one: `Ctrl+Enter` sends the request under the caret, so picking
-an endpoint and sending it is a click and a chord. The rail also follows the caret the
-other way - as you move around a file, the highlighted row is the request that
-`Ctrl+Enter` would send.
+Clicking a request also puts the caret on it, which is the half that matters most:
+`Ctrl+Enter` sends the request under the caret, so picking an endpoint and sending it is a
+click and a chord. The rail follows the caret the other way too - as you move around a
+file, the highlighted row is the request that `Ctrl+Enter` would send.
 
 Requests are read when you open a file's branch, not when you open the folder. A checkout
 with three hundred request files in it costs nothing to list. A single file contributes at
 most 500 request rows; past that the rail says how many it did not list, because a tree
 nobody can scroll is not worth the pause it would cost to draw.
+
+## One request at a time
+
+Click a request and the pane shows that request and the `@variables` above it, and nothing
+else. Click **All requests**, or the file's own row, and the whole file comes back.
+
+```
+REQUESTS.HTTP                                    2 of 3
+
+  1  @base = https://api.example.com
+  2  @token = {{login.response.body.$.access_token}}
+  3       ··· 1 request hidden ···
+  7  ### Create a user
+  8  POST {{base}}/users
+  9  Content-Type: application/json
+ 10
+ 11  {"name": "Ada"}
+ 12       ··· 1 request hidden ···
+```
+
+Three things about it are worth knowing, because they are what stop it being a mode you
+can get stuck in.
+
+**The file is untouched.** This hides lines; it does not change, split or extract
+anything. `Ctrl+S` writes the whole file, **Run all** runs the whole file, a chained
+`{{login.response...}}` still finds the request it depends on, and the line numbers keep
+counting so you can see where you are. Close Sling while narrowed and nothing about the
+file records that you ever were.
+
+**The `@variables` at the top stay on screen.** They are what every `{{reference}}` below
+resolves against, so a request shown without them would be a request you cannot read.
+
+**Anything that leaves the request brings the file back.** Move the caret out of it, drag
+a selection past it, press `Ctrl+A`, or let `Ctrl+F` land on a match further down: the
+whole file reappears first. That is deliberate - text you cannot see is text you could
+otherwise type over without knowing.
+
+The `2 of 3` beside the file name says which request you are on. Click it to show
+everything again.
+
+**With the caret up in the `@variables`, `Ctrl+Enter` and the Auth panel both act on the
+request you are looking at**, not on the first one in the file. The label beside the Send
+button and the highlight in the rail say which that is, and they always agree.
+
+A file that opens straight into a `###`, with no variables above it, keeps its first line
+on screen with the notice beside it. There has to be a line for the notice to sit on.
+
+A file too large for the rail to parse as you type is too large for this as well, and says
+so rather than narrowing to a request that might have moved.
 
 ## Creating
 

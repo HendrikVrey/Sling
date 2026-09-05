@@ -220,7 +220,7 @@ public partial class MainWindow
             _sendTargetVersion = version;
         }
 
-        ShowSendTarget(_sendTargetDocument?.BlockAtLine(RequestPane.TextArea.Caret.Line), NoSendTarget);
+        ShowSendTarget(_sendTargetDocument is null ? null : BlockUnderCaret(_sendTargetDocument), NoSendTarget);
     }
 
     private bool IsSendTargetFresh(ITextSourceVersion? version) =>
