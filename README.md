@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/sling-256.png" alt="Sling logo" width="112">
+  <img src="assets/sling-256.png" alt="Sling S ribbon and arrow logo" width="112">
 </p>
 
 <h1 align="center">Sling</h1>

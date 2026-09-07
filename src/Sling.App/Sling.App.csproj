@@ -31,13 +31,10 @@
       readable at a glance; an icon beside it would take width from a label that already
       trims.
 
-      assets/ holds the .ico, the SVGs and the PNGs - one copy, outside the project, and all
-      of them are emitted by assets/build-icon.py. THE GEOMETRY IN THAT SCRIPT IS THE SOURCE:
-      the SVGs come from the same numbers the raster is drawn from, so the two cannot drift.
-      Run `python assets/build-icon.py` to regenerate the lot. It needs Pillow and nothing
-      else, which is what keeps it runnable on the machine Sling is built on - Etch's
-      equivalent needs cairosvg and a native libcairo-2.dll that is on neither, so Etch's
-      icon can only be regenerated somewhere Etch cannot be built.
+      assets/sling.png is the finished master artwork. The checked-in sling.ico and
+      PNG exports come from assets/export-icon.ps1, using Windows' System.Drawing.
+      The exporter resizes the artwork; it does not draw the logo. No image tools
+      are needed to build Sling. See assets/README.md for export instructions.
     -->
     <ApplicationIcon>..\..\assets\sling.ico</ApplicationIcon>
   </PropertyGroup>
