@@ -104,6 +104,20 @@ public partial class MainWindow
     private IReadOnlyDictionary<string, Brush>? _methodBrushes;
 
     /// <summary>
+    /// The walk the tree on screen was built from.
+    /// </summary>
+    /// <remarks>
+    /// Kept so a re-walk can answer "nothing changed" without touching the tree. Rebuilding
+    /// throws away every row container, and doing that on each activation for a folder
+    /// nobody has touched costs a flicker and the tree's scroll position in exchange for
+    /// nothing.
+    /// </remarks>
+    private IReadOnlyList<string>? _listedFiles;
+
+    /// <summary>True while a folder walk is in flight, so activations do not stack them up.</summary>
+    private bool _walkingFolder;
+
+    /// <summary>
     /// A row this code selected, which the tree has not told us about yet.
     /// </summary>
     /// <remarks>
@@ -207,9 +221,89 @@ public partial class MainWindow
             return;
         }
 
-        var files = _workspace.RequestFiles(out var truncated);
-        var root = Path.GetFullPath(_workspace.Root);
+        ApplyWalk(_workspace, _workspace.RequestFiles(out var truncated), truncated);
+    }
 
+    /// <summary>
+    /// Re-walks the folder, and rebuilds the rail only if what is in it has changed.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A <c>.http</c> file is a git artifact, so the folder changes without Sling.</b> A
+    /// pull, a branch switch, a file made in Explorer or in the editor next door: the rail
+    /// is a projection of a folder walk, and a projection nothing re-runs is a picture of a
+    /// folder that no longer exists. A file that is there and not listed is the worse half;
+    /// clicking a row for one that was deleted an hour ago is the visible half.
+    /// </para>
+    /// <para>
+    /// On activation rather than through a <see cref="System.IO.FileSystemWatcher"/>, which
+    /// is the answer <see cref="OnWindowActivated"/> already gives for the environment
+    /// files: the workflow is "changed it over there, came back", and coming back is the
+    /// event. It also sidesteps a watcher's storm - a branch switch writes thousands of
+    /// paths, nearly all of them under directories the walk never enters.
+    /// </para>
+    /// <para>
+    /// The walk runs off the dispatcher. It is bounded but not bounded <em>small</em>:
+    /// twenty thousand directories of a checkout, on every alt-tab back into the window.
+    /// </para>
+    /// </remarks>
+    private void RefreshCollectionsFromDisk()
+    {
+        if (_workspace is not { } workspace || _walkingFolder)
+        {
+            return;
+        }
+
+        _walkingFolder = true;
+
+        RunGuarded(async () =>
+        {
+            try
+            {
+                var walk = await Task.Run(() =>
+                {
+                    var files = workspace.RequestFiles(out var truncated);
+                    return (Files: files, Truncated: truncated);
+                }).ConfigureAwait(true);
+
+                // The folder can have been closed or replaced while the walk was running.
+                if (_closed || !ReferenceEquals(_workspace, workspace))
+                {
+                    return;
+                }
+
+                if (_listedFiles is not null
+                    && walk.Files.SequenceEqual(_listedFiles, StringComparer.OrdinalIgnoreCase))
+                {
+                    return;
+                }
+
+                ApplyWalk(workspace, walk.Files, walk.Truncated);
+            }
+            finally
+            {
+                _walkingFolder = false;
+            }
+        });
+    }
+
+    /// <summary>
+    /// Replaces the tree with <paramref name="files"/>, keeping what the rail was saying.
+    /// </summary>
+    /// <remarks>
+    /// The rows do not survive a rebuild - every one of them is recreated from the walk -
+    /// so the two things the rail says about the window have to be put back from the
+    /// window rather than carried across on the old objects: which row is selected, and
+    /// which row the request pane is showing.
+    /// </remarks>
+    private void ApplyWalk(Workspace workspace, IReadOnlyList<string> files, bool truncated)
+    {
+        var root = Path.GetFullPath(workspace.Root);
+
+        // Before the clear, because clearing is what takes the selection away.
+        var selected = IdentityOf(CollectionsTree.SelectedItem as CollectionItem);
+
+        _listedFiles = files;
         _rebuildingLists = true;
 
         try
@@ -226,11 +320,79 @@ public partial class MainWindow
             _rebuildingLists = false;
         }
 
+        RestoreSelection(selected);
+
+        // Puts the "this is on screen" mark back, read off the pane rather than off the
+        // rows that have just been thrown away. Without it the rail says nothing about a
+        // pane that is still showing one request, while the chip in the header says it is.
+        RefreshRequestFocus();
+
         if (truncated)
         {
             StatusLeft.Text = "That folder holds more request files than the rail will show. "
                 + "Open a folder closer to the ones you want.";
         }
+    }
+
+    /// <summary>
+    /// What names a row across a rebuild.
+    /// </summary>
+    /// <remarks>
+    /// Not the row itself. The tree is a projection recomputed from the walk, so every
+    /// <see cref="CollectionItem"/> on screen is replaced by an equal one the moment the
+    /// folder is re-read - which is the same reason <see cref="_expanded"/> is keyed by
+    /// path. The line is part of the identity because a document's rows all carry that
+    /// document's path; without it, one selected request would restore onto another.
+    /// </remarks>
+    private readonly record struct RowIdentity(CollectionItemKind Kind, string Path, int Line);
+
+    private static RowIdentity? IdentityOf(CollectionItem? item) =>
+        item?.Path is null ? null : new RowIdentity(item.Kind, item.Path, item.Line);
+
+    /// <summary>Puts the selection back on the row that had it, if it still exists.</summary>
+    /// <remarks>
+    /// <b>It is not only a highlight.</b> <see cref="SelectedContainerRelative"/> reads the
+    /// selection to decide which folder a new collection or request file goes into, so a
+    /// rebuild that dropped it silently moved the next creation to the workspace root - and
+    /// creating something is itself one of the gestures that rebuilds the tree, so the
+    /// second new file in a row landed somewhere nobody chose.
+    /// </remarks>
+    private void RestoreSelection(RowIdentity? identity)
+    {
+        if (identity is not { } wanted)
+        {
+            return;
+        }
+
+        var row = Descendants(_collections).FirstOrDefault(i =>
+            i.Kind == wanted.Kind
+                && i.Line == wanted.Line
+                && i.Path is not null
+                && string.Equals(i.Path, wanted.Path, StringComparison.OrdinalIgnoreCase));
+
+        if (row is null)
+        {
+            // Deleted on disk, or a request the file no longer has. Selecting nothing is
+            // the right answer: guessing at a neighbour would aim the next creation, and
+            // the next click, at something nobody picked.
+            return;
+        }
+
+        _rebuildingLists = true;
+
+        try
+        {
+            row.IsSelected = true;
+        }
+        finally
+        {
+            _rebuildingLists = false;
+        }
+
+        // The rebuild destroyed every container, so this selection is applied later, when
+        // the tree generates them again - which is exactly the case OnCollectionSelected
+        // would otherwise read as a click and answer by moving the caret.
+        _selectedFromCode = row;
     }
 
     /// <summary>Turns one tree entry, and everything under it, into rail rows.</summary>

@@ -74,10 +74,11 @@ public partial class MainWindow
 
         RequestPane.TextChanged += OnRequestTextChanged;
 
-        // Environment files are edited outside Sling - that is the point of them being
-        // plain JSON beside the requests. Re-reading them when the window comes forward
-        // covers the whole of that workflow without a file watcher, and two small files
-        // is not a cost worth a mechanism.
+        // Both the environment files and the folder itself are edited outside Sling - that
+        // is the point of a workspace being a directory of plain files. Re-reading them
+        // when the window comes forward covers the whole of that workflow without a file
+        // watcher: the gesture being served is "changed it over there, came back", and
+        // coming back is the event.
         Activated += OnWindowActivated;
 
         UpdateTitle();
@@ -258,7 +259,12 @@ public partial class MainWindow
         UpdateTitle();
     }
 
-    private void OnWindowActivated(object? sender, EventArgs e) => ReloadEnvironments();
+    /// <summary>Re-reads what is edited outside Sling: the environments, and the folder.</summary>
+    private void OnWindowActivated(object? sender, EventArgs e)
+    {
+        ReloadEnvironments();
+        RefreshCollectionsFromDisk();
+    }
 
     private void OnEnvironmentSelected(object sender, SelectionChangedEventArgs e)
     {
