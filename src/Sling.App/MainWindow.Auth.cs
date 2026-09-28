@@ -7,6 +7,7 @@ using Sling.App.Editor;
 using Sling.Core.Auth;
 using Sling.Core.Documents;
 using Sling.Core.Parsing;
+using Sling.Core.Variables;
 using Sling.Persistence.Environments;
 using Sling.Persistence.Workspaces;
 
@@ -80,6 +81,12 @@ public partial class MainWindow
     /// <summary>The text those offsets belong to.</summary>
     private string _authText = string.Empty;
 
+    /// <summary>
+    /// That text parsed, so the panel can say where a reference resolves from: a chained
+    /// response and an <c>@variable</c> both live in the document, not the environment.
+    /// </summary>
+    private RequestDocument? _authDocument;
+
     /// <summary>The variable the current auth resolves from, when it is exactly one.</summary>
     private string? _authVariable;
 
@@ -107,6 +114,7 @@ public partial class MainWindow
 
         _authText = text;
         _authBlock = block;
+        _authDocument = document;
 
         var view = RequestAuth.Describe(block);
         _authVariable = view.Variable;
@@ -131,6 +139,7 @@ public partial class MainWindow
 
         _authBlock = null;
         _authText = string.Empty;
+        _authDocument = null;
     }
 
     /// <summary>Fills every control from the auth the document declares.</summary>
@@ -254,17 +263,33 @@ public partial class MainWindow
 
         var values = _environments.Select(_selectedEnvironment);
         var where = _selectedEnvironment is { } selected ? $"'{selected}'" : "the shared values";
+        var document = _authDocument ?? RequestDocumentParser.Parse(_authText);
+        var reference = $"'{{{{{variable}}}}}'";
+        var origin = ReferenceOrigin.Locate(variable, document, values);
 
-        if (!values.TryGet(variable, out _))
+        AuthResolution.Text = origin.Source switch
         {
-            AuthResolution.Text = $"'{{{{{variable}}}}}' is not defined in {where}.";
-            AuthDefineButton.Visibility = Visibility.Visible;
-            return;
-        }
+            ReferenceSource.Response =>
+                $"Taken from the response to '{origin.RequestName}' (line {origin.Line}), which is sent first when needed.",
 
-        AuthResolution.Text = values.IsSecret(variable)
-            ? $"'{{{{{variable}}}}}' resolves from {where} in {Workspace.PrivateEnvironmentFileName}."
-            : $"'{{{{{variable}}}}}' resolves from {where} in {Workspace.SharedEnvironmentFileName}.";
+            ReferenceSource.MissingRequest =>
+                $"{reference} reads the response to '{origin.RequestName}', but no request in this file is named that. "
+                    + $"Add '# @name {origin.RequestName}' above the request it should come from.",
+
+            ReferenceSource.Environment => values.IsSecret(variable)
+                ? $"{reference} resolves from {where} in {Workspace.PrivateEnvironmentFileName}."
+                : $"{reference} resolves from {where} in {Workspace.SharedEnvironmentFileName}.",
+
+            ReferenceSource.File => $"{reference} is defined in this file on line {origin.Line}.",
+
+            _ => $"{reference} is not defined in {where}.",
+        };
+
+        // Only a name that resolves nowhere is offered to the environment editor. Defining a
+        // chained reference there would shadow nothing and fix nothing.
+        AuthDefineButton.Visibility = origin.Source == ReferenceSource.Undefined
+            ? Visibility.Visible
+            : Visibility.Collapsed;
     }
 
     private void OnAuthSchemeChanged(object sender, SelectionChangedEventArgs e) => UpdateAuthFields();
