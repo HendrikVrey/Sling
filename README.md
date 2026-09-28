@@ -1,383 +1,260 @@
 <p align="center">
-  <img src="assets/sling-256.png" alt="Sling S ribbon and arrow logo" width="112">
+  <img src="assets/sling-256.png" alt="Sling logo" width="112">
 </p>
 
 <h1 align="center">Sling</h1>
 
 <p align="center">
-  <b>An editor-first HTTP client for Windows. The request is a document, not a form.</b>
+  <b>An HTTP client for Windows where the request is a text file, not a form.</b><br>
+  Write requests in plain <code>.http</code> files, press <kbd>Ctrl</kbd>+<kbd>Enter</kbd>, and read the response in a real editor.
 </p>
 
 <p align="center">
-  <a href="#download">Download</a> ·
-  <a href="#why">Why</a> ·
-  <a href="#keys">Keys</a> ·
-  <a href="#security">Security</a> ·
-  <a href="#building">Building</a> ·
-  <a href="#licence">Licence</a>
+  <a href="https://github.com/HendrikVrey/Sling/releases/latest/download/Sling-Setup.exe"><b>Download for Windows</b></a> ·
+  <a href="#quick-start">Quick start</a> ·
+  <a href="#features">Features</a> ·
+  <a href="#keyboard-shortcuts">Shortcuts</a> ·
+  <a href="#documentation">Docs</a> ·
+  <a href="#faq">FAQ</a>
 </p>
 
 <p align="center">
+  <a href="https://github.com/HendrikVrey/Sling/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/HendrikVrey/Sling?label=release&color=0A84FF"></a>
   <img alt="Windows 10 and 11" src="https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4">
+  <img alt="x64 and arm64" src="https://img.shields.io/badge/arch-x64%20%7C%20arm64-555">
   <img alt=".NET 10" src="https://img.shields.io/badge/.NET-10-512BD4">
-  <img alt="Licence: source-available" src="https://img.shields.io/badge/licence-source--available-B8860B">
   <img alt="No telemetry" src="https://img.shields.io/badge/telemetry-none-2E7D32">
+  <img alt="Licence: source-available" src="https://img.shields.io/badge/licence-source--available-B8860B">
 </p>
+
+<p align="center">
+  <img src="assets/screenshots/request-and-response.png" alt="Sling with a folder of request files on the left, a POST request in the middle and its JSON response on the right" width="100%">
+</p>
+
+---
+
+## What is Sling?
+
+Sling is a desktop app for calling HTTP APIs, like Postman or Insomnia, with one big
+difference: **your requests are text files** in the standard
+[`.http` format](https://learn.microsoft.com/aspnet/core/test/http-files) that Visual Studio,
+JetBrains Rider and the VS Code REST Client already understand.
 
 ```http
 @base = https://api.example.com
 
+### Log in
 # @name login
 POST {{base}}/auth
 Content-Type: application/json
 
-{ "user": "ada", "pass": "{{secret}}" }
+{ "user": "ada", "password": "{{password}}" }
 
-### the token flows into the next request
+### Who am I? The token comes from the response above
 GET {{base}}/me
 Authorization: Bearer {{login.response.body.$.access_token}}
 ```
 
-That is the whole interface. **Send** - or `Ctrl+Enter` - sends the request under the
-caret, and the command bar says which one that is before you press it; the response opens
-beside it in a real editor buffer, highlighted, foldable, searchable, with its status
-colour-coded beside the pane.
+That file *is* the whole collection. Put it in your repository and your team gets:
 
----
+- **Requests you can review.** A change to an API call shows up as a normal diff in a pull request.
+- **Collections that are just folders.** Grouping is `###`, hierarchy is directories, sharing is `git push`.
+- **No lock-in.** Uninstall Sling tomorrow and every request still opens in your IDE.
+- **No account, no cloud, no sync, no telemetry.** Nothing leaves your machine except the requests you send.
 
-## Download
+## Quick start
 
-**[Download Sling-Setup.exe](https://github.com/HendrikVrey/Sling/releases/latest/download/Sling-Setup.exe)**
-- one installer carrying both `win-x64` and `win-arm64`.
+1. **[Download `Sling-Setup.exe`](https://github.com/HendrikVrey/Sling/releases/latest/download/Sling-Setup.exe)**
+   and run it. It installs for your user only, so there is no admin prompt.
+2. **Open a folder** with <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>O</kbd>. Any folder works: an empty one, or a
+   repository that already has `.http` files in it.
+3. **Write a request**, or click **+ Request**:
+   ```http
+   GET https://api.github.com/repos/dotnet/runtime
+   User-Agent: sling
+   ```
+4. **Press <kbd>Ctrl</kbd>+<kbd>Enter</kbd>** (or **Send**). The response opens on the right, formatted and
+   highlighted.
 
-That link is permanent and serves the newest **versioned** release. There is a second,
-equally permanent link for the newest build of `master`:
+Coming from Postman? Press <kbd>Ctrl</kbd>+<kbd>I</kbd> to [import a collection](docs/postman-import.md),
+environments included. Got a curl command? [Paste it](docs/curl-import.md) into the request pane
+and it becomes a request.
 
-**[Sling-Setup.exe from the latest build of `master`](https://github.com/HendrikVrey/Sling/releases/download/latest/Sling-Setup.exe)**
+## Features
 
-Every merge rebuilds it, and nothing is published unless the test suite passes, so a
-broken commit leaves the previous installer in place rather than replacing it. The version
-it reports looks like `1.0.0-dev.47`, which is the base version plus the build that
-produced it. GitHub's `/releases/latest/` deliberately skips prereleases, which is what
-keeps the two links apart and both of them permanent.
+### Collections without a collection format
 
-The installer is **per-user**. It asks for no administrator rights and shows no UAC
-prompt, it installs to `%LOCALAPPDATA%\Programs\Sling`, and everything it writes to the
-registry is under `HKEY_CURRENT_USER`. No other account on the machine is touched, and
-there is no service and nothing that runs at startup.
+The rail on the left is your folder: collections are directories, files are `.http` documents,
+and each `###` block inside a file is a request, with its verb colour-coded. Click a request to
+show it on its own, or **All requests** to see the whole file. Sling stores nothing to draw the
+tree, so renaming a collection is renaming a folder. [More about collections →](docs/collections.md)
 
-It asks two questions, both unticked by default:
+### Chain requests together
 
-- **Make Sling the default for `.http` and `.rest`.** Left unticked because Visual Studio
-  2022, Rider and the VS Code REST Client all read these files, and one of them very
-  likely holds the default on your machine already. If Windows has a user-chosen default
-  recorded, it keeps it and you finish the change in Settings → Apps → Default apps; that
-  is Windows protecting a choice you made, not the installer failing.
-- **A desktop shortcut.**
+Name a request with `# @name`, then pull any value out of its response with JSONPath:
+`{{login.response.body.$.access_token}}`. Sending a request that depends on another sends the
+dependency first, automatically. **Run all** (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Enter</kbd>) sends every
+request in the file, and the picker beside the response lets you step through each exchange.
 
-Installing Sling puts it in Windows' own **"Open with"** submenu for `.http` and `.rest`
-whether or not you tick either box, and double-clicking a request file opens that file
-with its folder as the workspace - so the environments beside it load and the collections
-rail fills in. Uninstalling puts back whatever held the association before, and leaves
-every other application's entry in the "Open with" list alone.
+<p align="center">
+  <img src="assets/screenshots/request-chaining.png" alt="A login request followed by a request that uses the token from the login response, with the second response shown" width="100%">
+</p>
 
-There is deliberately no "Open with Sling" entry on every file in Explorer. Sling reads
-one format; an entry that would produce an unparseable document on any other file is
-noise.
+### Environments and secrets, kept apart
 
-Windows SmartScreen will warn you the first time, because nothing here is code-signed.
-That is a real warning and worth treating as one: it means Windows cannot confirm who
-built this. Expect it to be **more insistent for an installer** than it is for a bare
-executable - SmartScreen weights installers more heavily. If that is not a trade you want
-to make, [build it yourself](#building) - the source is right here, and that is rather the
-point.
+Switch between `dev`, `staging` and `prod` from the picker above the request. Values live in
+`http-client.env.json`, which you commit, and secrets live in `http-client.private.env.json`,
+which Sling adds to your `.gitignore` for you. These are the same files Rider and Visual Studio
+use, so existing environments work unchanged. Press <kbd>Ctrl</kbd>+<kbd>E</kbd> to edit them without
+hand-writing JSON. [More about environments →](docs/environments.md)
 
-There is no portable ZIP. Building it yourself is the no-install route.
+<p align="center">
+  <img src="assets/screenshots/environments.png" alt="The environments editor, listing committed values and a masked secret for the dev environment" width="100%">
+</p>
 
----
+### Find anything with <kbd>Ctrl</kbd>+<kbd>P</kbd>
 
-## Why
+Quick open searches every request in the folder by collection, file name, request name, verb
+and URL. Every word you type has to match somewhere, so `post orders` and `orders staging` both
+find what you mean.
 
-Postman's core defect is that a request is a **form**. Six tabs, a modal for variables,
-and the artifact you version is a multi-thousand-line JSON blob that cannot be reviewed
-in a pull request. The account nag and the workspace concept are downstream of that one
-choice.
+<p align="center">
+  <img src="assets/screenshots/quick-open.png" alt="The quick open box listing matching requests with their verbs, files and URLs" width="100%">
+</p>
 
-Sling stores requests as [`.http`](https://learn.microsoft.com/aspnet/core/test/http-files)
-files - the same format Visual Studio 2022, Rider and the VS Code REST Client already
-read. A collection becomes a folder of text files. Grouping is `###` separators;
-hierarchy is folders; sharing is `git push`; review is a normal diff.
+### It notices when the file changes underneath you
 
-There **is** a collection tree - folders, files and the requests inside them, with the
-verbs colour-coded, and buttons to add to it. What there is not is a collection *format*
-behind it: the tree is drawn from the folder every time, so renaming a collection is
-renaming a directory and moving one is `git mv`.
-[docs/collections.md](docs/collections.md) has the rest.
+A `.http` file lives in git, so a pull, a branch switch or another editor can change it while
+it is open. Sling spots that the moment you come back and offers **Reload**, **Keep mine** or
+**Compare**, and it will not save over a version you have not seen.
 
-No account, no cloud, no sync, no save dialog.
+<p align="center">
+  <img src="assets/screenshots/changed-on-disk.png" alt="A warning strip saying the file changed on disk, with a diff of the new lines in the response pane" width="100%">
+</p>
 
-## Status
-
-**A coloured request pane, and a window that says it is working.**
-
-The document you write is highlighted now: `###` separators and `#` comments in green with
-the title after a separator in bold, verbs in the same colours the collections rail uses,
-header names apart from their values, and every `{{reference}}` in a colour nothing else
-uses, because a reference is the thing most often got wrong and it can hide anywhere in a
-request. A body is left in plain text on purpose - it is JSON, or a form, or a binary part,
-and Sling does not know which until it is sent.
-
-This is not a grammar file, and it could not have been one. Whether a line is a header or
-body text depends on a blank line that may be far above it, which no set of regular
-expressions can see - so the pane is coloured by the same walk over the document that the
-parser does, and the picture cannot disagree with what gets sent.
-
-And pressing **Send** or **Run all** now visibly does something. The response pane shows
-what is in flight rather than the previous response: the request going out, an elapsed clock
-that keeps moving, and for `Ctrl+Shift+Enter` which of the run it has reached. A request
-sent to satisfy a chain says so, so does a token exchange, and so does a retry after a 401.
-`Esc` still cancels, and a request that answers quickly shows nothing at all - the card
-waits a fifth of a second before appearing, so a fast API does not flash it.
-
-**The command bar.** Send, Run all, a File menu, Save, History and Settings are buttons
-above the panes, with the collections rail on a toggle beside them. Every chord Sling has
-is now something you can see, and every button names its own chord - the keyboard is still
-the fast path, it is just no longer the only way to find out a command exists. Beside the
-buttons is the request Send would send; beside RESPONSE is the status, coloured by class.
-
-**Collections.** The rail is a tree: collections (folders), the request files in them, and
-the requests inside each file with their verbs colour-coded. Clicking a request opens its
-file, puts the caret on it so `Ctrl+Enter` sends it, and **shows that request on its own** -
-the file's `@variables` stay on screen above it, and **All requests** brings the rest back.
-That is a view and nothing more: the buffer still holds the whole file, so Save writes the
-whole file and Run all runs it, and anything that takes you out of the request - the caret,
-a selection, a `Ctrl+F` match further down - puts the file back first. Moving around a file
-highlights the request that would go. **+ Collection**, **+ File** and **+ Request** sit
-above the tree and land inside whatever is selected.
-
-Nothing is stored to make this work - no manifest, no index, no ordering - so a collection
-is still just a directory and Sling can be deleted without taking your requests with it.
-There is deliberately no rename and no delete in the rail;
-[docs/collections.md](docs/collections.md) says why.
-
-**Quick open.** `Ctrl+P` searches everything in the folder from one box: the collection, the
-file name, what a request is called, its verb and the URL as written. Every word you type has
-to appear somewhere in the row, so `post orders` and `orders staging` both work. A tree of a
-few hundred rows is navigable by scrolling and nothing else, and what you remember about a
-request is spread over four levels of it.
-
-**Sling notices when the file changes underneath it.** A `.http` file is a git artifact, so a
-pull, a branch switch or the editor in the next window changes what is in the pane. When it
-does, a strip says so and offers **Reload**, **Keep mine** and **Compare** - the last of which
-shows the difference in the response pane. Nothing is written over a version you have not been
-shown: `Ctrl+S` refuses until you choose, and **Keep mine** is how you say yours wins.
-
-**It opens where you left off.** The last folder, the last file, the caret and the width of the
-two panes come back, and the File menu lists recent folders. That lives in
-`%LOCALAPPDATA%\Sling`, never in your repository - delete it and you lose the convenience and
-nothing else.
-
-**M4 - the Postman importer.** `Ctrl+I`, pick your collection export and its environment
-exports in the same dialog, pick a folder. Sling writes the `.http` files, writes both
-environment files, and opens the folder.
-
-A collection becomes a folder of files: requests at the root go into one named after the
-collection, a folder `Orders` becomes `orders.http`, `Orders / Refunds` becomes
-`orders/refunds.http`. Bodies come across in every mode Postman has, including form-data,
-which becomes a real multipart body, because that is how the `.http` format expresses one.
-Auth comes across too, inherited the way Postman inherits it, and an OAuth 2.0
-client-credentials block becomes a real `# @auth oauth2` grant.
-
-**No credential is ever written into a `.http` file.** An export routinely carries a live
-token in plain text, and an imported document is meant to be committed - so every literal
-credential moves into the gitignored `http-client.private.env.json` and the request gets a
-`{{name}}`. Read both environment files before you commit: Postman only marks a value
-secret when its owner ticked the box, so anything whose *name* reads like a credential is
-treated as one too.
-
-Scripts are not run - that is a non-goal, not a gap - but they are copied into the document
-as comments so you can see what they did. Everything else the importer cannot do exactly
-becomes a comment naming what was lost. Nothing is dropped silently.
-[docs/postman-import.md](docs/postman-import.md) has the whole account, including what a
-collection can and cannot make Sling do with it.
-
-**M3 slice 2 - cookies, OAuth2, history, run-all, settings.** Sling keeps a cookie jar
-per environment, by RFC 6265's rules for domain, path and `Secure`, so a cookie set by
-staging cannot reach production. It lives in memory and is discarded when you switch
-environment, open another file, or close the window.
-
-An OAuth2 **client-credentials** grant is four lines above a request:
-
-```http
-# @auth oauth2
-# @token-url {{auth_base}}/oauth2/token
-# @client-id {{client_id}}
-# @client-secret {{client_secret}}
-GET {{base}}/orders
-```
-
-Sling fetches the token, attaches it, caches it until it expires, and shows the token
-exchange in the response pane like any other call it makes on your behalf.
-
-`# @auth oauth2-code` does the authorization-code flow instead: your own browser, a loopback
-redirect Sling listens on, PKCE with `S256` and a checked `state`. `@client-secret` is
-optional there, because a desktop client has none to keep and PKCE is what replaces it. The
-one part Sling cannot do for you is registering the loopback address with your identity
-provider.
-
-`Ctrl+Shift+Enter` sends every request in the file in one run - shared chain responses, so
-a dependency already satisfied is not sent twice, and a failure does not stop the rest.
-
-`Ctrl+H` shows the local history in the response buffer: what was sent, when, and what
-came back. Credentials are removed before anything is written, and **no request or
-response body is stored at all** - a login response body *is* the token, and a redactor
-that has to recognise credentials inside arbitrary payloads is a guess that fails
-silently. `Ctrl+,` opens settings: timeout, response cap, redirects, and switches for
-cookies and history. [docs/history.md](docs/history.md) has all of it, including what
-redaction does and does not catch.
-
-**M3 slice 1 - files on disk, environments, and file bodies.** `Ctrl+Shift+O` opens a
-folder of `.http` files; `Ctrl+O` opens one; `Ctrl+S` saves, with a dirty marker in the
-title. Saving is explicit rather than continuous - a `.http` file is a git artifact, and
-rewriting one as you type moves the diff under whoever is reading it.
-
-Environments come from `http-client.env.json` beside the requests, with the secrets in a
-gitignored `http-client.private.env.json` - the convention Rider and Visual Studio 2022
-already use, so an existing set of environments works unchanged. Opening a folder that
-holds a secrets file adds the `.gitignore` entry if it is missing.
-[docs/environments.md](docs/environments.md) has the format and the precedence rules.
-
-A body can come from a file: `< ./payload.json` copies the bytes, `<@ ./template.json`
-substitutes `{{variables}}` into them first. Because the `.http` format expresses a
-multipart body by writing it out with an import per part, that *is* multipart support. An
-import may only read files inside the open folder - a request file gets shared, and
-`< C:\Users\me\.ssh\id_rsa` is an ordinary thing for one to say.
-
-**M2 - the response is an editor buffer.** `Ctrl+Enter` sends the request under the
-caret, `Esc` cancels, and a request that references an earlier one by name sends that one
-first, automatically, and shows both.
-
-What arrives is not a viewport. The request line and the status sit above the pane and the
-headers behind a collapsed expander, so the buffer holds the **body and nothing else**,
-which is what lets it be highlighted, folded, searched with `Ctrl+F`, and transformed in
-place. Right-click and the menu offers the transforms that apply to what is actually
-there: format the JSON, decode the base64, decode the JWT. They chain, because each one
-rewrites the buffer and the pane then asks again what it is holding.
-
-The transform engine is [Etch](https://github.com/HendrikVrey/Etch)'s, consumed as a
-package - see [docs/etch-core-package.md](docs/etch-core-package.md), which also explains
-why a fresh clone needs one extra step before it will build.
-
-**Paste a curl command into the request pane and you get a request.** Anything it cannot
-express becomes a comment saying what was dropped;
-[docs/curl-import.md](docs/curl-import.md) has the rules, including the two flags it
-deliberately refuses.
-
-**Auth you can see and set up by clicking.** `Ctrl+Alt+A` says what credential the request
-under the caret is sending and where it is declared, with its line - which used to mean
-reading the document and both environment files. Editing a field rewrites the header or the
-`# @auth` directives in your own document, so closing the panel leaves a `.http` file a
-colleague can review.
-
-`Ctrl+E` creates and changes environment values, including the gitignored secrets file that
-until now nothing in Sling would write - so a bearer token no longer means alt-tabbing to
-another editor to hand-write JSON. A credential typed into the auth panel goes there and the
-request gets a `{{reference}}`; a literal one is never written into a `.http` file.
-
-Beside the picker, a chip says what token is in force and how long it has left. Tokens are
-remembered across restarts, encrypted under your account and scoped per folder and
-environment, and a 401 on one Sling fetched refreshes it and sends again - showing both
-attempts rather than a mystery success. [docs/auth.md](docs/auth.md) has all of it, including
-the three things it deliberately will not do.
-
-**M5 - the release.** `Sling-Setup.exe` is built by CI on every merge to `master` and on
-every `v*` tag, and neither channel publishes unless the suite is green. See
-[Download](#download).
-
-The exact dialect Sling reads, and every place it differs from the VS Code REST Client,
-is written down in [docs/http-dialect.md](docs/http-dialect.md).
-
-## Keys
-
-Every one of these is also a button on the command bar above the panes, and each button
-names its own chord in its tooltip - the toolbar is there to make the keyboard findable,
-not to replace it. The **File** menu lists the document commands with their gestures
-beside them.
+### And the rest
 
 | | |
 |---|---|
-| `Ctrl+Enter` | Send the request under the caret |
-| `Ctrl+Shift+Enter` | Send every request in the file |
-| `Esc` | Cancel the run, or close settings |
-| `Ctrl+P` | Go to a file or a request, by typing |
-| `Ctrl+O` / `Ctrl+Shift+O` | Open a file / a folder |
-| `Ctrl+I` | Import a Postman export |
-| `Ctrl+S` / `Ctrl+Shift+S` | Save / save as |
-| `Ctrl+N` | New document |
-| `Ctrl+Shift+N` | Add a request to the open file |
-| `Ctrl+B` | Show or hide the collections rail |
-| `Ctrl+F` | Find, in either pane |
-| `Ctrl+Space` | Complete a directive, a header or a variable |
-| `Ctrl+Alt+A` | The auth this request is sending |
-| `Ctrl+E` | Environments and secrets |
-| `Ctrl+H` | Show the local history |
-| `Ctrl+,` | Settings |
+| **A response you can work with** | The body lands in a real editor buffer: highlighted, foldable, searchable with <kbd>Ctrl</kbd>+<kbd>F</kbd>. Right-click to format JSON, decode base64 or a JWT, and chain transforms. |
+| **Auth that is not a mystery** | <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>A</kbd> shows which credential a request sends and where it comes from. OAuth 2.0 client credentials and authorization code with PKCE are built in, and tokens refresh on a 401. [Auth docs →](docs/auth.md) |
+| **Postman import** | Collections and environments come across in one step, and no credential is ever written into a `.http` file. [Import docs →](docs/postman-import.md) |
+| **curl paste** | Paste a curl command and get a request. Anything that cannot be expressed becomes a comment saying what was dropped. [curl docs →](docs/curl-import.md) |
+| **File and multipart bodies** | `< ./payload.json` sends a file; `<@ ./template.json` fills in `{{variables}}` first. |
+| **Cookies** | A cookie jar per environment, so a staging cookie can never reach production. |
+| **History** | <kbd>Ctrl</kbd>+<kbd>H</kbd> shows what you sent and what came back, with credentials redacted and no bodies stored. [History docs →](docs/history.md) |
+| **Picks up where you left off** | The last folder, file, caret and pane sizes come back when you reopen Sling. |
+| **Completion** | <kbd>Ctrl</kbd>+<kbd>Space</kbd> completes directives, headers and variables. |
 
-## Who this is for
+## Keyboard shortcuts
 
-Developers who are already fighting Postman - the ones who keep a scratch collection
-called "test" and have thought about going back to curl.
+Everything is also a button, and every button's tooltip names its shortcut.
 
-It is **not** aimed at people who live in Postman's OAuth 2.0 button, collection runner
-and Tests tab. Serving that workflow means rebuilding Postman, which removes the reason
-to build Sling. The honest pitch is *everything you actually use Postman for, as text
-files you can review in a pull request* - not *a drop-in replacement*.
+| Shortcut | Action |
+|---|---|
+| <kbd>Ctrl</kbd>+<kbd>Enter</kbd> | Send the request under the caret |
+| <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Enter</kbd> | Send every request in the file |
+| <kbd>Esc</kbd> | Cancel the run, or close a panel |
+| <kbd>Ctrl</kbd>+<kbd>P</kbd> | Go to a file or a request |
+| <kbd>Ctrl</kbd>+<kbd>O</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>O</kbd> | Open a file / a folder |
+| <kbd>Ctrl</kbd>+<kbd>S</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd> | Save / save as |
+| <kbd>Ctrl</kbd>+<kbd>N</kbd> | New document |
+| <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>N</kbd> | Add a request to the open file |
+| <kbd>Ctrl</kbd>+<kbd>I</kbd> | Import a Postman export |
+| <kbd>Ctrl</kbd>+<kbd>B</kbd> | Show or hide the collections rail |
+| <kbd>Ctrl</kbd>+<kbd>F</kbd> | Find, in either pane |
+| <kbd>Ctrl</kbd>+<kbd>Space</kbd> | Complete a directive, header or variable |
+| <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>A</kbd> | Auth for this request |
+| <kbd>Ctrl</kbd>+<kbd>E</kbd> | Environments and secrets |
+| <kbd>Ctrl</kbd>+<kbd>H</kbd> | History |
+| <kbd>Ctrl</kbd>+<kbd>,</kbd> | Settings |
 
-### Planned for v1
+## Sling or Postman?
 
-Postman collection import · paste-a-curl-command · environments (dev/staging/prod) ·
-cookie jar · OAuth2 client-credentials · OAuth2 authorization code with PKCE · request
-chaining · file and multipart bodies
+Sling is for developers who already find Postman heavier than the job: the people with a
+scratch collection called "test" who have thought about going back to curl.
 
-### Deliberately not in v1
+| | Sling | Postman |
+|---|---|---|
+| A request is stored as | A few lines of text in a `.http` file | An entry in a large collection JSON export |
+| Reviewing a change | A normal diff in a pull request | Hard to read in a diff |
+| Opens in VS, Rider, VS Code | Yes, same format | No |
+| Account or cloud needed | No | Built around a synced workspace |
+| Scripting, test assertions, mock servers | No, deliberately | Yes |
 
-Test assertions · mock servers · team sync · gRPC · WebSocket · proxy capture · a
-response-handler scripting runtime · JWT signature verification
+If you live in Postman's Tests tab, collection runner or mock servers, Sling is not trying to
+replace that. It covers what most people actually use an API client for, as files you own.
 
 ## Security
 
-Sling handles credentials, so a few rules are structural rather than hardening added
-later:
+Sling handles credentials, so these are rules, not options:
 
-- **Secrets live in a separate, gitignored file.** A committed bearer token is the known
-  failure mode of `.http` files in the wild.
-- **`Authorization`, `Cookie` and `Proxy-Authorization` are dropped on a cross-origin
-  redirect.**
-- **TLS validation is on by default**; any bypass is per-request and shown while active.
-- **Cookies are scoped per environment** - a staging cookie never reaches production,
-  because the two do not share a jar.
-- **Response bodies render as text**, never into a browser control.
-- **A stored access token is encrypted** with Windows data protection under your account and
-  scoped per folder and environment, so a staging token cannot be read back under production.
-  No client secret is ever written to disk.
-- **Nothing tells you a token is valid.** Sling decodes a JWT and reads its clock; it verifies
-  no signature and says so.
-- **History stores no bodies, and credentials are redacted before anything is written.**
-- **Access tokens and cookies never touch the disk.**
-- No telemetry, no update ping, no crash upload.
+- **Secrets live in a separate, gitignored file**, and imports never write a literal credential into a `.http` file.
+- **`Authorization`, `Cookie` and `Proxy-Authorization` are dropped** when a redirect crosses origins.
+- **TLS validation is on by default.**
+- **Stored tokens are encrypted** with Windows data protection under your account, scoped per folder and environment. No client secret is written to disk.
+- **History redacts credentials and stores no request or response bodies.**
+- **Responses render as text**, never in a browser control.
+- **No telemetry**, no update ping, no crash upload.
 
-## Building
+## Download
 
-Requires the .NET 10 SDK - **and one extra step**, because Sling depends on `Etch.Core`,
-which is on a private feed rather than nuget.org. From a checkout of
-[Etch](https://github.com/HendrikVrey/Etch), beside this one:
+| | |
+|---|---|
+| **[Sling-Setup.exe](https://github.com/HendrikVrey/Sling/releases/latest/download/Sling-Setup.exe)** | The latest release. One installer for both x64 and arm64. |
+| **[Sling-Setup.exe from `master`](https://github.com/HendrikVrey/Sling/releases/download/latest/Sling-Setup.exe)** | The newest build. Published only when the test suite passes. |
+
+The installer is per-user: no admin rights, no UAC prompt, nothing running at startup. It installs
+to `%LOCALAPPDATA%\Programs\Sling` and adds Sling to **Open with** for `.http` and `.rest` files.
+Making Sling the default for those files is an unticked option, because your IDE probably owns them
+already.
+
+Sling is not code-signed yet, so Windows SmartScreen will warn you the first time. If you would
+rather not click through that, [build it yourself](#building-from-source).
+
+## Documentation
+
+| Guide | What it covers |
+|---|---|
+| [The `.http` dialect](docs/http-dialect.md) | Everything Sling reads, and where it differs from the VS Code REST Client |
+| [Collections](docs/collections.md) | How the rail maps to folders and files |
+| [Environments](docs/environments.md) | The two environment files, `$shared`, and precedence |
+| [Auth](docs/auth.md) | Bearer, basic, OAuth 2.0, token storage and refresh |
+| [Postman import](docs/postman-import.md) | What comes across, and what cannot |
+| [curl import](docs/curl-import.md) | The paste rules and the flags it refuses |
+| [History](docs/history.md) | What is recorded and what redaction catches |
+| [Etch.Core package](docs/etch-core-package.md) | The one extra build step, and why |
+
+## FAQ
+
+**Will my requests work in other tools?**
+Yes. `.http` is the format Visual Studio 2022, Rider and the VS Code REST Client read. Sling's
+few extensions are listed in [the dialect guide](docs/http-dialect.md).
+
+**Where are my requests stored?**
+Wherever you put them. Sling opens a folder and reads the `.http` files in it. The only things
+it keeps for itself (history, the last session, encrypted tokens) are in `%LOCALAPPDATA%\Sling`,
+never in your repository.
+
+**Does it run on macOS or Linux?**
+No. Sling is a native Windows app built on WPF.
+
+**Can I run scripts or write tests?**
+No, by design. A scripting runtime is what turns a request file back into something only one
+tool can run.
+
+**Is it free?**
+Yes, to download and use for anything, including at work. See [Licence](#licence).
+
+## Building from source
+
+You need the .NET 10 SDK and a checkout of [Etch](https://github.com/HendrikVrey/Etch) next to
+this one, because Sling uses `Etch.Core` from a private package feed.
+[Why, and how to authenticate instead →](docs/etch-core-package.md)
 
 ```bash
-dotnet pack src/Etch.Core/Etch.Core.csproj -c Release -o ../Sling/local-feed
+dotnet pack ../Etch/src/Etch.Core/Etch.Core.csproj -c Release -o local-feed
 ```
-
-[docs/etch-core-package.md](docs/etch-core-package.md) explains why the feed is private
-and how to authenticate to it instead.
 
 ```bash
 dotnet build Sling.slnx
@@ -387,14 +264,11 @@ dotnet build Sling.slnx
 dotnet test Sling.slnx
 ```
 
-Running it from a build is the no-install route, and it is the answer to the SmartScreen
-warning above.
+<details>
+<summary><b>Building the installer</b></summary>
 
-### Building the installer
-
-Also needs [Inno Setup](https://jrsoftware.org/isinfo.php) on the `PATH`. Publish both
-architectures first - the script packs whichever one matches the machine it is installing
-on, so both have to exist:
+Needs [Inno Setup](https://jrsoftware.org/isinfo.php) on the `PATH`. Publish both architectures,
+then pack:
 
 ```bash
 dotnet publish src/Sling.App/Sling.App.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:PublishReadyToRun=true -p:Version=1.0.0 -o publish/win-x64
@@ -408,29 +282,31 @@ dotnet publish src/Sling.App/Sling.App.csproj -c Release -r win-arm64 --self-con
 iscc installer\Sling.iss /DAppVersion=1.0.0 /DNumericVersion=1.0.0
 ```
 
-`Sling-Setup.exe` lands in `dist/`. `NumericVersion` is separate because Inno Setup's
-`VersionInfoVersion` must be strictly numeric, and a version like `1.0.0-dev.47` is not.
-[.github/workflows/release.yml](.github/workflows/release.yml) runs exactly these commands.
+`Sling-Setup.exe` lands in `dist/`. [The release workflow](.github/workflows/release.yml) runs
+exactly these commands.
 
-## Layout
+</details>
+
+<details>
+<summary><b>Project layout</b></summary>
 
 | Project | Contains |
 |---|---|
-| `Sling.Core` | `.http` parser, models, variable and chain resolution, redaction. Pure - no I/O, no network, no dependencies. |
-| `Sling.Import` | Postman v2.1 JSON and curl → `.http`. Pure. |
+| `Sling.Core` | The `.http` parser, models, variable and chain resolution, redaction. No I/O, no network. |
+| `Sling.Import` | Postman v2.1 and curl to `.http`. |
 | `Sling.Http` | The only project that touches the network. |
 | `Sling.Persistence` | All disk I/O. |
-| `Sling.App` | WPF + WPF-UI + AvalonEdit shell. No business logic. Consumes `Etch.Core` for the response transforms. |
+| `Sling.App` | The WPF shell (WPF-UI and AvalonEdit). |
 
-Those boundaries are enforced by `ArchitectureTests`, not just documented.
+The boundaries are enforced by `ArchitectureTests`, not just documented.
+
+</details>
 
 ## Licence
 
-**Source-available, not open source.** Sling is free to download, read, compile and
-run - for anything, including commercially and at work. You may not modify it,
-republish it, or sell it. See [LICENSE](LICENSE) for the terms that actually apply,
-and [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) for the components it is built on,
-which carry their own licences.
+**Source-available, not open source.** Sling is free to download, read, build and run, for
+anything, including commercially. You may not modify it, republish it or sell it. See
+[LICENSE](LICENSE) for the terms, and [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) for the
+components it is built on.
 
-The request files you write, and everything you send and receive with Sling, are
-yours. The licence claims nothing over them.
+Your request files, and everything you send and receive with Sling, are yours.
