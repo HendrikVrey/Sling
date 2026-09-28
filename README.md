@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/HendrikVrey/Sling/releases/latest/download/Sling-Setup.exe"><b>Download for Windows</b></a> ·
+  <a href="https://github.com/HendrikVrey/Sling/releases/download/latest/Sling-Setup.exe"><b>Download for Windows</b></a> ·
   <a href="#quick-start">Quick start</a> ·
   <a href="#features">Features</a> ·
   <a href="#keyboard-shortcuts">Shortcuts</a> ·
@@ -19,7 +19,6 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/HendrikVrey/Sling/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/HendrikVrey/Sling?label=release&color=0A84FF"></a>
   <img alt="Windows 10 and 11" src="https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4">
   <img alt="x64 and arm64" src="https://img.shields.io/badge/arch-x64%20%7C%20arm64-555">
   <img alt=".NET 10" src="https://img.shields.io/badge/.NET-10-512BD4">
@@ -64,7 +63,7 @@ That file *is* the whole collection. Put it in your repository and your team get
 
 ## Quick start
 
-1. **[Download `Sling-Setup.exe`](https://github.com/HendrikVrey/Sling/releases/latest/download/Sling-Setup.exe)**
+1. **[Download `Sling-Setup.exe`](https://github.com/HendrikVrey/Sling/releases/download/latest/Sling-Setup.exe)**
    and run it. It installs for your user only, so there is no admin prompt.
 2. **Open a folder** with <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>O</kbd>. Any folder works: an empty one, or a
    repository that already has `.http` files in it.
@@ -201,8 +200,7 @@ Sling handles credentials, so these are rules, not options:
 
 | | |
 |---|---|
-| **[Sling-Setup.exe](https://github.com/HendrikVrey/Sling/releases/latest/download/Sling-Setup.exe)** | The latest release. One installer for both x64 and arm64. |
-| **[Sling-Setup.exe from `master`](https://github.com/HendrikVrey/Sling/releases/download/latest/Sling-Setup.exe)** | The newest build. Published only when the test suite passes. |
+| **[Sling-Setup.exe](https://github.com/HendrikVrey/Sling/releases/download/latest/Sling-Setup.exe)** | The newest build of `master`, one installer for both x64 and arm64. It is only replaced when the test suite passes, so a broken commit never reaches it. |
 
 The installer is per-user: no admin rights, no UAC prompt, nothing running at startup. It installs
 to `%LOCALAPPDATA%\Programs\Sling` and adds Sling to **Open with** for `.http` and `.rest` files.
