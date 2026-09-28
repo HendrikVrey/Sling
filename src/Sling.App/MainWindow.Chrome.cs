@@ -137,6 +137,8 @@ public partial class MainWindow
 
     private void OnImportClicked(object sender, RoutedEventArgs e) => RunGuarded(ImportPostmanAsync);
 
+    private void OnQuickOpenClicked(object sender, RoutedEventArgs e) => ShowQuickOpen();
+
     private void OnHistoryClicked(object sender, RoutedEventArgs e)
     {
         CloseSettings();
@@ -204,6 +206,11 @@ public partial class MainWindow
         if (RequestPane.Document.TextLength > MaxLiveRefreshLength)
         {
             ShowSendTarget(null, "this document is too large to track as you type");
+
+            // And the marks go with the label. Past the ceiling nothing recomputes again, so
+            // leaving them up would underline lines against a parse that is about to be
+            // arbitrarily old - a squiggle nobody can refresh is worse than none.
+            RefreshDiagnosticMarks(null);
             return;
         }
 
@@ -218,6 +225,10 @@ public partial class MainWindow
 
             _sendTargetDocument = RequestDocumentParser.Parse(RequestPane.Text);
             _sendTargetVersion = version;
+
+            // Only on the re-parse branch: on the caret path the segments are already right,
+            // and rebuilding them there would replace every mark on every arrow key.
+            RefreshDiagnosticMarks(_sendTargetDocument.Diagnostics);
         }
 
         ShowSendTarget(_sendTargetDocument is null ? null : BlockUnderCaret(_sendTargetDocument), NoSendTarget);

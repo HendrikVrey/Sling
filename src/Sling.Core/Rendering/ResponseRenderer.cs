@@ -85,29 +85,94 @@ public static class ResponseRenderer
     }
 
     /// <summary>
-    /// Renders diagnostics as the response pane's content. Errors first, because when a
-    /// request will not send, the reason it will not send is the whole message.
+    /// The order diagnostics are read in: errors first, then by line.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Errors first, because when a request will not send, the reason it will not send is the
+    /// whole message.
+    /// </para>
+    /// <para>
+    /// <b>Public because the window has to be able to reproduce it.</b> Each rendered row is
+    /// a line the reader can double-click to go to the line it names, and that mapping is
+    /// "rendered line N is this list's Nth entry" - which only holds if the caller can ask
+    /// for the same order the renderer used. A window re-sorting by eye and getting it
+    /// subtly wrong would send somebody to a line that has nothing to do with the message
+    /// they clicked.
+    /// </para>
+    /// </remarks>
+    public static IReadOnlyList<ParseDiagnostic> InReadingOrder(IReadOnlyList<ParseDiagnostic> diagnostics)
+    {
+        ArgumentNullException.ThrowIfNull(diagnostics);
+
+        return [.. diagnostics.OrderByDescending(d => d.Severity).ThenBy(d => d.Line)];
+    }
+
+    /// <summary>
+    /// Renders diagnostics as the response pane's content, one per line.
+    /// </summary>
+    /// <remarks>
+    /// <b>Exactly one rendered line per diagnostic, and that is a structural promise rather
+    /// than a hope.</b> The window maps a double-clicked row back to a diagnostic by
+    /// position, so a message carrying a line break would silently shift every row under it
+    /// onto the wrong entry. A message is flattened here, where the promise is made, rather
+    /// than trusted to hold everywhere one is constructed.
+    /// </remarks>
     public static string RenderDiagnostics(IReadOnlyList<ParseDiagnostic> diagnostics)
     {
         ArgumentNullException.ThrowIfNull(diagnostics);
 
         var text = new StringBuilder();
 
-        foreach (var diagnostic in diagnostics
-            .OrderByDescending(d => d.Severity)
-            .ThenBy(d => d.Line))
+        foreach (var diagnostic in InReadingOrder(diagnostics))
         {
             text
                 .Append(diagnostic.Severity == DiagnosticSeverity.Error ? "error" : "warning")
                 .Append("  line ")
                 .Append(diagnostic.Line.ToString(CultureInfo.InvariantCulture))
                 .Append("  ")
-                .Append(diagnostic.Message)
+                .Append(OneLine(diagnostic.Message))
                 .Append('\n');
         }
 
         return text.ToString();
+    }
+
+    /// <summary>Collapses any line break in a message to a single space.</summary>
+    private static string OneLine(string message)
+    {
+        if (message.AsSpan().IndexOfAny('\r', '\n') < 0)
+        {
+            return message;
+        }
+
+        var flattened = new StringBuilder(message.Length);
+        var space = false;
+
+        foreach (var c in message)
+        {
+            if (c is '\r' or '\n')
+            {
+                space = true;
+                continue;
+            }
+
+            if (space)
+            {
+                // Only where something follows, so a message ending in a newline does not
+                // gain a trailing space that a test would have to know about.
+                if (flattened.Length > 0)
+                {
+                    flattened.Append(' ');
+                }
+
+                space = false;
+            }
+
+            flattened.Append(c);
+        }
+
+        return flattened.ToString();
     }
 
     /// <summary>The one-line verdict shown in the status bar: status, time, size.</summary>

@@ -7,6 +7,7 @@ using Etch.Core.Abstractions;
 using Etch.Core.Documents;
 using ICSharpCode.AvalonEdit.Search;
 using Sling.App.Editor;
+using Sling.Core.Documents;
 using Sling.Core.Rendering;
 using Sling.Http;
 
@@ -63,6 +64,33 @@ public partial class MainWindow
 
     /// <summary>True while the picker is being repopulated, so its event is not acted on.</summary>
     private bool _rebuildingPicker;
+
+    /// <summary>
+    /// Everything needed to put the response pane back the way an inspector found it.
+    /// </summary>
+    /// <param name="Exchanges">A copy, because the live list is cleared by what comes next.</param>
+    /// <param name="Bound">Which of them was in the buffer.</param>
+    /// <param name="Message">The pane's text when it held a message rather than an exchange.</param>
+    /// <param name="StatusLeft">The status bar, which describes the response as much as the pane does.</param>
+    /// <param name="StatusRight">The verdict: status, time, size.</param>
+    /// <param name="Listed">
+    /// The diagnostics the pane was listing, if it was. Without it the rows come back
+    /// rendered and inert - a list you can look at and not click, which reads as broken
+    /// rather than as a list that has been put back.
+    /// </param>
+    private sealed record PaneState(
+        IReadOnlyList<Exchange> Exchanges,
+        int Bound,
+        string Message,
+        string StatusLeft,
+        string StatusRight,
+        IReadOnlyList<ParseDiagnostic> Listed);
+
+    /// <summary>What the pane was showing before an inspector borrowed it, or null.</summary>
+    private PaneState? _inspectorReturn;
+
+    /// <summary>Which inspector is up, so its own chord can put it away again.</summary>
+    private string? _inspectorTitle;
 
     /// <summary>
     /// True while <see cref="SetBody"/> is assigning, so its own edit does not come back
@@ -289,6 +317,9 @@ public partial class MainWindow
 
         _boundExchange = index;
 
+        // A response body is not a list of rows, whatever was in the pane before it.
+        ForgetListedDiagnostics();
+
         var (request, response) = (_exchanges[index].Request, _exchanges[index].Response);
 
         RequestLine.Text = ResponseRenderer.RenderRequestLine(request, response);
@@ -322,8 +353,30 @@ public partial class MainWindow
     /// The head and the picker are hidden, and the buffer gets no language. A diagnostic
     /// is prose, and highlighting it as whatever the previous response happened to be
     /// would be actively misleading.
+    /// <para>
+    /// This one really does replace the response, which is why it drops anything an
+    /// inspector was holding: every caller of it is answering the question the user just
+    /// asked, and the previous response is not the answer to it.
+    /// </para>
     /// </remarks>
     private void ShowMessage(string text)
+    {
+        if (_closed)
+        {
+            return;
+        }
+
+        ClearInspector();
+        ShowText(text);
+    }
+
+    /// <summary>Puts text in the pane and takes down everything that describes a response.</summary>
+    /// <remarks>
+    /// The half <see cref="ShowMessage"/> and <see cref="ShowInspector"/> share. Separate
+    /// from both so that lending the pane out and replacing what is in it cannot be confused
+    /// for one another - they differ in exactly one thing, whether the response survives.
+    /// </remarks>
+    private void ShowText(string text)
     {
         // A send in flight when the window closes still has a continuation to run. It has
         // nowhere useful to put its result, and the controls it would write to belong to a
@@ -337,12 +390,136 @@ public partial class MainWindow
         _boundExchange = -1;
         RebuildExchangePicker();
 
+        // Whatever goes in next is not the list of diagnostics that was there, so a
+        // double-click in it must not be read as a click on a row. ShowDiagnostics records
+        // the new listing straight after calling through here, which is the only path that
+        // is allowed to.
+        ForgetListedDiagnostics();
+
         RequestLine.Visibility = Visibility.Collapsed;
         HeadersExpander.Visibility = Visibility.Collapsed;
         HideStatusPill();
 
         SetBody(text, BodyAnalysis.None);
     }
+
+    /// <summary>
+    /// Lends the response pane to something that is not a response, keeping the response.
+    /// </summary>
+    /// <param name="title">
+    /// What the pane is showing, in the header's place. A pane still headed <c>RESPONSE</c>
+    /// while it holds a cookie jar is the window saying the wrong thing about itself.
+    /// </param>
+    /// <remarks>
+    /// <para>
+    /// <b>The four inspectors used to destroy the response and there was no way back.</b>
+    /// History, the cookie jar, an import report and the file as it is on disk all went
+    /// through <see cref="ShowMessage"/>, which empties the exchange list - so checking what
+    /// a cookie was called threw away the 401 that raised the question, and the only way to
+    /// see it again was to send it again. Against an API that charges, or one that is not
+    /// idempotent, that is worse than an inconvenience.
+    /// </para>
+    /// <para>
+    /// <c>??=</c> rather than an assignment: opening a second inspector from behind the first
+    /// must still come back to the <em>response</em>, not to the first inspector.
+    /// </para>
+    /// </remarks>
+    private void ShowInspector(string title, string text)
+    {
+        if (_closed)
+        {
+            return;
+        }
+
+        _inspectorReturn ??= new PaneState(
+            [.. _exchanges],
+            _boundExchange,
+            _boundExchange < 0 ? ResponsePane.Text : string.Empty,
+            StatusLeft.Text,
+            StatusRight.Text,
+            _listedDiagnostics);
+
+        _inspectorTitle = title;
+
+        ShowText(text);
+
+        ResponseLabel.Text = title.ToUpperInvariant();
+
+        // Named for what comes back rather than for the act, and it says which of the two
+        // things it is: "Back to response" over a pane that never held one would be a
+        // promise the click cannot keep.
+        InspectorChip.Content = _inspectorReturn.Exchanges.Count > 0 ? "Back to response" : "Back";
+        InspectorChip.ToolTip = _inspectorReturn.Exchanges.Count > 0
+            ? "Put the last response back in this pane. It was kept."
+            : "Go back to what this pane was showing.";
+
+        InspectorChip.Visibility = Visibility.Visible;
+    }
+
+    /// <summary>Puts the response back, exactly as it was.</summary>
+    private void ReturnToResponse()
+    {
+        if (_closed || _inspectorReturn is not { } state)
+        {
+            return;
+        }
+
+        ClearInspector();
+
+        if (state.Exchanges.Count == 0)
+        {
+            ShowText(state.Message);
+        }
+        else
+        {
+            _exchanges.Clear();
+            _exchanges.AddRange(state.Exchanges);
+
+            RebuildExchangePicker();
+
+            // Clamped rather than trusted. The list came back from the snapshot, so the index
+            // is in range by construction today - and BindExchange is the one method here
+            // that would silently do nothing if it ever stopped being.
+            BindExchange(Math.Clamp(state.Bound, 0, _exchanges.Count - 1));
+        }
+
+        // After the restore: BindExchange writes both of these from the exchange it binds,
+        // and what the user was told before the inspector is the line that belongs here.
+        StatusLeft.Text = state.StatusLeft;
+        StatusRight.Text = state.StatusRight;
+
+        // Last, because both branches above clear it. A listing that comes back as text and
+        // not as rows is a list that has visibly stopped working.
+        _listedDiagnostics = state.Listed;
+    }
+
+    /// <summary>Forgets a held response, for anything that legitimately replaces it.</summary>
+    private void ClearInspector()
+    {
+        _inspectorReturn = null;
+        _inspectorTitle = null;
+
+        if (_closed)
+        {
+            return;
+        }
+
+        ResponseLabel.Text = "RESPONSE";
+        InspectorChip.Visibility = Visibility.Collapsed;
+        InspectorChip.Content = string.Empty;
+        InspectorChip.ToolTip = null;
+    }
+
+    private void OnBackToResponseClicked(object sender, RoutedEventArgs e) => ReturnToResponse();
+
+    /// <summary>Whether the pane is currently lent to the inspector called <paramref name="title"/>.</summary>
+    /// <remarks>
+    /// So the chord that opened one closes it again. Pressing <c>Ctrl+H</c> twice meaning
+    /// "show me the history, no, put it back" is the reading anybody has of a key that opened
+    /// a panel, and it costs one comparison.
+    /// </remarks>
+    private bool IsInspecting(string title) =>
+        string.Equals(_inspectorTitle, title, StringComparison.Ordinal);
 
     /// <summary>
     /// Replaces the buffer's contents and applies the editor features it should have.
@@ -416,6 +593,11 @@ public partial class MainWindow
     /// </remarks>
     private void ReanalyseBody()
     {
+        // The buffer is no longer the text that was rendered, so a row's position in it no
+        // longer names a diagnostic. A transform runs over whatever is in the pane, including
+        // a diagnostics listing, and Ctrl+Z puts back something that is not it either.
+        ForgetListedDiagnostics();
+
         var text = ResponsePane.Text;
         var analysis = BodyLanguage.Analyse(contentType: null, text);
 

@@ -91,6 +91,31 @@ public sealed class Workspace
     }
 
     /// <summary>
+    /// Whether <paramref name="path"/> is this folder or sits inside it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The question the window asks before deciding whether a document may keep resolving
+    /// against this workspace. A <c>.http</c> file reads its <c>{{variables}}</c> from the
+    /// environment files at <see cref="Root"/> and its <c>&lt; ./body.json</c> imports from
+    /// inside it, so a document that is not in here resolves against a folder that has
+    /// nothing to do with it - which is the same wrong answer whether it arrived through
+    /// <c>Ctrl+O</c> or through Save As.
+    /// </para>
+    /// <para>
+    /// Through the same containment rule the read and write boundaries use, rather than a
+    /// third copy of it: a string prefix test says <c>C:\work\api-secrets</c> is inside
+    /// <c>C:\work\api</c>.
+    /// </para>
+    /// </remarks>
+    public bool Contains(string path)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+
+        return WorkspacePaths.IsWithin(Root, Path.GetFullPath(path));
+    }
+
+    /// <summary>
     /// Every request file under the root, as paths relative to it, in a stable order.
     /// </summary>
     /// <param name="truncated">

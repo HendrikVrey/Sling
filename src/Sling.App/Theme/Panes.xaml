@@ -96,6 +96,24 @@
     </Style>
 
     <!--
+        The strip that says the open file has changed on disk.
+
+        Deliberately a strip above the editor and not an overlay: the answer to "changed on
+        disk" is often "I know, I did that" and sometimes needs the buffer read before it can
+        be given, so it must not stop anybody working. It is tinted rather than red - this
+        is news that needs a decision, not a failure, and a file changing underneath a tool
+        that recommends git and external editors is the ordinary case.
+    -->
+    <Style x:Key="NoticeStripStyle" TargetType="Border">
+        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Padding" Value="10,6" />
+        <Setter Property="Margin" Value="0,0,0,6" />
+        <Setter Property="BorderBrush" Value="{DynamicResource SystemFillColorCautionBrush}" />
+        <Setter Property="Background" Value="{DynamicResource SystemFillColorCautionBackgroundBrush}" />
+    </Style>
+
+    <!--
         The settings overlay's two text roles. Styles rather than attributes repeated on
         each element, so the spacing between a label and the control under it is one
         number in one place - that overlay is the only screen in Sling with a vertical

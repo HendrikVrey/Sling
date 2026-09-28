@@ -48,6 +48,21 @@
         </Style>
 
         <!--
+            The answers on the changed-on-disk strip. BasedOn the WPF-UI button rather than
+            a bare Style, because an explicit Style replaces the library's implicit one
+            outright - which is how a borrowed template shipped buttons that rendered as
+            nothing (Sling.md §17).
+        -->
+        <Style x:Key="NoticeActionButtonStyle"
+               BasedOn="{StaticResource {x:Type ui:Button}}"
+               TargetType="ui:Button">
+            <Setter Property="Margin" Value="6,0,0,0" />
+            <Setter Property="Padding" Value="9,3" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <!--
             The rail's creation buttons. Stretched and centred so three of them read as one
             control strip rather than as three things that happen to be next to each other.
         -->
@@ -169,6 +184,21 @@
                         <MenuItem Click="OnOpenDocumentClicked"
                                   Header="Open file…"
                                   InputGestureText="Ctrl+O" />
+                        <!--
+                            Listed rather than left as a chord, which is this menu's whole
+                            reason for existing: a command nobody can be told about by
+                            looking is a command only its author uses.
+                        -->
+                        <MenuItem Click="OnQuickOpenClicked"
+                                  Header="Go to file or request…"
+                                  InputGestureText="Ctrl+P" />
+                        <!--
+                            Filled from the session file. It is the smaller half of restoring
+                            a session and the half that pays off when the last folder is not
+                            the one wanted - which, on a machine with three checkouts on it,
+                            is most of the time.
+                        -->
+                        <MenuItem x:Name="RecentFoldersMenu" Header="Recent folders" />
                         <Separator />
                         <MenuItem Click="OnNewCollection" Header="New collection…" />
                         <MenuItem Click="OnNewDocument" Header="New request file…" />
@@ -245,6 +275,76 @@
             width and the panes shrink.
         -->
         <DockPanel Grid.Row="2" Margin="12,0,12,8" LastChildFill="True">
+            <!--
+                What Sling says when the file in the pane has changed underneath it.
+
+                A .http file is a git artifact, which is the whole reason saving here is
+                explicit - and it means a pull, a branch switch or the editor in the next
+                window changes the open document without Sling doing anything. Activation
+                already re-reads the environment files and re-walks the folder for exactly
+                that reason; the document itself was the one thing nobody was watching, so
+                the first sign of a checkout was Ctrl+S quietly writing the old text back
+                over it.
+
+                A strip rather than a card: the answer is frequently "I know, I did that",
+                sometimes needs a look at the buffer before it can be given, and never needs
+                the window held hostage while it is decided.
+
+                ACROSS THE WHOLE ROW rather than inside the request column, and that is a
+                correction. In the column it had about two hundred pixels on a 700 px window
+                - so the sentence saying what had happened was squeezed to nothing and the
+                last button was cut through the middle, which is this codebase's most
+                repeated layout mistake arriving once more. Full width, it has room for the
+                sentence and four answers down to the minimum window size.
+            -->
+            <Border x:Name="DiskNotice"
+                    Margin="0,0,0,8"
+                    DockPanel.Dock="Top"
+                    Style="{StaticResource NoticeStripStyle}"
+                    Visibility="Collapsed">
+                <DockPanel LastChildFill="True">
+                    <!--
+                        Declared before the sentence, because a DockPanel's order is a
+                        priority order: the buttons keep their width and the text is what
+                        trims. The buttons are the actionable half and each carries its own
+                        tooltip, so a trimmed sentence beside four whole buttons is the right
+                        way round. It is also what makes TextTrimming fire at all - inside a
+                        horizontal StackPanel the sentence would be measured with infinite
+                        width and clipped mid-word instead.
+                    -->
+                    <StackPanel DockPanel.Dock="Right"
+                                VerticalAlignment="Center"
+                                Orientation="Horizontal">
+                        <ui:Button x:Name="DiskReloadButton"
+                                   Click="OnReloadFromDisk"
+                                   Content="Reload"
+                                   Style="{StaticResource NoticeActionButtonStyle}"
+                                   ToolTip="Throw away what is in the pane and read the file again" />
+                        <ui:Button x:Name="DiskSaveButton"
+                                   Click="OnSaveOverDisk"
+                                   Content="Save it again"
+                                   Style="{StaticResource NoticeActionButtonStyle}"
+                                   ToolTip="Write what is in the pane back to that path"
+                                   Visibility="Collapsed" />
+                        <ui:Button x:Name="DiskKeepButton"
+                                   Click="OnKeepMineOverDisk"
+                                   Content="Keep mine"
+                                   Style="{StaticResource NoticeActionButtonStyle}"
+                                   ToolTip="Leave the pane alone and stop asking about this change" />
+                        <ui:Button x:Name="DiskCompareButton"
+                                   Click="OnCompareWithDisk"
+                                   Content="Compare"
+                                   Style="{StaticResource NoticeActionButtonStyle}"
+                                   ToolTip="Show what is different, in the response pane" />
+                    </StackPanel>
+
+                    <TextBlock x:Name="DiskNoticeText"
+                               VerticalAlignment="Center"
+                               FontSize="12"
+                               TextTrimming="CharacterEllipsis" />
+                </DockPanel>
+            </Border>
+
             <!--
                 The collections rail: the folders and .http files in the workspace, and the
                 requests inside them.
@@ -496,10 +596,16 @@
                 the API, not on a designer's guess.
             -->
             <Grid>
+                <!--
+                    Named so the split somebody dragged can be put back on the next start.
+                    Star widths rather than pixels: the window is not necessarily reopened at
+                    the size it was closed at, and a stored 700 px is most of a laptop screen
+                    and a third of a monitor.
+                -->
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" MinWidth="160" />
+                    <ColumnDefinition x:Name="RequestColumn" Width="*" MinWidth="160" />
                     <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" MinWidth="160" />
+                    <ColumnDefinition x:Name="ResponseColumn" Width="*" MinWidth="160" />
                 </Grid.ColumnDefinitions>
 
                 <DockPanel Grid.Column="0">
@@ -767,12 +873,38 @@
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
 
-                        <TextBlock Grid.Column="0"
+                        <!--
+                            Named, because it stops saying RESPONSE while the pane is lent to
+                            an inspector - the history, the cookie jar, an import report, the
+                            file as it is on disk. The header is where somebody looks to find
+                            out what they are reading, and a pane headed RESPONSE holding a
+                            list of cookies is the window telling them the wrong thing.
+                        -->
+                        <TextBlock x:Name="ResponseLabel"
+                                   Grid.Column="0"
                                    Style="{StaticResource PaneHeaderStyle}"
                                    Text="RESPONSE" />
+
+                        <!--
+                            The way back out of an inspector.
+
+                            Those four views used to go through ShowMessage, which clears the
+                            exchange list - so looking up what a cookie was called threw away
+                            the response that raised the question, with nothing to get it back
+                            but sending again. The response is held while an inspector is up
+                            and put back exactly as it was, picker selection included.
+                        -->
+                        <ui:HyperlinkButton x:Name="InspectorChip"
+                                            Grid.Column="2"
+                                            Margin="10,0,0,0"
+                                            Padding="6,2"
+                                            Click="OnBackToResponseClicked"
+                                            FontSize="11"
+                                            Visibility="Collapsed" />
 
                         <!--
                             The status, coloured by class. It is the first thing anybody
@@ -793,7 +925,7 @@
                         </Border>
 
                         <ComboBox x:Name="ExchangePicker"
-                                  Grid.Column="2"
+                                  Grid.Column="3"
                                   Margin="12,0,0,0"
                                   Padding="8,2"
                                   HorizontalAlignment="Left"
@@ -1031,6 +1163,157 @@
                                    Content="Save" />
                     </StackPanel>
                 </StackPanel>
+            </Border>
+        </Grid>
+
+        <!--
+            Quick open: everything in the workspace, reachable by typing.
+
+            The rail is a tree, and a tree of five hundred rows is navigable by scrolling and
+            nothing else. What people remember about a request is spread over four levels of
+            it - which collection, which file, what it is called, what it hits - so all four
+            are what this searches, and any of them will do.
+
+            Aligned to the top of the window rather than centred, because the list grows
+            downwards as it fills and a card that centres itself would move the row under the
+            pointer on every keystroke.
+        -->
+        <Grid x:Name="QuickOpenOverlay"
+              Grid.Row="0"
+              Grid.RowSpan="4"
+              Background="{StaticResource OverlayScrimBrush}"
+              Visibility="Collapsed">
+            <Border x:Name="QuickOpenCard"
+                    Width="620"
+                    Margin="0,80,0,0"
+                    Padding="0"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Top"
+                    Style="{StaticResource DialogCardStyle}">
+                <DockPanel LastChildFill="True">
+                    <TextBox x:Name="QuickOpenBox"
+                             Margin="18,16,18,10"
+                             Padding="10,7"
+                             DockPanel.Dock="Top"
+                             FontSize="14"
+                             TextChanged="OnQuickOpenTextChanged" />
+
+                    <!--
+                        Docked before the list so it keeps its height: a hint squeezed to
+                        nothing is a hint that only appears on a big window, which is the
+                        opposite of when it is needed.
+                    -->
+                    <TextBlock x:Name="QuickOpenHint"
+                               Margin="18,0,18,14"
+                               DockPanel.Dock="Bottom"
+                               FontSize="11"
+                               Opacity="0.45"
+                               TextTrimming="CharacterEllipsis" />
+
+                    <ListBox x:Name="QuickOpenList"
+                             MaxHeight="380"
+                             Margin="10,0,10,10"
+                             Background="Transparent"
+                             BorderThickness="0"
+                             HorizontalContentAlignment="Stretch"
+                             MouseDoubleClick="OnQuickOpenDoubleClick"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                        <ListBox.ItemContainerStyle>
+                            <!--
+                                An explicit Style AND an explicit Template, which is the
+                                lesson §17 paid for on the find bar: WPF-UI ships no
+                                ListBoxItem style at all, so an unstyled row falls through to
+                                WPF's default template and paints SystemColors.Highlight - a
+                                saturated blue slab on a dark application.
+
+                                It is not only that it looks foreign. The verb chip's colour
+                                is held to a contrast floor measured against THIS pane's
+                                colour, and the dialog's background is that same #202020 - so
+                                a selected row that repaints the surface underneath the chip
+                                states a ratio the chip is no longer drawn at. The selection
+                                is therefore a faint fill plus an accent bar, which is
+                                unmistakable and leaves the surface where the palette expects
+                                it. The bar is the same accent the rail marks the request on
+                                screen with.
+
+                                The border is always three pixels wide and only its colour
+                                changes, so selecting a row does not move the text in it.
+                            -->
+                            <Style TargetType="ListBoxItem">
+                                <Setter Property="Padding" Value="6,4" />
+                                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="ListBoxItem">
+                                            <Border x:Name="Row"
+                                                    Padding="{TemplateBinding Padding}"
+                                                    Background="Transparent"
+                                                    BorderBrush="Transparent"
+                                                    BorderThickness="3,0,0,0"
+                                                    CornerRadius="5">
+                                                <ContentPresenter />
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="Row"
+                                                            Property="Background"
+                                                            Value="{DynamicResource SubtleFillColorTertiaryBrush}" />
+                                                </Trigger>
+                                                <Trigger Property="IsSelected" Value="True">
+                                                    <Setter TargetName="Row"
+                                                            Property="Background"
+                                                            Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+                                                    <Setter TargetName="Row"
+                                                            Property="BorderBrush"
+                                                            Value="{DynamicResource AccentTextFillColorPrimaryBrush}" />
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </ListBox.ItemContainerStyle>
+
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <!--
+                                    A Grid rather than a horizontal StackPanel: a StackPanel
+                                    measures its children with infinite width, so the trimming
+                                    on both text blocks below would never fire and a long URL
+                                    would push the whole row off the card.
+                                -->
+                                <Grid Margin="4,3">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <TextBlock Grid.Column="0"
+                                               Width="52"
+                                               Margin="0,0,8,0"
+                                               VerticalAlignment="Center"
+                                               FontFamily="Cascadia Code, Consolas, Courier New"
+                                               FontSize="11"
+                                               FontWeight="Bold"
+                                               Foreground="{Binding MethodBrush}"
+                                               Text="{Binding Method}"
+                                               TextTrimming="CharacterEllipsis" />
+
+                                    <StackPanel Grid.Column="1">
+                                        <TextBlock FontSize="13"
+                                                   Text="{Binding Label}"
+                                                   TextTrimming="CharacterEllipsis" />
+                                        <TextBlock FontSize="11"
+                                                   Opacity="0.5"
+                                                   Text="{Binding Detail}"
+                                                   TextTrimming="CharacterEllipsis" />
+                                    </StackPanel>
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </DockPanel>
             </Border>
         </Grid>
 

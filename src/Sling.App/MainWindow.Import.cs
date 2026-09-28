@@ -30,6 +30,16 @@ public partial class MainWindow
     private const string ExportFilter =
         "Postman exports (*.json)|*.json|All files (*.*)|*.*";
 
+    /// <summary>The pane header the report borrows the response pane under.</summary>
+    /// <remarks>
+    /// A report is the longest-lived of the four inspectors - it lists every file written,
+    /// every note and every refusal, and is read while the imported documents are being
+    /// opened one after another. It has no response of its own to displace on the usual path
+    /// (an import replaces the document, so nothing has been sent), but going through the
+    /// same door means the one time it does, it does not.
+    /// </remarks>
+    private const string ImportInspector = "Import report";
+
     private async Task ImportPostmanAsync()
     {
         if (IsSending)
@@ -110,7 +120,10 @@ public partial class MainWindow
 
         if (!result.Recognized)
         {
-            ShowMessage(Report("Nothing here was a Postman export.", result.Notes, refusals, written: []));
+            ShowInspector(
+                ImportInspector,
+                Report("Nothing here was a Postman export.", result.Notes, refusals, written: []));
+
             StatusLeft.Text = "Nothing imported.";
             return;
         }
@@ -141,11 +154,13 @@ public partial class MainWindow
 
         await OpenFirstImportedFileAsync(destination, write.Written).ConfigureAwait(true);
 
-        ShowMessage(Report(
-            $"Imported {Count(write.Written.Count, "file")} into {destination}.",
-            notes,
-            refusals,
-            write.Written));
+        ShowInspector(
+            ImportInspector,
+            Report(
+                $"Imported {Count(write.Written.Count, "file")} into {destination}.",
+                notes,
+                refusals,
+                write.Written));
 
         StatusLeft.Text = refusals.Count == 0
             ? $"Imported {Count(write.Written.Count, "file")}. The details are in the response pane."

@@ -72,6 +72,11 @@ public partial class MainWindow
     {
         InitializeCollections();
 
+        // Before the deferred restore below, because it is what puts the splitter and the
+        // recent-folders menu in place - both of which need no disk and should be right on
+        // the first frame rather than a moment after it.
+        InitializeSession();
+
         RequestPane.TextChanged += OnRequestTextChanged;
 
         // Both the environment files and the folder itself are edited outside Sling - that
@@ -88,13 +93,20 @@ public partial class MainWindow
         // long as the disk takes; by Loaded there is a dispatcher running, which is what
         // RunGuarded needs in order to report a failure into the status bar.
         _pendingStartupFile = App.StartupFile;
-        if (_pendingStartupFile is not null)
-        {
-            Loaded += OnLoadedOpenStartupDocument;
-        }
+
+        Loaded += OnLoadedOpenStartupDocument;
     }
 
-    /// <summary>Opens the command-line file once, on the first load.</summary>
+    /// <summary>
+    /// Opens the command-line file, or restores the last session, once on the first load.
+    /// </summary>
+    /// <remarks>
+    /// <b>The command line wins, and it is not a close call.</b> Somebody who double-clicked
+    /// a request file in Explorer has said which document they want more plainly than a
+    /// session file can, and opening the last one over it would be the file association
+    /// failing to honour itself - the defect §19 fixed by teaching Sling to open a named file
+    /// at all.
+    /// </remarks>
     private void OnLoadedOpenStartupDocument(object sender, RoutedEventArgs e)
     {
         // Unsubscribed first. Loaded fires again whenever the window is re-attached to a
@@ -102,30 +114,26 @@ public partial class MainWindow
         // since - silently, because this path deliberately does not ask about unsaved work.
         Loaded -= OnLoadedOpenStartupDocument;
 
-        if (_pendingStartupFile is not { } path)
+        if (_pendingStartupFile is { } path)
         {
+            _pendingStartupFile = null;
+            RunGuarded(() => OpenStartupDocumentAsync(path));
             return;
         }
 
-        _pendingStartupFile = null;
-        RunGuarded(() => OpenStartupDocumentAsync(path));
+        RunGuarded(RestoreSessionAsync);
     }
 
     /// <summary>
-    /// Opens the file Sling was launched with, and adopts its folder as the workspace.
+    /// Opens the file Sling was launched with.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// The folder matters as much as the file. A <c>.http</c> document resolves
-    /// <c>{{variables}}</c> from the environment files beside it and reads
-    /// <c>&lt; ./body.json</c> imports relative to the workspace root, so opening the
-    /// file on its own would give a document that parses and then fails to send.
-    /// Explorer hands over one path; the directory it came from is the rest of the answer.
-    /// </para>
-    /// <para>
-    /// Folder before file, matching <see cref="OpenFolderAsync"/>: setting the workspace
-    /// rebuilds the rail and reloads the environments, so doing it afterwards would clear
-    /// the selection the load had just made.
+    /// The folder it came from is adopted with it, by <see cref="LoadDocumentAsync"/> like
+    /// every other open path. Explorer hands over one path and the directory is the rest of
+    /// the answer: a <c>.http</c> document resolves <c>{{variables}}</c> from the environment
+    /// files beside it and reads <c>&lt; ./body.json</c> relative to the workspace root, so
+    /// opening the file on its own gives a document that parses and then fails to send.
     /// </para>
     /// <para>
     /// No unsaved-work question, deliberately. This runs on the way to the first frame,
@@ -133,23 +141,7 @@ public partial class MainWindow
     /// would be a question about their own click.
     /// </para>
     /// </remarks>
-    private async Task OpenStartupDocumentAsync(string path)
-    {
-        if (Path.GetDirectoryName(path) is { } directory)
-        {
-            try
-            {
-                SetWorkspace(Workspace.Open(directory));
-            }
-            catch (DirectoryNotFoundException)
-            {
-                // A file whose parent cannot be enumerated - a race, or a link Sling is not
-                // allowed to walk. The document is still worth opening on its own.
-            }
-        }
-
-        await LoadDocumentAsync(path).ConfigureAwait(true);
-    }
+    private Task<bool> OpenStartupDocumentAsync(string path) => LoadDocumentAsync(path);
 
     /// <summary>
     /// Handles the document chords. Returns true when the key was one of them.
@@ -259,11 +251,19 @@ public partial class MainWindow
         UpdateTitle();
     }
 
-    /// <summary>Re-reads what is edited outside Sling: the environments, and the folder.</summary>
+    /// <summary>
+    /// Re-reads what is edited outside Sling: the environments, the folder, and the document.
+    /// </summary>
+    /// <remarks>
+    /// The document was the one that was missing, and it was the one that mattered most: the
+    /// other two are re-read on the reasoning that a workspace is a folder of plain files
+    /// somebody edits elsewhere, and a <c>.http</c> file is the plainest of them.
+    /// </remarks>
     private void OnWindowActivated(object? sender, EventArgs e)
     {
         ReloadEnvironments();
         RefreshCollectionsFromDisk();
+        CheckDocumentOnDisk();
     }
 
     private void OnEnvironmentSelected(object sender, SelectionChangedEventArgs e)
@@ -362,23 +362,77 @@ public partial class MainWindow
             return;
         }
 
+        await OpenFolderAsync(dialog.FolderName).ConfigureAwait(true);
+    }
+
+    /// <summary>
+    /// Opens a named folder, asking everything it needs to ask before anything changes.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Every question comes before the first observable change, which is what makes a
+    /// Cancel mean nothing happened.</b> This used to swap the workspace and only then ask
+    /// about unsaved work, so backing out left the rail, the environments, the cookie jar and
+    /// the token store already pointing somewhere else, under a document that had not moved.
+    /// The folder is opened into a local first - <see cref="Workspace.Open"/> only validates -
+    /// so a folder that is not there is reported with the window untouched.
+    /// </para>
+    /// <para>
+    /// <b>The open document goes with the folder it belongs to.</b> A workspace is what a
+    /// document's <c>{{variables}}</c> and <c>&lt; ./body.json</c> imports resolve against, so
+    /// a file from somewhere else cannot stay open under a different one - it would resolve
+    /// against environments that have nothing to do with it. An untitled buffer belongs to
+    /// nobody and survives the switch; it is saved into wherever the user chooses.
+    /// </para>
+    /// </remarks>
+    private async Task OpenFolderAsync(string folder)
+    {
+        Workspace opened;
+
         try
         {
-            SetWorkspace(Workspace.Open(dialog.FolderName));
+            opened = Workspace.Open(folder);
         }
-        catch (DirectoryNotFoundException ex)
+        catch (Exception ex) when (ex is DirectoryNotFoundException or ArgumentException)
         {
             StatusLeft.Text = ex.Message;
             return;
         }
 
-        // A folder with exactly one request file has an obvious thing to open, and doing
-        // it saves the one click that every single-file workspace would otherwise need.
-        if (SingleDocumentPath() is { } only && await ConfirmDiscardAsync().ConfigureAwait(true))
+        if (!Keeps(opened) && !await ConfirmDiscardAsync().ConfigureAwait(true))
+        {
+            return;
+        }
+
+        // Asked again after the question, not carried across it. Answering Save can reach
+        // Save As, which moves the document - possibly into the folder being opened - and a
+        // stale answer would then close a file that belongs here and say so in a sentence
+        // that is not true.
+        var keepsDocument = Keeps(opened);
+
+        SetWorkspace(opened);
+
+        if (!keepsDocument)
+        {
+            var closed = DocumentName;
+
+            SetDocument(string.Empty, path: null);
+            StatusLeft.Text = $"Opened {opened.Root}. '{closed}' is not in it, so it was closed.";
+        }
+
+        // A folder with exactly one request file has an obvious thing to open, and doing it
+        // saves the one click every single-file workspace would otherwise need. Only where
+        // there is nothing to displace: opening some other file over a document the user is
+        // in the middle of is not a convenience, and asking about it after the folder has
+        // already changed is the ordering this method exists to stop.
+        if (_documentPath is null && !_dirty && SingleDocumentPath() is { } only)
         {
             await LoadDocumentAsync(only).ConfigureAwait(true);
         }
     }
+
+    /// <summary>Whether the open document, if any, belongs in <paramref name="folder"/>.</summary>
+    private bool Keeps(Workspace folder) => _documentPath is null || folder.Contains(_documentPath);
 
     /// <summary>
     /// Makes sure there is a workspace, asking for a folder when there is not.
@@ -450,27 +504,164 @@ public partial class MainWindow
         RefreshCollections();
         SelectOpenDocumentInTree();
         ReloadEnvironments();
+
+        // Last, and it writes the session out: a folder somebody opened is worth remembering
+        // even if this session never ends cleanly.
+        RememberFolder(workspace.Root);
     }
 
-    private async Task LoadDocumentAsync(string path)
+    /// <summary>
+    /// Makes sure the workspace in force is one that holds <paramref name="path"/>.
+    /// </summary>
+    /// <returns>True when the workspace changed.</returns>
+    /// <remarks>
+    /// <para>
+    /// <b>A document and the folder it resolves against are one thing, and they used to be
+    /// able to come apart.</b> <c>Ctrl+O</c> loaded a file and left the previous folder's
+    /// environments in force; Save As into another tree kept the old workspace too. Either
+    /// way the window ended up resolving workspace A's <c>{{base}}</c> into a request file
+    /// from workspace B, with the rail, the environment picker and the token store all
+    /// describing a folder the open document is not in - and nothing on screen saying so.
+    /// </para>
+    /// <para>
+    /// The folder the file is in is the answer, which is the same rule the command line
+    /// already used: a <c>.http</c> document reads its variables from the environment files
+    /// beside it. A workspace that already contains the file is left alone, so opening a
+    /// file from the rail, or anywhere under the open root, changes nothing.
+    /// </para>
+    /// </remarks>
+    private bool BindWorkspaceTo(string path)
     {
+        if (_workspace is { } workspace && workspace.Contains(path))
+        {
+            return false;
+        }
+
+        var directory = Path.GetDirectoryName(Path.GetFullPath(path));
+
+        if (directory is not null)
+        {
+            try
+            {
+                SetWorkspace(Workspace.Open(directory));
+                return true;
+            }
+            catch (Exception ex) when (ex is DirectoryNotFoundException or ArgumentException)
+            {
+                // The parent went between the dialog and this line, or it is a path the
+                // account may not enumerate. The file is still worth opening; what must not
+                // happen is opening it under the last folder's environments.
+            }
+        }
+
+        return DetachWorkspace();
+    }
+
+    /// <summary>
+    /// Drops the workspace, leaving the document open with nothing resolving into it.
+    /// </summary>
+    /// <returns>True when there was a workspace to drop.</returns>
+    /// <remarks>
+    /// <para>
+    /// The honest state for a document whose own folder could not be opened. Keeping the
+    /// previous workspace would be worse than having none: every <c>{{variable}}</c> would
+    /// resolve, from the wrong file, and a request would go to whichever deployment the last
+    /// folder happened to name.
+    /// </para>
+    /// <para>
+    /// It says so in three places rather than one, because a missing thing is easy not to
+    /// notice: the environment picker goes (nothing is in force), the rail returns to its
+    /// empty state (which names the concept), and the status bar says it in a sentence.
+    /// </para>
+    /// </remarks>
+    private bool DetachWorkspace()
+    {
+        if (_workspace is null)
+        {
+            return false;
+        }
+
+        _workspace = null;
+        _listedFiles = null;
+        _environments = EnvironmentSet.Empty;
+        _reportedProblems = string.Empty;
+
+        _expanded.Clear();
+
+        _rebuildingLists = true;
+
         try
         {
-            var text = await RequestFileStore.ReadAsync(path, CancellationToken.None).ConfigureAwait(true);
-            SetDocument(text, path);
+            _collections.Clear();
+        }
+        finally
+        {
+            _rebuildingLists = false;
+        }
+
+        ShowWorkspaceRail(hasWorkspace: false);
+        FilesLabel.Text = "COLLECTIONS";
+        FilesLabel.ToolTip = null;
+
+        EnvironmentPicker.Visibility = Visibility.Collapsed;
+
+        // The same three drops SetWorkspace makes, for the same reason: what was fetched
+        // under the old folder must not be replayed against a document that has left it.
+        SelectEnvironment(null);
+        _runner.ForgetSession();
+        ResetCookieJar();
+        RestoreRememberedTokens();
+
+        StatusLeft.Text = "This file is not inside a folder Sling could open, so no environment "
+            + "is in force. Use Open folder to give it one.";
+
+        return true;
+    }
+
+    /// <returns>
+    /// True when the document is in the pane. Answered rather than left for the caller to
+    /// infer, because every caller does something to the buffer <em>afterwards</em> - narrow
+    /// it to a request, put a caret back, say what was created - and a failed read leaves the
+    /// previous document there. Narrowing that one to line 340 because the file that was
+    /// asked for has been deleted is a pane showing something nobody chose.
+    /// </returns>
+    private async Task<bool> LoadDocumentAsync(string path)
+    {
+        string text;
+
+        try
+        {
+            text = await RequestFileStore.ReadAsync(path, CancellationToken.None).ConfigureAwait(true);
         }
         catch (IOException ex)
         {
             StatusLeft.Text = $"Could not open '{Path.GetFileName(path)}': {ex.Message}";
-            return;
+            return false;
         }
         catch (UnauthorizedAccessException ex)
         {
             StatusLeft.Text = $"Could not open '{Path.GetFileName(path)}': {ex.Message}";
-            return;
+            return false;
         }
 
-        StatusLeft.Text = ReadyHint;
+        // The read first, so a file that cannot be opened leaves the window exactly as it
+        // was rather than switching the workspace on the way to failing.
+        //
+        // Then the folder, then the buffer, and that order matters: setting the workspace
+        // rebuilds the rail and reloads the environments, so doing it afterwards would clear
+        // the selection the load had just made.
+        var switched = BindWorkspaceTo(path);
+
+        SetDocument(text, path);
+
+        // Not over the sentence a detach has just written, which is the one thing the user
+        // needs to read on this path.
+        if (!switched || _workspace is not null)
+        {
+            StatusLeft.Text = ReadyHint;
+        }
+
+        return true;
     }
 
     /// <summary>Puts text in the pane and records where it came from.</summary>
@@ -511,6 +702,10 @@ public partial class MainWindow
         _dirty = false;
         _runner.ForgetSession();
         ResetCookieJar();
+
+        // The buffer and the file agree as of this moment, which is what the disk watch has
+        // to be told or its next check reports a change against whatever was open before.
+        RecordDiskState(path, text);
 
         // The tokens come back, and only the tokens. The reason this path forgets a session
         // is that request names are per-file, so a response store outliving the file is
@@ -578,17 +773,11 @@ public partial class MainWindow
             return true;
         }
 
-        // Saving into the open workspace adds a file to it; saving outside one is how a
-        // folder gets opened without ever using the folder command.
-        if (_workspace is null)
-        {
-            var directory = Path.GetDirectoryName(dialog.FileName);
-            if (directory is not null)
-            {
-                SetWorkspace(Workspace.Open(directory));
-            }
-        }
-        else
+        // Saving into the open workspace adds a file to it; saving anywhere else moves the
+        // document to a folder that is now the one it resolves against. Both go through the
+        // same rule, because "Save As out of the tree" was the second way a document and its
+        // environments came apart - the first being Ctrl+O.
+        if (!BindWorkspaceTo(dialog.FileName))
         {
             RefreshCollections();
         }
@@ -599,6 +788,16 @@ public partial class MainWindow
 
     private async Task<bool> WriteAsync(string path)
     {
+        // Nothing is written over a version of this file that nobody has been shown. The
+        // changed-on-disk strip announces one, and until this check existed it was only ever
+        // an announcement: Ctrl+S wrote straight through it, and so did answering "Save" to
+        // the unsaved-work question on the way to reloading - which destroyed the very
+        // version the click had asked to load.
+        if (!await MayOverwriteAsync(path).ConfigureAwait(true))
+        {
+            return false;
+        }
+
         // Both captured before the await, and the version is the load-bearing half: the
         // write is not instant, and a keystroke landing during it sets _dirty again.
         // Clearing the flag unconditionally afterwards would mark the document clean with
@@ -624,6 +823,11 @@ public partial class MainWindow
 
         _documentPath = path;
 
+        // The text just written is what is on disk, whatever has been typed since. Recorded
+        // from `text` rather than from the buffer for that reason: a keystroke that landed
+        // during the write belongs to the pane, not to the file.
+        RecordDiskState(path, text);
+
         var editedDuringWrite = !saved.BelongsToSameDocumentAs(RequestPane.Document.Version)
             || saved.CompareAge(RequestPane.Document.Version) != 0;
 
@@ -640,18 +844,28 @@ public partial class MainWindow
     /// <summary>
     /// Asks about unsaved work. True means carry on with whatever prompted the question.
     /// </summary>
-    private async Task<bool> ConfirmDiscardAsync()
+    /// <param name="consequence">What is about to happen, in the user's terms.</param>
+    /// <param name="saveElsewhere">
+    /// True where saving over the document's own file would destroy the thing the caller is
+    /// about to do. Reloading is the case: the file on disk is what is being fetched, so
+    /// "keep my work" can only mean putting it somewhere that is not there.
+    /// </param>
+    private async Task<bool> ConfirmDiscardAsync(
+        string consequence = "before leaving this file",
+        bool saveElsewhere = false)
     {
         if (!_dirty)
         {
             return true;
         }
 
-        var answer = await AskAboutUnsavedAsync("before leaving this file").ConfigureAwait(true);
+        var answer = await AskAboutUnsavedAsync(consequence).ConfigureAwait(true);
 
         return answer switch
         {
-            UnsavedChoice.Save => await SaveAsync().ConfigureAwait(true),
+            UnsavedChoice.Save => saveElsewhere
+                ? await SaveAsAsync().ConfigureAwait(true)
+                : await SaveAsync().ConfigureAwait(true),
             UnsavedChoice.Discard => true,
             _ => false,
         };

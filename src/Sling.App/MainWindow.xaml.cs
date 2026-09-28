@@ -78,6 +78,12 @@ public partial class MainWindow : FluentWindow
         InitializeBusyView();
 
         InitializeResponseView();
+
+        // After the response view, because it subscribes to the response pane the same way
+        // the find bar does, and before the workspace, because loading a document is one of
+        // the two things that refreshes the marks.
+        InitializeDiagnostics();
+
         InstallCurlPaste();
 
         // Before the workspace, because the cookie jar the workspace resets is created
@@ -190,7 +196,8 @@ public partial class MainWindow : FluentWindow
             || SettingsAreOpen
             || EnvironmentsAreOpen
             || AuthIsOpen
-            || TokensAreOpen;
+            || TokensAreOpen
+            || QuickOpenIsOpen;
 
     /// <summary>
     /// Answers the keys that dismiss whichever modal is up. Returns true when the key was
@@ -204,6 +211,14 @@ public partial class MainWindow : FluentWindow
     private bool TryHandleModalKey(KeyEventArgs e)
     {
         var escape = e.Key == Key.Escape;
+
+        // First, and it is the only overlay that answers more than its own dismissal: the
+        // whole of it is driven from the keyboard, so the arrows and Enter have to be
+        // resolved here rather than reaching the text box that has the focus.
+        if (QuickOpenIsOpen)
+        {
+            return TryHandleQuickOpenKey(e);
+        }
 
         if (NamePromptIsOpen)
         {
@@ -316,6 +331,10 @@ public partial class MainWindow : FluentWindow
                 ShowFind();
                 return true;
 
+            case Key.P:
+                ShowQuickOpen();
+                return true;
+
             case Key.H:
                 RunGuarded(ShowHistoryAsync);
                 return true;
@@ -339,6 +358,10 @@ public partial class MainWindow : FluentWindow
 
     protected override void OnClosed(EventArgs e)
     {
+        // Before the flag, because it reads the caret and the splitter off live controls -
+        // and after this line every method in the window declines to touch one.
+        SaveSession();
+
         // A Window cannot be IDisposable, so anything owning unmanaged or cancellable
         // work has to be released here. The flag goes up first: disposing the runner
         // underneath a send in flight makes it fail, and its continuation must then find
@@ -364,6 +387,13 @@ public partial class MainWindow : FluentWindow
         // command bar's send target - and both have to come off.
         RequestPane.TextArea.Caret.PositionChanged -= OnCaretMoved;
         RemoveChromeHandlers();
+
+        // A background renderer, a margin and two hover handlers, all attached to the
+        // editors rather than to this window, so none of them is collected with it.
+        RemoveDiagnosticHandlers();
+
+        // A folder walk started by the palette outlives the window unless it is told.
+        CancelQuickOpenWalk();
 
         // Anything still awaiting the prompt gets an answer rather than a task that never
         // completes - the continuation is a command that would otherwise sit on the heap
@@ -417,9 +447,7 @@ public partial class MainWindow : FluentWindow
         var blocking = mine.Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
         if (blocking.Count > 0)
         {
-            ShowMessage(ResponseRenderer.RenderDiagnostics(blocking));
-            StatusLeft.Text = "Not sent.";
-            StatusRight.Text = string.Empty;
+            ShowDiagnostics(blocking, "Not sent.");
             OfferMissingVariable(blocking);
             return;
         }
@@ -485,10 +513,7 @@ public partial class MainWindow : FluentWindow
         {
             var blocking = notes.Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
 
-            ShowMessage(ResponseRenderer.RenderDiagnostics(blocking));
-
-            StatusLeft.Text = "Nothing in this file can be sent.";
-            StatusRight.Text = string.Empty;
+            ShowDiagnostics(blocking, "Nothing in this file can be sent.");
             OfferMissingVariable(blocking);
             return;
         }
@@ -535,6 +560,11 @@ public partial class MainWindow : FluentWindow
         // to the question just asked - found by watching a slow request run under a 500 the
         // previous one had produced.
         HideStatusPill();
+
+        // And a response being held behind an inspector is about to be superseded. Keeping it
+        // would leave a "Back to response" chip that restores the response before last, over
+        // a pane that has since had a newer one in it.
+        ClearInspector();
 
         StatusLeft.Text = sendingMessage;
         StatusRight.Text = string.Empty;
@@ -660,12 +690,17 @@ public partial class MainWindow : FluentWindow
         {
             // Nothing came back at all, so the diagnostics are the entire answer and the
             // buffer is the right place for them.
-            ShowMessage(notes.Count > 0
-                ? ResponseRenderer.RenderDiagnostics(notes)
-                : "Nothing was sent.");
+            if (notes.Count > 0)
+            {
+                ShowDiagnostics(notes, "Not sent.");
+            }
+            else
+            {
+                ShowMessage("Nothing was sent.");
+                StatusLeft.Text = "Not sent.";
+                StatusRight.Text = string.Empty;
+            }
 
-            StatusLeft.Text = "Not sent.";
-            StatusRight.Text = string.Empty;
             return;
         }
 

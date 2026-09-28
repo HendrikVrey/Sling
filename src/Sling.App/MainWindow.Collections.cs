@@ -67,14 +67,6 @@ public partial class MainWindow
     /// </remarks>
     private const int MaxRequestRows = 500;
 
-    /// <summary>How long a row's label may be.</summary>
-    /// <remarks>
-    /// The label is a <c>###</c> title or a target out of a file, which is untrusted content
-    /// of no particular length. The rail is 250 px wide and trims, so this is about not
-    /// handing the layout a megabyte-long string to measure. The command bar's send target
-    /// uses the same cap for the same reason.
-    /// </remarks>
-    private const int MaxLabelLength = 160;
 
     private readonly ObservableCollection<CollectionItem> _collections = [];
 
@@ -542,32 +534,18 @@ public partial class MainWindow
         return true;
     }
 
-    private static string Clamp(string? text) =>
-        text is null || text.Length <= MaxLabelLength ? text ?? string.Empty : text[..MaxLabelLength] + "…";
-
-    /// <summary>What a request is called in the rail.</summary>
+    /// <summary>
+    /// The naming rule, which lives in <c>Sling.Core</c>.
+    /// </summary>
     /// <remarks>
-    /// The <c>###</c> title first, because that is the line somebody wrote to describe it;
-    /// then the <c># @name</c> handle, which exists for chaining rather than for reading;
-    /// then the target, which is always there. A row labelled only by its line number would
-    /// be a row nobody can pick out.
+    /// Named here as well because the rail, the toolbar's send target and Quick Open all
+    /// reach for it, and four surfaces naming the same request at the same moment is exactly
+    /// how two implementations of one rule come to disagree.
     /// </remarks>
-    private static string Describe(RequestBlock request)
-    {
-        if (!string.IsNullOrWhiteSpace(request.Title))
-        {
-            return Clamp(request.Title.Trim());
-        }
+    private static string Clamp(string? text) => RequestNaming.Clamp(text);
 
-        if (!string.IsNullOrWhiteSpace(request.Name))
-        {
-            return Clamp(request.Name);
-        }
-
-        return string.IsNullOrWhiteSpace(request.Target)
-            ? "line " + request.StartLine.ToString(CultureInfo.InvariantCulture)
-            : Clamp(request.Target);
-    }
+    /// <inheritdoc cref="RequestNaming.Describe"/>
+    private static string Describe(RequestBlock request) => RequestNaming.Describe(request);
 
     private bool IsOpenDocument(string path) =>
         _documentPath is not null
@@ -798,13 +776,27 @@ public partial class MainWindow
             return;
         }
 
-        var path = item.Path;
-
         // A line rather than the row, because loading the document rebuilds every row under
         // it - the object clicked is gone by the time the second half of this runs, and a
         // line number survives the rebuild.
-        var line = item.Kind == CollectionItemKind.Request ? item.Line : 0;
+        OpenDocumentAt(item.Path, item.Kind == CollectionItemKind.Request ? item.Line : 0);
+    }
 
+    /// <summary>
+    /// Opens a document and shows one request in it, or all of it.
+    /// </summary>
+    /// <param name="path">The file to open, which may already be the one on screen.</param>
+    /// <param name="line">
+    /// The request line to narrow to. Zero means show the whole file, which is what a file
+    /// row and an <c>All requests</c> row both mean.
+    /// </param>
+    /// <remarks>
+    /// Reached from the rail's two entry points and from Quick Open. One method rather than
+    /// one per caller, because a second copy of "confirm unsaved work, then load, then
+    /// narrow" is a copy that eventually stops confirming.
+    /// </remarks>
+    private void OpenDocumentAt(string path, int line)
+    {
         if (IsOpenDocument(path))
         {
             ShowRailChoice(line);
@@ -821,8 +813,13 @@ public partial class MainWindow
                 return;
             }
 
-            await LoadDocumentAsync(path).ConfigureAwait(true);
-            ShowRailChoice(line);
+            // Only on a load that worked. A file listed in the rail or found by Quick Open
+            // can have been deleted since; narrowing then applies the chosen line to the
+            // document that is still on screen, which is a different file's line 340.
+            if (await LoadDocumentAsync(path).ConfigureAwait(true))
+            {
+                ShowRailChoice(line);
+            }
         });
     }
 
@@ -1019,6 +1016,12 @@ public partial class MainWindow
             return;
         }
 
+        // Before the folder is made, not after it. See OpenCreatedAsync.
+        if (!await ConfirmDiscardAsync().ConfigureAwait(true) || !StillIn(workspace))
+        {
+            return;
+        }
+
         string relative;
 
         try
@@ -1033,7 +1036,7 @@ public partial class MainWindow
             return;
         }
 
-        await OpenCreatedAsync(relative, "Created ").ConfigureAwait(true);
+        await OpenCreatedAsync(workspace, relative, "Created ").ConfigureAwait(true);
     }
 
     private async Task NewDocumentFileAsync()
@@ -1055,6 +1058,12 @@ public partial class MainWindow
             return;
         }
 
+        // Before the file is written, not after it. See OpenCreatedAsync.
+        if (!await ConfirmDiscardAsync().ConfigureAwait(true) || !StillIn(workspace))
+        {
+            return;
+        }
+
         string relative;
 
         try
@@ -1069,31 +1078,59 @@ public partial class MainWindow
             return;
         }
 
-        await OpenCreatedAsync(relative, "Created ").ConfigureAwait(true);
+        await OpenCreatedAsync(workspace, relative, "Created ").ConfigureAwait(true);
+    }
+
+    /// <summary>
+    /// Whether <paramref name="workspace"/> is still the one the window has open.
+    /// </summary>
+    /// <remarks>
+    /// <b>A creation command holds its workspace across a question that can change it.</b>
+    /// The unsaved-work prompt can be answered Save, an untitled buffer's Save goes to Save
+    /// As, and Save As outside the tree adopts the folder it landed in - so by the time the
+    /// answer comes back, the folder the name was chosen against may not be the one on
+    /// screen. Creating into the old one and then opening the same relative path out of the
+    /// new one is how a window claims to have made a file and shows a different one, and two
+    /// checkouts of the same repository make that a file that actually exists.
+    /// </remarks>
+    private bool StillIn(Workspace workspace)
+    {
+        if (ReferenceEquals(_workspace, workspace))
+        {
+            return true;
+        }
+
+        StatusLeft.Text = "The folder changed while that was being answered, so nothing was created. "
+            + "Try again in the folder that is open now.";
+
+        return false;
     }
 
     /// <summary>Shows a newly created document in the rail and opens it.</summary>
-    private async Task OpenCreatedAsync(string relative, string verb)
+    /// <remarks>
+    /// <para>
+    /// <b>The unsaved-work question belongs to the caller, before it writes anything.</b> It
+    /// used to be asked here, after the folder or the file was already on disk, so a Cancel
+    /// left a file behind - which is a Cancel that did something, and the one answer people
+    /// press expecting the opposite. Creating and opening are one gesture, so they are
+    /// decided by one question, and it is asked while there is still nothing to undo.
+    /// </para>
+    /// <para>
+    /// The workspace is passed in rather than read off the field, so the file that is opened
+    /// is resolved against the same folder the file was written into.
+    /// </para>
+    /// </remarks>
+    private async Task OpenCreatedAsync(Workspace workspace, string relative, string verb)
     {
         RefreshCollections();
 
-        if (_workspace is null)
+        var full = Path.GetFullPath(Path.Combine(workspace.Root, relative));
+
+        if (!await LoadDocumentAsync(full).ConfigureAwait(true))
         {
             return;
         }
 
-        var full = Path.GetFullPath(Path.Combine(_workspace.Root, relative));
-
-        // The file is on disk either way, so a Cancel here must not undo it - it only means
-        // "do not replace what I am editing", and saying where the new file went is what
-        // stops that reading as a failure.
-        if (!await ConfirmDiscardAsync().ConfigureAwait(true))
-        {
-            StatusLeft.Text = $"{verb}{relative}. It is in the rail; the open file was left alone.";
-            return;
-        }
-
-        await LoadDocumentAsync(full).ConfigureAwait(true);
         StatusLeft.Text = $"{verb}{relative}.";
     }
 

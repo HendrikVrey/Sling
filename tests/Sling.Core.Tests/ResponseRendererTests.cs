@@ -136,6 +136,54 @@ public sealed class ResponseRendererTests
         Assert.StartsWith("warning  line 9", lines[1], StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void The_rendered_rows_line_up_with_the_reading_order_one_for_one()
+    {
+        // The window maps a double-clicked row back to a diagnostic by position, so this is
+        // the property that decides whether clicking the third row goes to the line the
+        // third row names. Asserted against both halves rather than against a written-down
+        // order, because an assertion of the order alone stays green if the renderer and the
+        // list are re-sorted apart.
+        IReadOnlyList<ParseDiagnostic> raised =
+        [
+            ParseDiagnostic.Warning("later warning", 40),
+            ParseDiagnostic.Error("second error", 22),
+            ParseDiagnostic.Warning("earlier warning", 5),
+            ParseDiagnostic.Error("first error", 3),
+        ];
+
+        var ordered = ResponseRenderer.InReadingOrder(raised);
+        var lines = ResponseRenderer.RenderDiagnostics(raised).Split('\n', StringSplitOptions.RemoveEmptyEntries);
+
+        Assert.Equal(raised.Count, ordered.Count);
+        Assert.Equal(ordered.Count, lines.Length);
+
+        for (var i = 0; i < ordered.Count; i++)
+        {
+            Assert.Contains($"line {ordered[i].Line}", lines[i], StringComparison.Ordinal);
+            Assert.EndsWith(ordered[i].Message, lines[i], StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public void A_message_carrying_a_line_break_is_still_one_row()
+    {
+        // Otherwise every row under it shifts onto the wrong entry, and a double-click sends
+        // somebody to a line that has nothing to do with the message they clicked. Flattened
+        // where the promise is made rather than trusted to hold wherever a message is built.
+        var lines = ResponseRenderer
+            .RenderDiagnostics(
+            [
+                ParseDiagnostic.Error("first\nsecond\r\nthird", 7),
+                ParseDiagnostic.Error("plain", 8),
+            ])
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries);
+
+        Assert.Equal(2, lines.Length);
+        Assert.EndsWith("first second third", lines[0], StringComparison.Ordinal);
+        Assert.EndsWith("plain", lines[1], StringComparison.Ordinal);
+    }
+
     [Theory]
     [InlineData(0, "0 B")]
     [InlineData(512, "512 B")]

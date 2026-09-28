@@ -160,6 +160,23 @@ is still just a directory and Sling can be deleted without taking your requests 
 There is deliberately no rename and no delete in the rail;
 [docs/collections.md](docs/collections.md) says why.
 
+**Quick open.** `Ctrl+P` searches everything in the folder from one box: the collection, the
+file name, what a request is called, its verb and the URL as written. Every word you type has
+to appear somewhere in the row, so `post orders` and `orders staging` both work. A tree of a
+few hundred rows is navigable by scrolling and nothing else, and what you remember about a
+request is spread over four levels of it.
+
+**Sling notices when the file changes underneath it.** A `.http` file is a git artifact, so a
+pull, a branch switch or the editor in the next window changes what is in the pane. When it
+does, a strip says so and offers **Reload**, **Keep mine** and **Compare** - the last of which
+shows the difference in the response pane. Nothing is written over a version you have not been
+shown: `Ctrl+S` refuses until you choose, and **Keep mine** is how you say yours wins.
+
+**It opens where you left off.** The last folder, the last file, the caret and the width of the
+two panes come back, and the File menu lists recent folders. That lives in
+`%LOCALAPPDATA%\Sling`, never in your repository - delete it and you lose the convenience and
+nothing else.
+
 **M4 - the Postman importer.** `Ctrl+I`, pick your collection export and its environment
 exports in the same dialog, pick a folder. Sling writes the `.http` files, writes both
 environment files, and opens the folder.
@@ -292,6 +309,7 @@ beside them.
 | `Ctrl+Enter` | Send the request under the caret |
 | `Ctrl+Shift+Enter` | Send every request in the file |
 | `Esc` | Cancel the run, or close settings |
+| `Ctrl+P` | Go to a file or a request, by typing |
 | `Ctrl+O` / `Ctrl+Shift+O` | Open a file / a folder |
 | `Ctrl+I` | Import a Postman export |
 | `Ctrl+S` / `Ctrl+Shift+S` | Save / save as |

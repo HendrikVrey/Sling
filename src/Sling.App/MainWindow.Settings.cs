@@ -210,12 +210,30 @@ public partial class MainWindow
     private static int ReadNumber(double? value, int fallback) =>
         value is { } number && !double.IsNaN(number) ? (int)Math.Round(number) : fallback;
 
-    /// <summary>Puts the local history in the response buffer.</summary>
+    /// <summary>The pane header each of these borrows the response pane under.</summary>
+    private const string HistoryInspector = "History";
+
+    private const string CookiesInspector = "Cookies";
+
+    /// <summary>Puts the local history in the response buffer, keeping the response.</summary>
+    /// <remarks>
+    /// Through <see cref="ShowInspector"/> rather than <see cref="ShowMessage"/>: looking up
+    /// what was sent an hour ago is a reason to hold on to what came back a moment ago, not a
+    /// reason to throw it away.
+    /// </remarks>
     private async Task ShowHistoryAsync()
     {
+        // The chord that opened it closes it. Checked before the read, so pressing Ctrl+H
+        // twice does not go to disk on the way to putting the response back.
+        if (IsInspecting(HistoryInspector))
+        {
+            ReturnToResponse();
+            return;
+        }
+
         var entries = await _historyStore.ReadAsync(CancellationToken.None).ConfigureAwait(true);
 
-        ShowMessage(HistoryRenderer.Render(entries));
+        ShowInspector(HistoryInspector, HistoryRenderer.Render(entries));
 
         StatusLeft.Text = _settings.HistoryEnabled
             ? _historyStore.FilePath
@@ -229,17 +247,27 @@ public partial class MainWindow
     {
         CloseSettings();
 
+        if (IsInspecting(CookiesInspector))
+        {
+            ReturnToResponse();
+            return;
+        }
+
         if (_runner.Cookies is not { } jar)
         {
-            ShowMessage("Cookies are switched off.\n\nTurn them on in settings (Ctrl+,) if a request "
-                + "needs a session to be carried between calls.");
+            ShowInspector(
+                CookiesInspector,
+                "Cookies are switched off.\n\nTurn them on in settings (Ctrl+,) if a request "
+                    + "needs a session to be carried between calls.");
 
             StatusLeft.Text = ReadyHint;
             StatusRight.Text = string.Empty;
             return;
         }
 
-        ShowMessage(HistoryRenderer.RenderCookies(jar.Snapshot(DateTimeOffset.UtcNow), _selectedEnvironment));
+        ShowInspector(
+            CookiesInspector,
+            HistoryRenderer.RenderCookies(jar.Snapshot(DateTimeOffset.UtcNow), _selectedEnvironment));
 
         StatusLeft.Text = ReadyHint;
         StatusRight.Text = string.Empty;
