@@ -28,6 +28,7 @@ disagree, the code is right and this file is a bug.
 | `<@utf16 ./file` | The same, naming the encoding to read the file as. |
 | Multipart bodies | Written out in full with a `< ./file` per part - there is no separate syntax. |
 | `# @auth oauth2` | An OAuth2 client-credentials grant. Sling's own; see below. |
+| `User-Agent` | Sent as `Sling/<version>` when the request writes none. A `User-Agent` in the document always wins. Some APIs, GitHub's among them, refuse a request that has none. |
 
 ## Divergences, and why
 

@@ -70,7 +70,6 @@ That file *is* the whole collection. Put it in your repository and your team get
 3. **Write a request**, or click **+ Request**:
    ```http
    GET https://api.github.com/repos/dotnet/runtime
-   User-Agent: sling
    ```
 4. **Press <kbd>Ctrl</kbd>+<kbd>Enter</kbd>** (or **Send**). The response opens on the right, formatted and
    highlighted.

@@ -37,8 +37,8 @@ public partial class MainWindow : FluentWindow
     /// doing real work. It is deliberately a chain against a public API that needs no
     /// credentials, so pressing <c>Ctrl+Enter</c> on the second request sends the first one
     /// too - the one behaviour in Sling that has to be seen rather than described. So the
-    /// teaching moved rather than going away. The <c>User-Agent</c> is not decoration -
-    /// GitHub rejects a request without one.
+    /// teaching moved rather than going away. GitHub refuses a request with no
+    /// <c>User-Agent</c>; the sender supplies one, so the example does not have to.
     /// </para>
     /// </remarks>
     private const string ExampleDocument = """
@@ -48,12 +48,10 @@ public partial class MainWindow : FluentWindow
         # @name repo
         GET {{base}}/repos/dotnet/runtime
         Accept: application/vnd.github+json
-        User-Agent: Sling
 
         ### a value from that response flows into this one - send this and both run
         GET {{base}}/users/{{repo.response.body.$.owner.login}}
         Accept: application/vnd.github+json
-        User-Agent: Sling
         """;
 
     private const string ReadyHint = "Ctrl+Enter sends the request under the caret · Esc cancels";

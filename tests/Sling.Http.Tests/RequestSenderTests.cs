@@ -76,6 +76,40 @@ public sealed class RequestSenderTests
     }
 
     [Fact]
+    public async Task A_request_with_no_user_agent_gets_slings()
+    {
+        var handler = new StubHandler((_, _) => StubHandler.Ok("{}"));
+
+        await SendAsync(handler, Get("https://api.example.com/thing"));
+
+        // GitHub's API answers 403 to a request with no User-Agent, and HttpClient sends
+        // none of its own, so without this default a request that works in every other
+        // client failed here.
+        var sent = handler.Requests[0].Header("User-Agent");
+        Assert.NotNull(sent);
+        Assert.StartsWith("Sling/", sent, StringComparison.Ordinal);
+        Assert.DoesNotContain("+", sent, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_user_agent_the_document_writes_wins()
+    {
+        var handler = new StubHandler((_, _) => StubHandler.Ok("{}"));
+
+        var request = new ResolvedRequest(
+            null,
+            "GET",
+            new Uri("https://api.example.com/thing"),
+            [new HeaderField("User-Agent", "my-tool/2.0", 2)],
+            null,
+            null);
+
+        await SendAsync(handler, request);
+
+        Assert.Equal("my-tool/2.0", handler.Requests[0].Header("User-Agent"));
+    }
+
+    [Fact]
     public async Task A_content_header_on_a_bodyless_request_is_still_sent()
     {
         // The null-conditional on message.Content swallowed these, so a GET carrying

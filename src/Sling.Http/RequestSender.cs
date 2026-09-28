@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Net;
+using System.Reflection;
 using System.Text;
 using Sling.Core.Cookies;
 using Sling.Core.Documents;
@@ -338,7 +339,32 @@ public sealed class RequestSender : IDisposable
             message.Content.Headers.TryAddWithoutValidation(header.Name, header.Value);
         }
 
+        // HttpClient sends no User-Agent of its own, and some APIs refuse a request without
+        // one: GitHub answers 403. Every other client supplies a default, so a request that
+        // worked there failed here with nothing in the document to explain it. A User-Agent
+        // the document writes always wins.
+        if (!message.Headers.Contains("User-Agent"))
+        {
+            message.Headers.TryAddWithoutValidation("User-Agent", DefaultUserAgent);
+        }
+
         return message;
+    }
+
+    /// <summary>
+    /// <c>Sling/</c> and the version, without the commit hash the SDK appends after a
+    /// <c>+</c>, which is noise to a server and is not a legal product-version token.
+    /// </summary>
+    internal static string DefaultUserAgent { get; } = BuildDefaultUserAgent();
+
+    private static string BuildDefaultUserAgent()
+    {
+        var version = typeof(RequestSender).Assembly
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "0.0.0";
+
+        var plus = version.IndexOf('+', StringComparison.Ordinal);
+
+        return "Sling/" + (plus >= 0 ? version[..plus] : version);
     }
 
     private static bool TryParseVersion(string? version, out Version parsed)
