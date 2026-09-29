@@ -111,6 +111,13 @@ Source: "..\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
 Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExeName}"
 Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"; Tasks: desktopicon
 
+[Run]
+; Offered on the last page and ticked, so an update started from inside Sling (which
+; closes itself to let the installer replace it) ends with Sling open again. skipifsilent:
+; a silent install is somebody scripting it, and they did not ask for a window.
+Filename: "{app}\{#AppExeName}"; Description: "{cm:LaunchProgram,{#AppName}}"; \
+  Flags: nowait postinstall skipifsilent
+
 [Registry]
 ; ---------------------------------------------------------------------------
 ; The ProgIDs. Written ALWAYS, whether or not the association task is ticked.

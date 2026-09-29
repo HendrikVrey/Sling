@@ -117,6 +117,7 @@ public partial class MainWindow
             RememberTokensToggle.IsChecked = _settings.RememberTokens;
             HistoryToggle.IsChecked = _settings.HistoryEnabled;
             HistoryEntriesBox.Value = _settings.HistoryMaxEntries;
+            UpdateCheckToggle.IsChecked = _settings.CheckForUpdates == true;
         }
         finally
         {
@@ -171,6 +172,10 @@ public partial class MainWindow
             RememberTokens = RememberTokensToggle.IsChecked == true,
             HistoryEnabled = HistoryToggle.IsChecked == true,
             HistoryMaxEntries = ReadNumber(HistoryEntriesBox.Value, _settings.HistoryMaxEntries),
+
+            // Its own switch has its own handler; carried here so changing a timeout does
+            // not quietly answer a question the user has not been asked yet.
+            CheckForUpdates = _settings.CheckForUpdates,
         }.Clamped();
 
         ApplySettings();

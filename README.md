@@ -60,7 +60,7 @@ That file *is* the whole collection. Put it in your repository and your team get
 - **Requests you can review.** A change to an API call shows up as a normal diff in a pull request.
 - **Collections that are just folders.** Grouping is `###`, hierarchy is directories, sharing is `git push`.
 - **No lock-in.** Uninstall Sling tomorrow and every request still opens in your IDE.
-- **No account, no cloud, no sync, no telemetry.** Nothing leaves your machine except the requests you send.
+- **No account, no cloud, no sync, no telemetry.** Nothing leaves your machine except the requests you send, and an update check if you allow one.
 
 ## Quick start
 
@@ -194,7 +194,7 @@ Sling handles credentials, so these are rules, not options:
 - **Stored tokens are encrypted** with Windows data protection under your account, scoped per folder and environment. No client secret is written to disk.
 - **History redacts credentials and stores no request or response bodies.**
 - **Responses render as text**, never in a browser control.
-- **No telemetry**, no update ping, no crash upload.
+- **No telemetry** and no crash upload. The update check is **opt-in**: Sling asks the first time, and if you say yes it asks `api.github.com` once a day for the newest release, carrying Sling's version and nothing else. Nothing is downloaded until you press **Update**, and the installer must match the SHA-256 GitHub publishes before it runs. Change the answer, or check by hand, in Settings.
 
 ## Download
 

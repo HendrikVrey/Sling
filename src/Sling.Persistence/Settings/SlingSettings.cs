@@ -85,6 +85,15 @@ public sealed record SlingSettings
     public int HistoryMaxEntries { get; init; } = 500;
 
     /// <summary>
+    /// Whether Sling may ask GitHub once a day for a new version.
+    /// </summary>
+    /// <remarks>
+    /// Null until the user has answered, which is what makes Sling ask: the plan promised no
+    /// update ping, so the check is opt-in and no answer is never taken as a yes.
+    /// </remarks>
+    public bool? CheckForUpdates { get; init; }
+
+    /// <summary>
     /// This instance with every value brought inside its allowed range.
     /// </summary>
     /// <remarks>
@@ -101,5 +110,6 @@ public sealed record SlingSettings
         RememberTokens = RememberTokens,
         HistoryEnabled = HistoryEnabled,
         HistoryMaxEntries = Math.Clamp(HistoryMaxEntries, 10, 10_000),
+        CheckForUpdates = CheckForUpdates,
     };
 }

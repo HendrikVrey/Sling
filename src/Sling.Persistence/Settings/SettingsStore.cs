@@ -124,6 +124,7 @@ public sealed class SettingsStore
                 RememberTokens = ReadBool(root, "rememberTokens", defaults.RememberTokens),
                 HistoryEnabled = ReadBool(root, "historyEnabled", defaults.HistoryEnabled),
                 HistoryMaxEntries = ReadInt(root, "historyMaxEntries", defaults.HistoryMaxEntries),
+                CheckForUpdates = ReadOptionalBool(root, "checkForUpdates"),
             }.Clamped();
         }
         catch (JsonException ex)
@@ -171,6 +172,18 @@ public sealed class SettingsStore
                 writer.WriteBoolean("rememberTokens", clamped.RememberTokens);
                 writer.WriteBoolean("historyEnabled", clamped.HistoryEnabled);
                 writer.WriteNumber("historyMaxEntries", clamped.HistoryMaxEntries);
+
+                // Written as null rather than left out, so somebody reading the file sees
+                // the question exists before they have answered it.
+                if (clamped.CheckForUpdates is { } checkForUpdates)
+                {
+                    writer.WriteBoolean("checkForUpdates", checkForUpdates);
+                }
+                else
+                {
+                    writer.WriteNull("checkForUpdates");
+                }
+
                 writer.WriteEndObject();
             }
 
@@ -212,6 +225,12 @@ public sealed class SettingsStore
             && element.TryGetInt32(out var value)
                 ? value
                 : fallback;
+
+    /// <summary>A switch that may not have been set yet: anything but true or false is unset.</summary>
+    private static bool? ReadOptionalBool(JsonElement root, string name) =>
+        root.TryGetProperty(name, out var element) && element.ValueKind is JsonValueKind.True or JsonValueKind.False
+            ? element.GetBoolean()
+            : null;
 
     private static bool ReadBool(JsonElement root, string name, bool fallback) =>
         root.TryGetProperty(name, out var element) && element.ValueKind is JsonValueKind.True or JsonValueKind.False

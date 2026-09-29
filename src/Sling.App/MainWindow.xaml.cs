@@ -104,6 +104,8 @@ public partial class MainWindow : FluentWindow
 
         InitializeTokens();
 
+        InitializeUpdates();
+
         // Last of all, because it reads the buffer every other initialiser above may have
         // filled: the startup file is loaded on the first Loaded, so on a plain launch this
         // is what puts the empty state up.

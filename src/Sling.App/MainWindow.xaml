@@ -297,6 +297,41 @@
                 repeated layout mistake arriving once more. Full width, it has room for the
                 sentence and four answers down to the minimum window size.
             -->
+            <!--
+                The update strip: asks once whether Sling may check GitHub for a new version,
+                then says when one is out. Styled and laid out like the changed-on-disk notice
+                below it, for the same reasons: full width, buttons before the sentence so the
+                sentence is what trims. The buttons are labelled from code, because what they
+                mean depends on what the strip is saying; see MainWindow.Updates.cs.
+            -->
+            <Border x:Name="UpdateNotice"
+                    Margin="0,0,0,8"
+                    DockPanel.Dock="Top"
+                    Style="{StaticResource NoticeStripStyle}"
+                    Visibility="Collapsed">
+                <DockPanel LastChildFill="True">
+                    <StackPanel DockPanel.Dock="Right"
+                                VerticalAlignment="Center"
+                                Orientation="Horizontal">
+                        <ui:Button x:Name="UpdatePrimaryButton"
+                                   Appearance="Primary"
+                                   Click="OnUpdatePrimaryClick"
+                                   Style="{StaticResource NoticeActionButtonStyle}" />
+                        <ui:Button x:Name="UpdateSecondaryButton"
+                                   Click="OnUpdateSecondaryClick"
+                                   Style="{StaticResource NoticeActionButtonStyle}" />
+                        <ui:Button x:Name="UpdateTertiaryButton"
+                                   Click="OnUpdateTertiaryClick"
+                                   Style="{StaticResource NoticeActionButtonStyle}" />
+                    </StackPanel>
+
+                    <TextBlock x:Name="UpdateNoticeText"
+                               VerticalAlignment="Center"
+                               FontSize="12"
+                               TextTrimming="CharacterEllipsis" />
+                </DockPanel>
+            </Border>
+
             <Border x:Name="DiskNotice"
                     Margin="0,0,0,8"
                     DockPanel.Dock="Top"
@@ -1472,6 +1507,17 @@
                                           Maximum="10000"
                                           Minimum="10"
                                           ValueChanged="OnSettingChanged" />
+
+                            <TextBlock Style="{StaticResource SettingsLabelStyle}" Text="Updates" />
+                            <ui:ToggleSwitch x:Name="UpdateCheckToggle"
+                                             Checked="OnUpdateCheckToggled"
+                                             Content="Check GitHub for a new version once a day"
+                                             Unchecked="OnUpdateCheckToggled" />
+                            <TextBlock Style="{StaticResource SettingsHintStyle}"
+                                       Text="One request to api.github.com for the newest release. It carries Sling's version and nothing else: nothing about your requests, files or environments. An update is only installed when you say so." />
+                            <ui:Button Margin="0,8,0,0"
+                                       Click="OnCheckForUpdatesNow"
+                                       Content="Check now" />
 
                             <StackPanel Margin="0,22,0,0" Orientation="Horizontal">
                                 <ui:Button Margin="0,0,8,0"
